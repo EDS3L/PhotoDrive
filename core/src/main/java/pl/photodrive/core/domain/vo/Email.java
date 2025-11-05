@@ -2,10 +2,10 @@ package pl.photodrive.core.domain.vo;
 
 import pl.photodrive.core.domain.exception.EmailException;
 
-public record Email(String email) {
+public record Email(String value) {
 
     public Email {
-        validate(email);
+        validate(value);
     }
 
     private static void validate(String value) {

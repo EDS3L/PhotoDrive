@@ -1,21 +1,61 @@
 package pl.photodrive.core.application.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pl.photodrive.core.application.command.AddUserCommand;
+import pl.photodrive.core.application.command.user.ChangeEmailCommand;
+import pl.photodrive.core.application.command.user.RoleCommand;
+import pl.photodrive.core.application.command.user.AddUserCommand;
+import pl.photodrive.core.application.command.user.ChangePasswordCommand;
+import pl.photodrive.core.domain.exception.UserException;
+import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.UserRepository;
+import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.infrastructure.security.BCryptPasswordEncoderAdapter;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserManagementService {
+
     private final UserRepository userRepository;
+    private final BCryptPasswordEncoderAdapter bCryptPasswordEncoderAdapter;
 
     public User addUser(AddUserCommand cmd) {
-        User user = User.createNew(cmd.name(),cmd.email(),cmd.password());
+        Set<Role> roles = new HashSet<>();
+        roles.add(cmd.role());
+        Password password = new Password(bCryptPasswordEncoderAdapter.encode(cmd.password()));
+        User user = User.createNew(cmd.name(),cmd.email(),password,roles);
+        return userRepository.save(user);
+    }
+
+    public void changePassword(ChangePasswordCommand cmd) {
+        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        user.changePassword(cmd.currentPassword(),cmd.newPassword(), bCryptPasswordEncoderAdapter);
+        userRepository.save(user);
+    }
+
+    public User addRole(RoleCommand cmd) {
+        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        user.addRole(cmd.role());
+        return userRepository.save(user);
+    }
+
+    public User removeRole(RoleCommand cmd) {
+        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        user.removeRole(cmd.role());
+        return userRepository.save(user);
+    }
+
+    public User changeEmail(ChangeEmailCommand cmd) {
+        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        user.changeEmail(cmd.newEmail());
         return userRepository.save(user);
     }
 

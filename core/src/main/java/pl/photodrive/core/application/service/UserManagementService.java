@@ -14,7 +14,6 @@ import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
-import pl.photodrive.core.infrastructure.security.BCryptPasswordEncoderAdapter;
 
 import java.util.HashSet;
 import java.util.List;

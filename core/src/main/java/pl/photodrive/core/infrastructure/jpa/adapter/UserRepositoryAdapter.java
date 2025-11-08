@@ -39,4 +39,8 @@ public class UserRepositoryAdapter implements UserRepository {
         return jpa.existsByEmail(new EmailEmbeddable(email.value()));
     }
 
+    @Override
+    public Optional<User> findByEmail(Email email) {
+        return jpa.findByEmail(new EmailEmbeddable(email.value())).map(UserEntityMapper::toDomain);
+    }
 }

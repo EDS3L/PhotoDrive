@@ -5,8 +5,11 @@ import pl.photodrive.core.domain.vo.UserId;
 import pl.photodrive.core.infrastructure.jpa.entity.UserEntity;
 import pl.photodrive.core.infrastructure.jpa.vo.EmailEmbeddable;
 
+import java.util.Optional;
+
 
 public interface UserJpaRepository extends JpaRepository<UserEntity, UserId> {
 
     boolean existsByEmail(EmailEmbeddable email);
+    Optional<UserEntity> findByEmail(EmailEmbeddable emailEmbeddable);
 }

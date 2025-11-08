@@ -1,6 +1,6 @@
 package pl.photodrive.core.application.command.user;
 
-import java.util.UUID;
+import pl.photodrive.core.domain.vo.UserId;
 
-public record ChangePasswordCommand(UUID id, String currentPassword, String newPassword) {
+public record ChangePasswordCommand(UserId userId, String currentPassword, String newPassword) {
 }

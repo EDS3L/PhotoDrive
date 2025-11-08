@@ -12,6 +12,7 @@ import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.UserRepository;
+import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.infrastructure.security.BCryptPasswordEncoderAdapter;
 
@@ -25,19 +26,21 @@ import java.util.Set;
 public class UserManagementService {
 
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoderAdapter bCryptPasswordEncoderAdapter;
+    private final PasswordHasher passwordHasher;
 
     public User addUser(AddUserCommand cmd) {
+        if(userRepository.existsByEmail(cmd.email())) throw new UserException("This email is already taken!");
+
         Set<Role> roles = new HashSet<>();
         roles.add(cmd.role());
-        Password password = new Password(bCryptPasswordEncoderAdapter.encode(cmd.password()));
+        Password password = new Password(passwordHasher.encode(cmd.password()));
         User user = User.createNew(cmd.name(),cmd.email(),password,roles);
         return userRepository.save(user);
     }
 
     public void changePassword(ChangePasswordCommand cmd) {
-        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
-        user.changePassword(cmd.currentPassword(),cmd.newPassword(), bCryptPasswordEncoderAdapter);
+        User user = userRepository.findById(cmd.userId()).orElseThrow(() -> new UserException("User not found!"));
+        user.changePassword(cmd.currentPassword(),cmd.newPassword(), passwordHasher);
         userRepository.save(user);
     }
 

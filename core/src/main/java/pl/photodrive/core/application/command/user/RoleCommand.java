@@ -1,8 +1,9 @@
 package pl.photodrive.core.application.command.user;
 
 import pl.photodrive.core.domain.model.Role;
+import pl.photodrive.core.domain.vo.UserId;
 
 import java.util.UUID;
 
-public record RoleCommand(UUID id, Role role) {
+public record RoleCommand(UserId id, Role role) {
 }

@@ -3,19 +3,22 @@ package pl.photodrive.core.infrastructure.security;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
-import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.domain.port.security.PasswordHasher;
+
 
 @Component
 @AllArgsConstructor
-public class BCryptPasswordEncoderAdapter {
+public class BCryptPasswordEncoderAdapter implements PasswordHasher {
 
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
 
-    public String encode(Password rawPassword) {
-        return bCryptPasswordEncoder.encode(rawPassword.value());
+    @Override
+    public String encode(CharSequence raw) {
+        return bCryptPasswordEncoder.encode(raw);
     }
 
-    public boolean matches(String rawPassword, String encodePassword) {
-        return bCryptPasswordEncoder.matches(rawPassword,encodePassword);
+    @Override
+    public boolean matches(CharSequence raw, String hashed) {
+        return bCryptPasswordEncoder.matches(raw,hashed);
     }
 }

@@ -1,5 +1,4 @@
-package pl.photodrive.core.infrastructure.jpa.vo;
-
+package pl.photodrive.core.infrastructure.jpa.vo.file;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -13,8 +12,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class PasswordEmbeddable {
+public class FileNameEmbeddable {
 
-    @Column(name = "password", nullable = false)
+    @Column(name = "fileName", nullable = false)
     private String value;
 }

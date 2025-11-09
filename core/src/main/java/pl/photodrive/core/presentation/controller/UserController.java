@@ -46,7 +46,7 @@ public class UserController {
         Email email = new Email(request.email());
         Password password = new Password(request.password());
         var created = userService.addUser(new AddUserCommand(request.name(),email, password.value(), request.role()));
-        return ResponseEntity.created(URI.create("/api/users/add" + created.getId().userId())).body(ApiMappers.toDto(created));
+        return ResponseEntity.created(URI.create("/api/users/add" + created.getId().value())).body(ApiMappers.toDto(created));
     }
 
     @PatchMapping("/{id}/addRole")

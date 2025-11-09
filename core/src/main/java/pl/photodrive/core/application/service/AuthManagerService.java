@@ -7,7 +7,7 @@ import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.port.TokenEncoder;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.UserRepository;
+import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 

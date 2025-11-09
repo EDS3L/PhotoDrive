@@ -11,7 +11,7 @@ import pl.photodrive.core.application.command.user.ChangePasswordCommand;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.UserRepository;
+import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
 

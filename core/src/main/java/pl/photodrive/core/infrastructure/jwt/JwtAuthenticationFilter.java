@@ -60,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .toList();
 
             var principal = new UsernamePasswordAuthenticationToken(
-                    authentication.userId().userId().toString(),
+                    authentication.userId().value().toString(),
                     null,
                     authorities);
 

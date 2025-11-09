@@ -1,4 +1,4 @@
-package pl.photodrive.core.infrastructure.jpa.vo;
+package pl.photodrive.core.infrastructure.jpa.vo.album;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -9,16 +9,13 @@ import lombok.Setter;
 
 import java.util.UUID;
 
-
 @Embeddable
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserIdEmbeddable {
+public class AlbumIdEmbeddable {
 
-    @Column(columnDefinition = "BINARY(16)", name = "userId")
-    private UUID userId;
-
-
+    @Column(columnDefinition = "BINARY(16)", name = "albumId")
+    private UUID value;
 }

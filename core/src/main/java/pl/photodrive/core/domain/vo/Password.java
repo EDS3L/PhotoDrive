@@ -6,23 +6,23 @@ public record Password(String value) {
         validate(value);
     }
 
-    private static void validate(String password) {
-        if (password == null || password.isEmpty()) {
+    private static void validate(String value) {
+        if (value == null || value.isEmpty()) {
             throw new IllegalArgumentException("Password cannot be null or empty");
         }
-        if (password.length() < 8) {
+        if (value.length() < 8) {
             throw new IllegalArgumentException("Password must be at least 8 characters long");
         }
-        if (!password.matches(".*[A-Z].*")) {
+        if (!value.matches(".*[A-Z].*")) {
             throw new IllegalArgumentException("Password must contain at least one uppercase letter.");
         }
-        if (!password.matches(".*[a-z].*")) {
+        if (!value.matches(".*[a-z].*")) {
             throw new IllegalArgumentException("Password must contain at least one lowercase letter.");
         }
-        if (!password.matches(".*[0-9].*")) {
+        if (!value.matches(".*[0-9].*")) {
             throw new IllegalArgumentException("Password must contain at least one digit.");
         }
-        if (!password.matches(".*[\\W_].*")) {
+        if (!value.matches(".*[\\W_].*")) {
             throw new IllegalArgumentException("Password must contain at least one special character.");
         }
     }

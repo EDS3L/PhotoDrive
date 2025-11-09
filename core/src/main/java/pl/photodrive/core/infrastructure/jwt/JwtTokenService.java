@@ -66,7 +66,7 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
         String issuer = "CeVeMe";
         var claims = new JWTClaimsSet.Builder()
                 .issuer(issuer)
-                .subject(userId.userId().toString())
+                .subject(userId.value().toString())
                 .claim("roles", roles.stream().map(Enum::name).toList())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plus(ttl)))

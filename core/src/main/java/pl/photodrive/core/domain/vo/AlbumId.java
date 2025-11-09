@@ -4,10 +4,13 @@ import pl.photodrive.core.domain.exception.UserException;
 
 import java.util.UUID;
 
-public record UserId(UUID value) {
-
-    public UserId {
+public record AlbumId(UUID value) {
+    public AlbumId {
         validate(value);
+    }
+
+    public static UUID newId() {
+        return UUID.randomUUID();
     }
 
     private static void validate(UUID value) {

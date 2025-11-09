@@ -9,7 +9,7 @@ import java.time.Duration;
 public class TokenCookieWriter {
 
     public ResponseCookie accessTokenCookie(String jwt, Duration ttl) {
-        return ResponseCookie.from("access_token", jwt)
+        return ResponseCookie.from("pd_at", jwt)
                 .httpOnly(true)
                 .secure(false)
                 .path("/")
@@ -18,7 +18,7 @@ public class TokenCookieWriter {
     }
 
     public ResponseCookie deleteAccessTokenCookie() {
-        return ResponseCookie.from("access_token","")
+        return ResponseCookie.from("pd_at","")
                 .httpOnly(true)
                 .secure(false)
                 .path("/")

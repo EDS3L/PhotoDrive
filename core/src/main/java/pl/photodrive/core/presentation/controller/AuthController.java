@@ -11,7 +11,7 @@ import pl.photodrive.core.application.service.AuthManagerService;
 import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

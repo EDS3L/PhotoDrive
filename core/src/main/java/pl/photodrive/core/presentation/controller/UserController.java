@@ -2,12 +2,15 @@ package pl.photodrive.core.presentation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pl.photodrive.core.application.command.user.AddUserCommand;
 import pl.photodrive.core.application.command.user.ChangeEmailCommand;
 import pl.photodrive.core.application.command.user.ChangePasswordCommand;
 import pl.photodrive.core.application.command.user.RoleCommand;
+import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.application.service.UserManagementService;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
@@ -16,20 +19,25 @@ import pl.photodrive.core.infrastructure.security.BCryptPasswordEncoderAdapter;
 import pl.photodrive.core.presentation.dto.user.*;
 import pl.photodrive.core.presentation.mapper.ApiMappers;
 
+import java.net.Authenticator;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/user")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserManagementService userService;
-    private final BCryptPasswordEncoderAdapter bCryptPasswordEncoderAdapter;
+    private final CurrentUser currentUser;
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping
     public List<UserDto> getAll(){
+        var user = currentUser.get();
+        log.info("User {}", user);
         return userService.getAllUsers().stream().map(ApiMappers::toDto).toList();
     }
 

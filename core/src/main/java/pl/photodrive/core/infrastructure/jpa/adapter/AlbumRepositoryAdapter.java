@@ -7,6 +7,7 @@ import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.infrastructure.jpa.mapper.AlbumEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.AlbumJpaRepository;
+import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +26,7 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
 
     @Override
     public Optional<Album> findByAlbumId(AlbumId albumId) {
-        return jpa.findById(albumId).map(AlbumEntityMapper::toDomain);
+        return jpa.findById(new AlbumIdEmbeddable(albumId.value())).map(AlbumEntityMapper::toDomain);
     }
 
     @Override

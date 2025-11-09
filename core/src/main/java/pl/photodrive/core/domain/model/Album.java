@@ -22,7 +22,6 @@ public class Album {
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
         if(name == null) throw new AlbumException("Album name cannot be null!");
         if(photographId == null) throw new AlbumException("Album name cannot be null!");
-        if(ttd == null) throw new AlbumException("TTD name cannot be null!");
         this.albumId = albumId;
         this.name = name;
         this.photographId = photographId;

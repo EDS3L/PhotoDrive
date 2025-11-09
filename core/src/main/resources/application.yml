@@ -16,3 +16,6 @@ spring:
 
 jwt:
   secret: ${TOKEN_SECRETKEY}
+
+storage:
+  dir: ${DIR}

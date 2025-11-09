@@ -29,12 +29,21 @@ public class LocalStorageAdapter implements StoragePort {
 
     @Override
     public void createClientAlbumDir(String name, String photographFolder) {
-
+        Path photographPath = Path.of(DIR + "/" + photographFolder);
+        try {
+            Files.createDirectories(photographPath.resolve(name).normalize());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public void createAdminAlbumDir(String name, String adminFolder) {
-
+    public void createAdminAlbumDir(String name) {
+        try {
+            Files.createDirectories(DIR.resolve(name).normalize());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

@@ -13,6 +13,7 @@ import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.StoragePort;
+import pl.photodrive.core.domain.port.UserUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
@@ -29,19 +30,14 @@ public class UserManagementService {
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final AlbumManagementService albumManagementService;
+    private final UserUniquenessChecker userUniquenessChecker;
 
     public User addUser(AddUserCommand cmd) {
-        if(userRepository.existsByEmail(cmd.email())) throw new UserException("This email is already taken!");
+        Password hashedPassword = new Password(passwordHasher.encode(cmd.password()));
 
-        Set<Role> roles = new HashSet<>();
-        roles.add(cmd.role());
-        Password password = new Password(passwordHasher.encode(cmd.password()));
-        User user = User.createNew(cmd.name(),cmd.email(),password,roles);
+        User user = User.create(cmd.name(), cmd.email(), hashedPassword, cmd.role(), userUniquenessChecker);
 
-        var newUser = userRepository.save(user);
-
-        createFolderForPhotograph(user);
-        return newUser;
+        return userRepository.save(user);
     }
 
     public void changePassword(ChangePasswordCommand cmd) {
@@ -67,14 +63,6 @@ public class UserManagementService {
         user.changeEmail(cmd.newEmail());
         return userRepository.save(user);
     }
-
-    private void createFolderForPhotograph(User user) {
-        log.info("Tworzymy folder");
-        if (user.getRoles().contains(Role.PHOTOGRAPHER)) {
-            albumManagementService.createAlbumForPhotographer(new CreateAlbumForPhotographer(user.getEmail().value(),user.getId().value()));
-        }
-    }
-
 
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {

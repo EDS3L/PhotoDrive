@@ -1,13 +1,14 @@
 package pl.photodrive.core.domain.model;
 
+import pl.photodrive.core.domain.event.UserCreated;
 import pl.photodrive.core.domain.exception.UserException;
+import pl.photodrive.core.domain.port.UserUniquenessChecker;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class User {
 
@@ -17,6 +18,17 @@ public class User {
     private Password password;
     private final Set<Role> roles;
 
+    private transient final List<Object> domainEvents = new ArrayList<>();
+
+    public void registerEvent(Object event) {
+        this.domainEvents.add(event);
+    }
+
+    public List<Object> pullDomainEvents() {
+        List<Object> events = new ArrayList<>(this.domainEvents);
+        this.domainEvents.clear();
+        return Collections.unmodifiableList(events);
+    }
 
     public User(UserId id, String name, Email email, Password password, Set<Role> roles) {
         if (name == null) throw new UserException("Name cannot be null");
@@ -30,18 +42,29 @@ public class User {
         this.roles = roles;
     }
 
-    public static User createNew(String name, Email email, Password password, Set<Role> roles) {
-        return new User(new UserId(UUID.randomUUID()), name, email, password, roles);
+    public static User create(String name, Email email, Password password, Role role, UserUniquenessChecker userUniquenessChecker) {
+        if (userUniquenessChecker.isEmailTaken(email)) {
+            throw new UserException("This email is already taken!");
+        }
+
+        Set<Role> roles = new HashSet<>();
+        roles.add(role);
+
+        User newUser = new User(UserId.newId(), name, email, password, roles);
+        newUser.registerEvent(new UserCreated(newUser.getId().value(), newUser.getEmail().value(), newUser.getRoles()));
+
+        return newUser;
+
     }
 
     public void addRole(Role role) {
-        if(this.roles.contains(role)) throw new UserException("User already has role: " + role);
+        if (this.roles.contains(role)) throw new UserException("User already has role: " + role);
         this.roles.add(role);
     }
 
     public void removeRole(Role role) {
-        if(!this.roles.contains(role)) throw new UserException("This set role not contains " + role);
-        if(this.roles.size() == 1) throw new UserException("You cannot remove all user role");
+        if (!this.roles.contains(role)) throw new UserException("This set role not contains " + role);
+        if (this.roles.size() == 1) throw new UserException("You cannot remove all user role");
         this.roles.remove(role);
     }
 
@@ -64,6 +87,12 @@ public class User {
             throw new UserException("New email cannot be the same as the current email");
         }
         this.email = email;
+    }
+
+    public void verifyPassword(String rawPassword, PasswordHasher passwordHasher) {
+        if (!passwordHasher.matches(rawPassword, this.password.value())) {
+            throw new UserException("Incorrect password");
+        }
     }
 
     public UserId getId() {

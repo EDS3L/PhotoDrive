@@ -1,6 +1,7 @@
 package pl.photodrive.core.infrastructure.jpa.adapter;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Repository;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
@@ -18,10 +19,16 @@ import java.util.UUID;
 public class AlbumRepositoryAdapter implements AlbumRepository {
 
     private final AlbumJpaRepository jpa;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Album save(Album album) {
-        return AlbumEntityMapper.toDomain(jpa.save(AlbumEntityMapper.toEntity(album)));
+        var savedEntity = jpa.save(AlbumEntityMapper.toEntity(album));
+
+        List<Object> domainEvents = album.pullDomainEvents();
+        domainEvents.forEach(eventPublisher::publishEvent);
+
+        return AlbumEntityMapper.toDomain(savedEntity);
     }
 
     @Override

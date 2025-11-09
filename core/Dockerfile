@@ -1,6 +1,7 @@
 FROM eclipse-temurin:21-jdk-jammy AS builder
 
 WORKDIR /app/photodrive
+RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl
 
 COPY gradlew .
 COPY gradle gradle

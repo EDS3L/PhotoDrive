@@ -1,4 +1,6 @@
 package pl.photodrive.core.application.command.auth;
 
-public record LoginCommand(String email, String rawPassword) {
+import pl.photodrive.core.domain.vo.Email;
+
+public record LoginCommand(Email email, String rawPassword) {
 }

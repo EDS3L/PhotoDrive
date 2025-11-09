@@ -6,6 +6,7 @@ import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.port.TokenEncoder;
+import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
@@ -23,14 +24,16 @@ public class AuthManagerService {
     private final Clock clock;
 
     public AccessToken login(LoginCommand cmd) {
-        Email email = new Email(cmd.email());
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new LoginFailedException("Invalid credentials!"));
+        User user = userRepository.findByEmail(cmd.email()).orElseThrow(() -> new LoginFailedException("Invalid credentials!"));
 
-        if(!passwordHasher.matches(cmd.rawPassword(), user.getPassword().value())) throw new LoginFailedException("Invalid credentials!");
+        try {
+            user.verifyPassword(cmd.rawPassword(), passwordHasher);
+        } catch (UserException e) {
+            throw new LoginFailedException("Invalid credentials!");
+        }
 
         var ttl = Duration.ofMinutes(15);
-        var jwt =  tokenEncoder.createAccessToken(user.getId(),user.getRoles(),clock.instant(), Duration.ofMinutes(15));
-
+        var jwt = tokenEncoder.createAccessToken(user.getId(), user.getRoles(), clock.instant(), Duration.ofMinutes(15));
         return new AccessToken(jwt, ttl);
     }
 

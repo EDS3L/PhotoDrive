@@ -10,6 +10,10 @@ public record UserId(UUID value) {
         validate(value);
     }
 
+    public static UserId newId() {
+        return new UserId(UUID.randomUUID());
+    }
+
     private static void validate(UUID value) {
         if(value == null) throw new UserException("User id cannot be null!");
     }

@@ -20,7 +20,7 @@ import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.UserId;
 
-import java.time.LocalDate;
+
 
 @Service
 @RequiredArgsConstructor
@@ -32,24 +32,18 @@ public class AlbumManagementService {
     private final CurrentUser currentUser;
 
     @Transactional
-    public Album createAlbum(CreateAlbumCommand cmd) {
+    public Album createAlbumForAdmin(CreateAlbumCommand cmd) {
         AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
         if(!authenticatedUser.roles().contains(Role.ADMIN)) throw new SecurityException("ADMIN role required");
-        User user = userRepository.findById(authenticatedUser.userId()).orElseThrow(() -> new UserException("User not found!"));
-        String albumName = createAlbumName(cmd.name(), user.getEmail().value());
+        User admin = userRepository.findById(authenticatedUser.userId()).orElseThrow(() -> new UserException("User not found!"));
 
-        Album album = Album.create(albumName,authenticatedUser.userId().value(), null, null);
-        albumRepository.save(album);
-        storagePort.createAdminAlbumDir(albumName, user.getEmail().value());
-        return album;
+        Album album = Album.createForAdmin(cmd.name(),admin);
+        return albumRepository.save(album);
     }
 
     @Transactional
     public Album createAlbumForClient(CreateAlbumForClientCommand cmd) {
         AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
-
-        if(!authenticatedUser.roles().contains(Role.PHOTOGRAPHER) || !authenticatedUser.roles()
-                .contains(Role.ADMIN)) throw new SecurityException("ADMIN/PHOTOGRAPHER role required");
 
         UserId photographId =new UserId(authenticatedUser.userId().value());
         User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
@@ -57,31 +51,18 @@ public class AlbumManagementService {
         Email clientEmail = new Email(cmd.clientEmail());
         User client = userRepository.findByEmail(clientEmail).orElseThrow(() -> new UserException("Client not found!"));
 
-        String albumName = createAlbumName(cmd.name(), client.getEmail().value());
+        Album album = Album.createForClient(cmd.name(), photograph, client);
 
-        Album album = Album.create(albumName,authenticatedUser.userId().value(), client.getId().value(), null);
-        albumRepository.save(album);
-        storagePort.createClientAlbumDir(albumName, photograph.getEmail().value());
-        return album;
+        return albumRepository.save(album);
     }
 
     @Transactional
     public void createAlbumForPhotographer(CreateAlbumForPhotographer cmd) {
-        AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
-
-        if(!authenticatedUser.roles().contains(Role.ADMIN)) throw new SecurityException("ADMIN role required");
-
         UserId photographId = new UserId(cmd.photographId());
         User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
 
-
-        Album album = Album.create(photograph.getEmail().value(),photographId.value(),null, null);
+        Album album = Album.createPhotographerRootAlbum(photograph);
         albumRepository.save(album);
-        storagePort.createFolderForPhotograph(photograph.getEmail().value());
     }
 
-
-    private String createAlbumName(String albumName, String email) {
-        return albumName + "_" + email + "_" + LocalDate.now();
-    }
 }

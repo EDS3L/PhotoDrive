@@ -9,8 +9,8 @@ public record AlbumId(UUID value) {
         validate(value);
     }
 
-    public static UUID newId() {
-        return UUID.randomUUID();
+    public static AlbumId newId() {
+        return new AlbumId(UUID.randomUUID());
     }
 
     private static void validate(UUID value) {

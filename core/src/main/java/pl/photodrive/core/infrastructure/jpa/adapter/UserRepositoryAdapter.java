@@ -1,17 +1,20 @@
 package pl.photodrive.core.infrastructure.jpa.adapter;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Repository;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.UserId;
+import pl.photodrive.core.infrastructure.jpa.entity.UserEntity;
 import pl.photodrive.core.infrastructure.jpa.mapper.UserEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.UserJpaRepository;
 import pl.photodrive.core.infrastructure.jpa.vo.user.EmailEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -19,10 +22,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserRepositoryAdapter implements UserRepository {
     private final UserJpaRepository jpa;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public User save(User user) {
-        return UserEntityMapper.toDomain(jpa.save(UserEntityMapper.toEntity(user)));
+        UserEntity savedEntity = jpa.save(UserEntityMapper.toEntity(user));
+
+        List<Object> domainEvents = user.pullDomainEvents();
+        domainEvents.forEach(eventPublisher::publishEvent);
+
+        return UserEntityMapper.toDomain(savedEntity);
     }
 
     @Override

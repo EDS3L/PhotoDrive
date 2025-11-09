@@ -32,7 +32,7 @@ public class AlbumController {
 
     @PostMapping("/create/photograph/client")
     public ResponseEntity<Album> createClientAlbum(@Valid @RequestBody CreateClientAlbumRequest request) {
-        Album album = managementService.createAlbumForClient(new CreateAlbumForClientCommand(request.name(), request.photographEmail()));
+        Album album = managementService.createAlbumForClient(new CreateAlbumForClientCommand(request.name(), request.clientEmail()));
         return ResponseEntity.ok().body(album);
     }
 

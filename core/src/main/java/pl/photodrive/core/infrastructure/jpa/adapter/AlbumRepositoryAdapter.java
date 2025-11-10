@@ -45,4 +45,9 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     public List<Album> findByClientId(UUID clientId) {
         return jpa.findByClientId(clientId).stream().map(AlbumEntityMapper::toDomain).toList();
     }
+
+    @Override
+    public boolean existsByName(String name) {
+        return jpa.existsByName(name);
+    }
 }

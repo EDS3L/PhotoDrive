@@ -1,7 +1,6 @@
 FROM eclipse-temurin:21-jdk-jammy AS builder
 
 WORKDIR /app/photodrive
-RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl
 
 COPY gradlew .
 COPY gradle gradle
@@ -16,6 +15,8 @@ RUN ./gradlew build -x test --no-daemon --stacktrace
 FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app/photodrive
+RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl
+
 
 COPY --from=builder /app/photodrive/build/libs/*.jar app.jar
 

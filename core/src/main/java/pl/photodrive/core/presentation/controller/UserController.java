@@ -36,8 +36,6 @@ public class UserController {
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping
     public List<UserDto> getAll(){
-        var user = currentUser.get();
-        log.info("User {}", user);
         return userService.getAllUsers().stream().map(ApiMappers::toDto).toList();
     }
 

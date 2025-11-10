@@ -28,7 +28,6 @@ public class AlbumManagementService {
 
     private final AlbumRepository albumRepository;
     private final UserRepository userRepository;
-    private final StoragePort storagePort;
     private final CurrentUser currentUser;
 
     @Transactional
@@ -37,7 +36,7 @@ public class AlbumManagementService {
         if(!authenticatedUser.roles().contains(Role.ADMIN)) throw new SecurityException("ADMIN role required");
         User admin = userRepository.findById(authenticatedUser.userId()).orElseThrow(() -> new UserException("User not found!"));
 
-        Album album = Album.createForAdmin(cmd.name(),admin);
+        Album album = Album.createForAdmin(cmd.name(),admin, albumRepository);
         return albumRepository.save(album);
     }
 
@@ -51,7 +50,7 @@ public class AlbumManagementService {
         Email clientEmail = new Email(cmd.clientEmail());
         User client = userRepository.findByEmail(clientEmail).orElseThrow(() -> new UserException("Client not found!"));
 
-        Album album = Album.createForClient(cmd.name(), photograph, client);
+        Album album = Album.createForClient(cmd.name(), photograph, client, albumRepository);
 
         return albumRepository.save(album);
     }

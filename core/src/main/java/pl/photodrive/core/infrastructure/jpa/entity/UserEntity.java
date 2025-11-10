@@ -27,8 +27,17 @@ public class UserEntity {
     private EmailEmbeddable email;
     @Embedded
     private PasswordEmbeddable password;
-    @NotEmpty
-    @Size(min=1)
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(
+                    name = "userId",
+                    referencedColumnName = "userId"
+            )
+    )
+    @Column(name = "role", nullable = false)
+    @Enumerated(EnumType.STRING)
     private Set<Role> roles;
 
 }

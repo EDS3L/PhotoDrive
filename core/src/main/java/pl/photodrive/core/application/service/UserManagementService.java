@@ -4,23 +4,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pl.photodrive.core.application.command.album.CreateAlbumForPhotographer;
 import pl.photodrive.core.application.command.user.ChangeEmailCommand;
 import pl.photodrive.core.application.command.user.RoleCommand;
 import pl.photodrive.core.application.command.user.AddUserCommand;
 import pl.photodrive.core.application.command.user.ChangePasswordCommand;
 import pl.photodrive.core.domain.exception.UserException;
-import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.StoragePort;
 import pl.photodrive.core.domain.port.UserUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.UserRepository;
 import pl.photodrive.core.domain.port.security.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.domain.vo.UserId;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+
 
 @Slf4j
 @Service
@@ -29,7 +26,6 @@ public class UserManagementService {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
-    private final AlbumManagementService albumManagementService;
     private final UserUniquenessChecker userUniquenessChecker;
 
     public User addUser(AddUserCommand cmd) {
@@ -41,27 +37,31 @@ public class UserManagementService {
     }
 
     public void changePassword(ChangePasswordCommand cmd) {
-        User user = userRepository.findById(cmd.userId()).orElseThrow(() -> new UserException("User not found!"));
+        User user = getUserForDB(cmd.userId());
         user.changePassword(cmd.currentPassword(),cmd.newPassword(), passwordHasher);
         userRepository.save(user);
     }
 
     public User addRole(RoleCommand cmd) {
-        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        User user = getUserForDB(cmd.userId());
         user.addRole(cmd.role());
         return userRepository.save(user);
     }
 
     public User removeRole(RoleCommand cmd) {
-        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        User user = getUserForDB(cmd.userId());
         user.removeRole(cmd.role());
         return userRepository.save(user);
     }
 
     public User changeEmail(ChangeEmailCommand cmd) {
-        User user = userRepository.findById(cmd.id()).orElseThrow(() -> new UserException("User not found!"));
+        User user = getUserForDB(cmd.userId());
         user.changeEmail(cmd.newEmail());
         return userRepository.save(user);
+    }
+
+    private User getUserForDB(UserId userid) {
+        return userRepository.findById(userid).orElseThrow(() -> new UserException("User not found!"));
     }
 
     @Transactional(readOnly = true)

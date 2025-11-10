@@ -32,8 +32,8 @@ public class AuthManagerService {
             throw new LoginFailedException("Invalid credentials!");
         }
 
-        var ttl = Duration.ofMinutes(15);
-        var jwt = tokenEncoder.createAccessToken(user.getId(), user.getRoles(), clock.instant(), Duration.ofMinutes(15));
+        Duration ttl = Duration.ofMinutes(15);
+        String jwt = tokenEncoder.createAccessToken(user.getId(), user.getRoles(), clock.instant(), Duration.ofMinutes(15));
         return new AccessToken(jwt, ttl);
     }
 

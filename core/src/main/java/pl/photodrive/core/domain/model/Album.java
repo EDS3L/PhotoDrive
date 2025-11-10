@@ -5,6 +5,7 @@ import pl.photodrive.core.domain.event.AdminAlbumCreated;
 import pl.photodrive.core.domain.event.PhotographCreateAlbum;
 import pl.photodrive.core.domain.event.PhotographerRootAlbumCreated;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
@@ -44,15 +45,16 @@ public class Album {
         this.ttd = ttd;
     }
 
-    public static Album createForAdmin(String albumName, User admin) {
+    public static Album createForAdmin(String albumName, User admin, AlbumRepository albumRepository) {
         checkIfCreatorIsAnAdmin(admin);
         String name = createAlbumName(albumName, admin.getEmail().value());
+        checkIfAlbumExists(albumRepository,name);
         Album album = new Album(AlbumId.newId(), name, admin.getId().value(), admin.getId().value(), null);
         album.registerEvent(new AdminAlbumCreated(albumName,admin));
         return album;
     }
 
-    public static Album createForClient(String albumName, User photographer, User client) {
+    public static Album createForClient(String albumName, User photographer, User client, AlbumRepository albumRepository) {
         checkIfCreatorIsAnPhotograph(photographer);
 
         if (!client.getRoles().contains(Role.CLIENT)) {
@@ -60,7 +62,7 @@ public class Album {
         }
 
         String name = createAlbumName(albumName, client.getEmail().value());
-
+        checkIfAlbumExists(albumRepository,name);
         Album album = new Album(AlbumId.newId(), name, photographer.getId().value(), client.getId().value(), null);
         album.registerEvent(new PhotographCreateAlbum(photographer,name));
 
@@ -92,6 +94,11 @@ public class Album {
         if (!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
             throw new AlbumException("Creator must be a photographer.");
         }
+    }
+
+    private static void checkIfAlbumExists(AlbumRepository albumRepository, String name) {
+        if (albumRepository.existsByName(name)) throw new AlbumException("Folder already exists!");
+
     }
 
     private static String createAlbumName(String albumName, String email) {

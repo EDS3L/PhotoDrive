@@ -49,7 +49,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
 
         if (token == null || token.isBlank()) {
-            filterChain.doFilter(request, response);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("""
+        {
+          "status": 401,
+          "error": "UNAUTHORIZED",
+          "message": "Brak tokena uwierzytelniającego."
+        }
+        """);
             return;
         }
 

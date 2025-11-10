@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pl.photodrive.core.application.command.album.CreateAlbumCommand;
 import pl.photodrive.core.application.command.album.CreateAlbumForClientCommand;
-import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.presentation.dto.album.CreateAlbumRequest;

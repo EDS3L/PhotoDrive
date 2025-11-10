@@ -1,4 +1,4 @@
-package pl.photodrive.core.domain.event;
+package pl.photodrive.core.domain.event.user;
 
 import pl.photodrive.core.domain.model.Role;
 

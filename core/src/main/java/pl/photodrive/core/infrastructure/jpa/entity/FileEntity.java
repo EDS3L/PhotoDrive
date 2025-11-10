@@ -1,9 +1,6 @@
 package pl.photodrive.core.infrastructure.jpa.entity;
 
-import jakarta.persistence.Embedded;
-import jakarta.persistence.EmbeddedId;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileNameEmbeddable;
@@ -25,5 +22,8 @@ public class FileEntity {
     private long sizeBytes;
     private String contentType;
     private Instant uploadedAt;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "album_id", nullable = false)
+    private AlbumEntity album;
 
 }

@@ -1,15 +1,18 @@
 package pl.photodrive.core.domain.model;
 
 
-import pl.photodrive.core.domain.event.AdminAlbumCreated;
-import pl.photodrive.core.domain.event.PhotographCreateAlbum;
-import pl.photodrive.core.domain.event.PhotographerRootAlbumCreated;
+import org.springframework.web.multipart.MultipartFile;
+import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.port.AlbumSaver;
+import pl.photodrive.core.domain.port.FileUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -111,15 +114,41 @@ public class Album {
 
     public void addFile(File file) {
         this.photos.putIfAbsent(file.getFileId(), file);
+        this.registerEvent(new FileAddedToAlbum(file.getFileName() ,this.getName()));
+
     }
 
-    public void addFiles(Map<FileId, File> newPhotos) {
+    public void addFileToClient(File file, String albumName, String photographEmail, InputStream fileData) {
+        this.photos.putIfAbsent(file.getFileId(), file);
+        this.registerEvent(new FileAddedToClientAlbum(file.getFileName(), albumName, photographEmail, fileData));
+
+    }
+
+    public List<File> addFiles(MultipartFile[] multipartFiles, String photographEmail, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker) {
+        List<File> files = new ArrayList<>();
+        Arrays.stream(multipartFiles).forEach(multipartFile ->  {
+            File file = File.create(new FileName(multipartFile.getOriginalFilename()), multipartFile.getSize(), multipartFile.getContentType(), fileUniquenessChecker);
+            files.add(file);
+            try {
+                this.addFileToClient(file, this.name,photographEmail, multipartFile.getInputStream());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            albumSaver.saveAlbum(this);
+        });
+
+        return files;
+    }
+
+    public void assignsFiles(Map<FileId, File> newPhotos) {
         if (newPhotos == null || newPhotos.isEmpty()) throw new AlbumException("There isn't a file to add");
 
         for (Map.Entry<FileId, File> entry : newPhotos.entrySet()) {
             this.photos.putIfAbsent(entry.getKey(), entry.getValue());
         }
     }
+
+
 
     public void removeFile(FileId fileId) {
         this.photos.remove(fileId);

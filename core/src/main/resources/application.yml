@@ -16,6 +16,10 @@ spring:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     open-in-view: false
 
+  servlet:
+    multipart:
+      max-file-size: "2GB"
+      max-request-size: "2GB"
 
 jwt:
   secret: ${TOKEN_SECRETKEY}

@@ -8,7 +8,7 @@ public record FileName(String value) {
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff",
-            ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".mpeg", ".mpg"
+            ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".heic"
     );
 
     private static final Set<String> FORBIDDEN_EXTENSIONS = Set.of(
@@ -47,8 +47,7 @@ public record FileName(String value) {
     }
 
     private static void validateIllegalCharacters(String value) {
-        // not allowed cross-platform characters
-        if (value.matches(".*[\\\\/:*?\"<>|#%&{}$!'@+`~=,;\\[\\]()].*")) {
+        if (value.matches(".*[\\\\/:*?\"<>|#%&{}$!'@+`~=,;\\[\\]].*")) {
             throw new FileException("File name contains invalid characters");
         }
 

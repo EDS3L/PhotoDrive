@@ -32,8 +32,10 @@ public class AlbumEntity {
     @Column(columnDefinition = "VARCHAR(36)")
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private UUID clientId;
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+
+    @Builder.Default
+    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true)
     @MapKey(name = "fileId")
-    private final Map<FileIdEmbeddable, FileEntity> photos = new LinkedHashMap<>();
+    private Map<FileIdEmbeddable, FileEntity> photos = new LinkedHashMap<>();
     private Instant ttd;
 }

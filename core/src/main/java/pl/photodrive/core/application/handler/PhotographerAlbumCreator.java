@@ -6,7 +6,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import pl.photodrive.core.application.command.album.CreateAlbumForPhotographer;
 import pl.photodrive.core.application.service.AlbumManagementService;
-import pl.photodrive.core.domain.event.UserCreated;
+import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.model.Role;
 
 @Slf4j

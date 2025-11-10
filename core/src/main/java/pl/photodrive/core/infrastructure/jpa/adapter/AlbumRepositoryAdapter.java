@@ -3,6 +3,7 @@ package pl.photodrive.core.infrastructure.jpa.adapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Repository;
+import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.vo.AlbumId;
@@ -37,8 +38,17 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     }
 
     @Override
-    public List<Album> findByPhotographId(UUID photographerId) {
-        return jpa.findByPhotographId(photographerId).stream().map(AlbumEntityMapper::toDomain).toList();
+    public Album findByPhotographId(UUID photographId) {
+        var entity = jpa.findByPhotographId(photographId);
+        if (entity == null) {
+            throw new AlbumException("Album for photographer " + photographId + " not found");
+        }
+        return AlbumEntityMapper.toDomain(entity);
+    }
+
+    @Override
+    public Optional<Album> findByName(String name) {
+        return Optional.of(AlbumEntityMapper.toDomain(jpa.findByName(name).orElseThrow(() -> new AlbumException("Album not found!"))));
     }
 
     @Override

@@ -1,4 +1,4 @@
-package pl.photodrive.core.domain.event;
+package pl.photodrive.core.domain.event.album;
 
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.Email;

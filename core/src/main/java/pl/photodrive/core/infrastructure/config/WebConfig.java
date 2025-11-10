@@ -26,7 +26,7 @@ public class WebConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
         http.cors(
-                cors -> cors.configurationSource(corsConfig()))
+                        cors -> cors.configurationSource(corsConfig()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/user/**").hasAnyRole("ADMIN","PHOTOGRAPHER")
@@ -34,7 +34,7 @@ public class WebConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated())
                 .headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable))
-                .addFilterBefore(jwt,UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

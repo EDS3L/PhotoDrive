@@ -1,6 +1,6 @@
 package pl.photodrive.core.domain.model;
 
-import pl.photodrive.core.domain.event.UserCreated;
+import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.port.UserUniquenessChecker;
 import pl.photodrive.core.domain.port.security.PasswordHasher;

@@ -4,22 +4,20 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import pl.photodrive.core.application.command.album.AddFileCommand;
-import pl.photodrive.core.application.command.album.AddFileToClientAlbumCommand;
-import pl.photodrive.core.application.command.album.CreateAlbumCommand;
-import pl.photodrive.core.application.command.album.CreateAlbumForClientCommand;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
-import pl.photodrive.core.presentation.dto.album.AddFileRequest;
 import pl.photodrive.core.presentation.dto.album.CreateAlbumRequest;
 import pl.photodrive.core.presentation.dto.album.CreateClientAlbumRequest;
+import pl.photodrive.core.presentation.dto.album.DownloadFilesRequest;
 import pl.photodrive.core.presentation.dto.album.FileDto;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -28,7 +26,6 @@ import java.util.stream.Collectors;
 public class AlbumController {
 
     private final AlbumManagementService managementService;
-
 
 
     @PostMapping("/create/admin")
@@ -43,19 +40,9 @@ public class AlbumController {
         return ResponseEntity.ok().body(album);
     }
 
-    @PostMapping(path = "/addFile",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<FileDto> addFile(@RequestPart("file") MultipartFile multipartFile) {
-        File file = managementService.addFile(new AddFileCommand(multipartFile));
-        return ResponseEntity.ok().body(new FileDto(file.getFileId().value(), file.getFileName().value(), file.getSizeBytes(), file.getContentType()));
-    }
-
-    @PostMapping(path = "/{albumName}/addFiles",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<FileDto>> addFilesToAlbum(@PathVariable String albumName,@RequestPart("files") MultipartFile[] multipartFiles) {
-        if (multipartFiles == null || multipartFiles.length == 0) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<File> files = managementService.addFilesToClient(new AddFileToClientAlbumCommand(multipartFiles,albumName));
+    @PostMapping(path = "/admin/{albumName}/addFiles", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<FileDto>> addFilesToAdminAlbum(@PathVariable String albumName, @RequestPart("files") List<MultipartFile> multipartFiles) {
+        List<File> files = managementService.addFilesToAdminAlbum(new AddFileCommand(multipartFiles, albumName));
 
         List<FileDto> results = files.stream()
                 .map(file -> new FileDto(
@@ -66,6 +53,38 @@ public class AlbumController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(results);
+    }
+
+    @PostMapping(path = "/{albumName}/addFiles", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<FileDto>> addFilesToAlbum(@PathVariable String albumName, @RequestPart("files") List<MultipartFile> multipartFiles) {
+        if (multipartFiles == null || multipartFiles.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        List<File> files = managementService.addFilesToClient(new AddFileToClientAlbumCommand(multipartFiles, albumName));
+
+        List<FileDto> results = files.stream()
+                .map(file -> new FileDto(
+                        file.getFileId().value(),
+                        file.getFileName().value(),
+                        file.getSizeBytes(),
+                        file.getContentType()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(results);
+    }
+
+    @PostMapping("/{albumName}/download")
+    public ResponseEntity<StreamingResponseBody> download(@PathVariable String albumName, @RequestBody @Valid DownloadFilesRequest request) {
+        StreamingResponseBody body =
+                managementService.downloadFiles(new DownloadFilesCommand(albumName, request.fileList()));
+
+        String zipName = albumName + ".zip";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header("Content-Disposition", "attachment; filename=\"" + zipName + "\"")
+                .body(body);
     }
 
 }

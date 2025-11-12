@@ -34,13 +34,19 @@ public class StorageStructureCreator {
     }
     @EventListener
     public void handleFileAdded(FileAddedToAlbum event) {
-        log.info("File added");
-        storagePort.store(event.photographEmail(),event.fileName().value());
+        log.info("File added by admin");
+        storagePort.storeByAdmin(event.albumName(),event.fileName().value(), event.fileData());
     }
 
     @EventListener
     public void handleFileAddedToClientAlbum(FileAddedToClientAlbum event) {
         log.info("File added to {}", event.albumName());
         storagePort.storeToAlbum(event.photographEmail(),event.albumName(),event.fileName().value(),event.fileData());
+    }
+
+    @EventListener
+    public void handleFilesDownloaded(FilesDownloaded event) {
+        log.info("Files downloaded");
+        storagePort.downloadSelectedFilesAsZip(event.albumName(),event.fileNames(), event.photographEmail());
     }
 }

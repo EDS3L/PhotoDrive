@@ -2,11 +2,13 @@ package pl.photodrive.core.domain.model;
 
 
 import org.springframework.web.multipart.MultipartFile;
+import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.port.AlbumSaver;
 import pl.photodrive.core.domain.port.FileUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
+import pl.photodrive.core.domain.port.security.AccessChecker;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
@@ -50,10 +52,9 @@ public class Album {
 
     public static Album createForAdmin(String albumName, User admin, AlbumRepository albumRepository) {
         checkIfCreatorIsAnAdmin(admin);
-        String name = createAlbumName(albumName, admin.getEmail().value());
-        checkIfAlbumExists(albumRepository,name);
-        Album album = new Album(AlbumId.newId(), name, admin.getId().value(), admin.getId().value(), null);
-        album.registerEvent(new AdminAlbumCreated(albumName,admin));
+        checkIfAlbumExists(albumRepository, albumName);
+        Album album = new Album(AlbumId.newId(), albumName, admin.getId().value(), admin.getId().value(), null);
+        album.registerEvent(new AdminAlbumCreated(albumName, admin));
         return album;
     }
 
@@ -65,9 +66,9 @@ public class Album {
         }
 
         String name = createAlbumName(albumName, client.getEmail().value());
-        checkIfAlbumExists(albumRepository,name);
+        checkIfAlbumExists(albumRepository, name);
         Album album = new Album(AlbumId.newId(), name, photographer.getId().value(), client.getId().value(), null);
-        album.registerEvent(new PhotographCreateAlbum(photographer,name));
+        album.registerEvent(new PhotographCreateAlbum(photographer, name));
 
         return album;
     }
@@ -112,9 +113,9 @@ public class Album {
         this.clientId = clientId;
     }
 
-    public void addFile(File file) {
+    public void addFileToAdminAlbum(File file, String albumName, InputStream fileData) {
         this.photos.putIfAbsent(file.getFileId(), file);
-        this.registerEvent(new FileAddedToAlbum(file.getFileName() ,this.getName()));
+        this.registerEvent(new FileAddedToAlbum(file.getFileName(), albumName, fileData));
 
     }
 
@@ -124,13 +125,16 @@ public class Album {
 
     }
 
-    public List<File> addFiles(MultipartFile[] multipartFiles, String photographEmail, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker) {
+    public List<File> addFilesToClientAlbum(List<MultipartFile> multipartFiles, String photographEmail, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker, CurrentUser currentUser, AccessChecker accessChecker) {
+        accessChecker.iSCurrentUserHasAccess(currentUser, Role.PHOTOGRAPHER);
+        accessChecker.isAlbumExists(photographEmail);
+
         List<File> files = new ArrayList<>();
-        Arrays.stream(multipartFiles).forEach(multipartFile ->  {
+        multipartFiles.forEach(multipartFile -> {
             File file = File.create(new FileName(multipartFile.getOriginalFilename()), multipartFile.getSize(), multipartFile.getContentType(), fileUniquenessChecker);
             files.add(file);
             try {
-                this.addFileToClient(file, this.name,photographEmail, multipartFile.getInputStream());
+                this.addFileToClient(file, this.name, photographEmail, multipartFile.getInputStream());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -140,6 +144,31 @@ public class Album {
         return files;
     }
 
+    public List<File> addFilesToAdminAlbum(List<MultipartFile> multipartFiles, String albumName, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker, CurrentUser currentUser, AccessChecker accessChecker) {
+        accessChecker.iSCurrentUserHasAccess(currentUser, Role.ADMIN);
+        accessChecker.isAlbumExists(albumName);
+
+
+        List<File> files = new ArrayList<>();
+
+        multipartFiles.forEach(multipartFile -> {
+            File file = File.create(new FileName(multipartFile.getOriginalFilename()), multipartFile.getSize(), multipartFile.getContentType(), fileUniquenessChecker);
+            files.add(file);
+            try {
+                this.addFileToAdminAlbum(file, albumName, multipartFile.getInputStream());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            albumSaver.saveAlbum(this);
+        });
+
+        return files;
+    }
+
+    public void downloadSelectedFilesAsZip(String albumName, List<String> fileNames, AccessChecker accessChecker, CurrentUser currentUser) {
+        accessChecker.isFilesExistsInAlbum(albumName,currentUser,fileNames);
+    }
+
     public void assignsFiles(Map<FileId, File> newPhotos) {
         if (newPhotos == null || newPhotos.isEmpty()) throw new AlbumException("There isn't a file to add");
 
@@ -147,7 +176,6 @@ public class Album {
             this.photos.putIfAbsent(entry.getKey(), entry.getValue());
         }
     }
-
 
 
     public void removeFile(FileId fileId) {

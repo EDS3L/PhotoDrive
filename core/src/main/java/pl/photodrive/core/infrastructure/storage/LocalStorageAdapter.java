@@ -3,15 +3,22 @@ package pl.photodrive.core.infrastructure.storage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pl.photodrive.core.domain.port.StoragePort;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -54,9 +61,9 @@ public class LocalStorageAdapter implements StoragePort {
     }
 
     @Override
-    public void store(String photographEmail, String fileName) {
+    public void storeByAdmin(String albumName, String fileName, InputStream fileData) {
 
-        Path targetDir = DIR.resolve(photographEmail).normalize();
+        Path targetDir = DIR.resolve(albumName).normalize();
         if (!targetDir.startsWith(DIR)) {
             throw new SecurityException("Wrong path!");
         }
@@ -64,6 +71,8 @@ public class LocalStorageAdapter implements StoragePort {
         Path tmp = null;
         try {
             tmp = Files.createTempFile(DIR, "upload-", ".tmp");
+
+            Files.copy(fileData,tmp, REPLACE_EXISTING);
 
             Path target = uniquify(targetDir.resolve(fileName));
             try {
@@ -103,6 +112,37 @@ public class LocalStorageAdapter implements StoragePort {
             }
             throw new RuntimeException("Failed to save file", e);
         }
+    }
+
+    @Override
+    public StreamingResponseBody downloadSelectedFilesAsZip(String albumName, List<String> fileNames, String photographEmail) {
+        Path albumDir = DIR.resolve(photographEmail).resolve(albumName).normalize();
+
+        if (!albumDir.startsWith(DIR)) throw new SecurityException("Wrong path!");
+        if (!Files.isDirectory(albumDir)) throw new RuntimeException("Album not found: " + albumDir);
+
+        return outputStream -> {
+            try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
+                for (String fn : fileNames) {
+                    // prosta sanityzacja
+                    if (fn == null || fn.isBlank()) continue;
+                    Path filePath = albumDir.resolve(fn).normalize();
+                    if (!filePath.startsWith(albumDir)) {
+                        log.warn("Skipping suspicious path: {}", filePath);
+                        continue;
+                    }
+                    if (Files.isRegularFile(filePath)) {
+                        zos.putNextEntry(new ZipEntry(filePath.getFileName().toString()));
+                        Files.copy(filePath, zos);
+                        zos.closeEntry();
+                    } else {
+                        log.warn("Missing or not a file: {}", filePath);
+                    }
+                }
+                zos.finish();
+            }
+        };
+
     }
 
     @Override

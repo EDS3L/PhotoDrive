@@ -1,7 +1,9 @@
 package pl.photodrive.core.infrastructure.security;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import pl.photodrive.core.application.port.AuthenticatedUser;
 import pl.photodrive.core.application.port.CurrentUser;
@@ -18,19 +20,33 @@ class SpringSecurityCurrentUser implements CurrentUser {
 
     @Override
     public Optional<AuthenticatedUser> get() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
+        var context = SecurityContextHolder.getContext();
+        var auth = context != null ? context.getAuthentication() : null;
 
-        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            return Optional.empty();
+        }
 
-        var userId = new UserId(UUID.fromString((String) auth.getPrincipal()));
+        Object principal = auth.getPrincipal();
+        UUID userUuid;
+
+        if (principal instanceof String s) {
+            userUuid = UUID.fromString(s);
+        } else if (principal instanceof UserDetails userDetails) {
+            userUuid = UUID.fromString(userDetails.getUsername());
+        } else {
+            throw new IllegalStateException("Unsupported principal type: " + principal.getClass());
+        }
+
+        var userId = new UserId(userUuid);
 
         var roles = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(a -> a.startsWith("ROLE_"))
                 .map(a -> a.substring(5))
                 .map(Role::valueOf)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toUnmodifiableSet());
 
-        return Optional.of(new AuthenticatedUser(userId, roles, Instant.EPOCH));
+        return Optional.of(new AuthenticatedUser(userId, roles, Instant.MAX));
     }
 }

@@ -2,17 +2,21 @@ package pl.photodrive.core.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.user.ChangeEmailCommand;
 import pl.photodrive.core.application.command.user.RoleCommand;
 import pl.photodrive.core.application.command.user.AddUserCommand;
 import pl.photodrive.core.application.command.user.ChangePasswordCommand;
+import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
+import pl.photodrive.core.domain.model.Album;
+import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.UserUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.UserRepository;
-import pl.photodrive.core.domain.port.security.PasswordHasher;
+import pl.photodrive.core.domain.port.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 
@@ -27,13 +31,31 @@ public class UserManagementService {
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final UserUniquenessChecker userUniquenessChecker;
+    private final ApplicationEventPublisher eventPublisher;
+    private final CurrentUser currentUser;
 
+
+    @Transactional
     public User addUser(AddUserCommand cmd) {
+        if(userUniquenessChecker.isEmailTaken(cmd.email())) {
+            throw new UserException("User already exists with email: " + cmd.email());
+        }
+
+        var roles = currentUser.requireAuthenticated().roles();
+        boolean isAdmin = roles.contains(Role.ADMIN);
+        boolean isPhotographer =  roles.contains(Role.PHOTOGRAPHER);
+
+        if(!isAdmin && !isPhotographer) {
+            throw new UserException("Only admins or photographer can add user");
+        }
         Password hashedPassword = new Password(passwordHasher.encode(cmd.password()));
+        User user = User.create(cmd.name(), cmd.email(), hashedPassword, cmd.role());
 
-        User user = User.create(cmd.name(), cmd.email(), hashedPassword, cmd.role(), userUniquenessChecker);
+        var savedUser = userRepository.save(user);
 
-        return userRepository.save(user);
+        publishEvents(user);
+
+        return savedUser;
     }
 
     public void changePassword(ChangePasswordCommand cmd) {
@@ -67,5 +89,9 @@ public class UserManagementService {
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    private void publishEvents(User user) {
+        user.pullDomainEvents().forEach(eventPublisher::publishEvent);
     }
 }

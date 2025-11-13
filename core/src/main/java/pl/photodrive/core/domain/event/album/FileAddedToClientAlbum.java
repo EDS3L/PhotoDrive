@@ -4,5 +4,5 @@ import pl.photodrive.core.domain.vo.FileName;
 
 import java.io.InputStream;
 
-public record FileAddedToClientAlbum(FileName fileName, String albumName, String photographEmail, InputStream fileData) {
+public record FileAddedToClientAlbum(FileName fileName, String albumName, String photographEmail) {
 }

@@ -1,4 +1,4 @@
-package pl.photodrive.core.domain.port.security;
+package pl.photodrive.core.domain.port;
 
 public interface PasswordHasher {
     String encode(CharSequence raw);

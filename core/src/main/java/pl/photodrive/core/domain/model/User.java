@@ -2,8 +2,7 @@ package pl.photodrive.core.domain.model;
 
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.exception.UserException;
-import pl.photodrive.core.domain.port.UserUniquenessChecker;
-import pl.photodrive.core.domain.port.security.PasswordHasher;
+import pl.photodrive.core.domain.port.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
@@ -20,16 +19,6 @@ public class User {
 
     private transient final List<Object> domainEvents = new ArrayList<>();
 
-    public void registerEvent(Object event) {
-        this.domainEvents.add(event);
-    }
-
-    public List<Object> pullDomainEvents() {
-        List<Object> events = new ArrayList<>(this.domainEvents);
-        this.domainEvents.clear();
-        return Collections.unmodifiableList(events);
-    }
-
     public User(UserId id, String name, Email email, Password password, Set<Role> roles) {
         if (name == null) throw new UserException("Name cannot be null");
         if (email == null) throw new UserException("Email cannot be null");
@@ -42,19 +31,15 @@ public class User {
         this.roles = roles;
     }
 
-    public static User create(String name, Email email, Password password, Role role, UserUniquenessChecker userUniquenessChecker) {
-        if (userUniquenessChecker.isEmailTaken(email)) {
-            throw new UserException("This email is already taken!");
-        }
-
+    public static User create(String name, Email email, Password password, Role role) {
         Set<Role> roles = new HashSet<>();
         roles.add(role);
 
-        User newUser = new User(UserId.newId(), name, email, password, roles);
-        newUser.registerEvent(new UserCreated(newUser.getId().value(), newUser.getEmail().value(), newUser.getRoles()));
+        User user = new User(UserId.newId(), name, email, password, roles);
 
-        return newUser;
+        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles()));
 
+        return user;
     }
 
     public void addRole(Role role) {
@@ -93,6 +78,16 @@ public class User {
         if (!passwordHasher.matches(rawPassword, this.password.value())) {
             throw new UserException("Incorrect password");
         }
+    }
+
+    private void registerEvent(Object event) {
+        this.domainEvents.add(event);
+    }
+
+    public List<Object> pullDomainEvents() {
+        List<Object> events = new ArrayList<>(this.domainEvents);
+        this.domainEvents.clear();
+        return Collections.unmodifiableList(events);
     }
 
     public UserId getId() {

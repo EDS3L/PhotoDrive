@@ -2,22 +2,24 @@ package pl.photodrive.core.presentation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
-import pl.photodrive.core.presentation.dto.album.CreateAlbumRequest;
-import pl.photodrive.core.presentation.dto.album.CreateClientAlbumRequest;
-import pl.photodrive.core.presentation.dto.album.DownloadFilesRequest;
-import pl.photodrive.core.presentation.dto.album.FileDto;
+import pl.photodrive.core.domain.vo.AlbumId;
+import pl.photodrive.core.presentation.dto.album.*;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -25,66 +27,133 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AlbumController {
 
-    private final AlbumManagementService managementService;
+    private final AlbumManagementService albumService;
 
 
-    @PostMapping("/create/admin")
-    public ResponseEntity<Album> createAdminAlbum(@Valid @RequestBody CreateAlbumRequest request) {
-        Album album = managementService.createAlbumForAdmin(new CreateAlbumCommand(request.name()));
-        return ResponseEntity.ok().body(album);
+    @PostMapping("/admin")
+    public ResponseEntity<AlbumResponse> createAdminAlbum(
+            @Valid @RequestBody CreateAlbumRequest request,
+            @AuthenticationPrincipal CurrentUser currentUserDetails
+    ) {
+
+        Album album = albumService.createAdminAlbum(
+                new CreateAlbumCommand(request.name(),currentUserDetails.get().get().userId().value()),
+                currentUserDetails
+        );
+
+        return ResponseEntity.ok(AlbumResponse.fromDomain(album));
     }
 
-    @PostMapping("/create/photograph/client")
-    public ResponseEntity<Album> createClientAlbum(@Valid @RequestBody CreateClientAlbumRequest request) {
-        Album album = managementService.createAlbumForClient(new CreateAlbumForClientCommand(request.name(), request.clientEmail()));
-        return ResponseEntity.ok().body(album);
+    @PostMapping("/client")
+    public ResponseEntity<AlbumResponse> createClientAlbum(
+            @Valid @RequestBody CreateClientAlbumRequest request,
+            @AuthenticationPrincipal CurrentUser currentUserDetails
+    ) {
+
+        CreateAlbumCommand command = new CreateAlbumCommand(
+                request.name(),
+                currentUserDetails.get().get().userId().value()
+        );
+
+        Album album = albumService.createAlbumForClient(
+                command,
+                currentUserDetails
+        );
+
+        return ResponseEntity.ok(AlbumResponse.fromDomain(album));
     }
 
-    @PostMapping(path = "/admin/{albumName}/addFiles", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<FileDto>> addFilesToAdminAlbum(@PathVariable String albumName, @RequestPart("files") List<MultipartFile> multipartFiles) {
-        List<File> files = managementService.addFilesToAdminAlbum(new AddFileCommand(multipartFiles, albumName));
+    @PostMapping(
+            path = "/{albumId}/files/admin",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<List<FileResponse>> addFilesToAdminAlbum(
+            @PathVariable UUID albumId,
+            @RequestPart("files") List<MultipartFile> files,
+            @AuthenticationPrincipal CurrentUser currentUserDetails
+    ) {
 
-        List<FileDto> results = files.stream()
-                .map(file -> new FileDto(
-                        file.getFileId().value(),
-                        file.getFileName().value(),
-                        file.getSizeBytes(),
-                        file.getContentType()))
-                .collect(Collectors.toList());
+        validateFiles(files);
 
-        return ResponseEntity.ok(results);
+        List<File> addedFiles = albumService.addFilesToAlbum(
+                new AlbumId(albumId),
+                files,
+                currentUserDetails
+        );
+
+//        List<FileResponse> response = addedFiles.stream().toList();
+
+        return ResponseEntity.ok(null);
     }
 
-    @PostMapping(path = "/{albumName}/addFiles", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<FileDto>> addFilesToAlbum(@PathVariable String albumName, @RequestPart("files") List<MultipartFile> multipartFiles) {
-        if (multipartFiles == null || multipartFiles.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
+    @PostMapping(
+            path = "/{albumId}/files",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<List<FileResponse>> addFilesToClientAlbum(
+            @PathVariable UUID albumId,
+            @RequestPart("files") List<MultipartFile> files,
+            @AuthenticationPrincipal CurrentUser currentUserDetails
+    ) {
 
-        List<File> files = managementService.addFilesToClient(new AddFileToClientAlbumCommand(multipartFiles, albumName));
+        validateFiles(files);
 
-        List<FileDto> results = files.stream()
-                .map(file -> new FileDto(
-                        file.getFileId().value(),
-                        file.getFileName().value(),
-                        file.getSizeBytes(),
-                        file.getContentType()))
-                .collect(Collectors.toList());
+        List<File> addedFiles = albumService.addFilesToAlbum(
+                new AlbumId(albumId),
+                files,
+                currentUserDetails
+        );
 
-        return ResponseEntity.ok(results);
+//        List<FileResponse> response = addedFiles.stream()
+//                .map(FileResponse::fromDomain)
+//                .toList();
+
+        return ResponseEntity.ok(null);
     }
 
-    @PostMapping("/{albumName}/download")
-    public ResponseEntity<StreamingResponseBody> download(@PathVariable String albumName, @RequestBody @Valid DownloadFilesRequest request) {
-        StreamingResponseBody body =
-                managementService.downloadFiles(new DownloadFilesCommand(albumName, request.fileList()));
+    @PostMapping("/{albumId}/download")
+    public ResponseEntity<byte[]> downloadFilesAsZip(
+            @PathVariable UUID albumId,
+            @Valid @RequestBody DownloadFilesRequest request,
+            @AuthenticationPrincipal CurrentUser currentUserDetails
+    ) {
 
-        String zipName = albumName + ".zip";
+
+        DownloadFilesCommand command = new DownloadFilesCommand(
+               request.albumName(),
+                request.fileList(),
+                new AlbumId(albumId)
+        );
+
+        byte[] zipData = albumService.downloadFilesAsZip(
+                command,
+                currentUserDetails
+        );
+
+        String zipFileName = request.albumName() + ".zip";
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
-                .header("Content-Disposition", "attachment; filename=\"" + zipName + "\"")
-                .body(body);
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + zipFileName + "\"")
+                .body(zipData);
+    }
+
+    private void validateFiles(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("No files provided");
+        }
+
+        long totalSize = files.stream()
+                .mapToLong(MultipartFile::getSize)
+                .sum();
+
+        long maxTotalSize = 100L * 1024 * 1024;
+        if (totalSize > maxTotalSize) {
+            throw new IllegalArgumentException(
+                    "Total file size exceeds limit: " + maxTotalSize + " bytes"
+            );
+        }
     }
 
 }

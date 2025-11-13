@@ -14,7 +14,6 @@ import pl.photodrive.core.infrastructure.jpa.vo.user.EmailEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -22,15 +21,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserRepositoryAdapter implements UserRepository {
     private final UserJpaRepository jpa;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public User save(User user) {
         UserEntity savedEntity = jpa.save(UserEntityMapper.toEntity(user));
-
-        List<Object> domainEvents = user.pullDomainEvents();
-        domainEvents.forEach(eventPublisher::publishEvent);
-
         return UserEntityMapper.toDomain(savedEntity);
     }
 

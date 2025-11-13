@@ -3,19 +3,15 @@ package pl.photodrive.core.infrastructure.storage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-import pl.photodrive.core.domain.port.StoragePort;
+import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.infrastructure.exception.StorageException;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -23,156 +19,190 @@ import java.util.zip.ZipOutputStream;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LocalStorageAdapter implements StoragePort {
-
+public class LocalStorageAdapter implements FileStoragePort {
 
     @Value("${storage.dir}")
-    private Path DIR;
+    private Path baseDirectory;
 
     @Override
-    public void createFolderForPhotograph(String email) {
+    public void createPhotographerFolder(String photographerEmail) {
+        Path photographerPath = resolveAndValidate(photographerEmail);
+
         try {
-            Files.createDirectories(DIR.resolve(email).normalize());
+            Files.createDirectories(photographerPath);
+            log.info("Created photographer folder: {}", photographerPath);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new StorageException("Failed to create photographer folder", e);
         }
     }
 
     @Override
-    public void createClientAlbumDir(String name, String photographFolder) {
-        Path photographPath = Path.of(DIR + "/" + photographFolder);
+    public void createClientAlbum(String albumName, String photographerEmail) {
+        Path albumPath = resolveAndValidate(photographerEmail, albumName);
+
         try {
-            Files.createDirectories(photographPath.resolve(name).normalize());
+            Files.createDirectories(albumPath);
+            log.info("Created client album: {}/{}", photographerEmail, albumName);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new StorageException("Failed to create client album", e);
         }
     }
 
     @Override
-    public void createAdminAlbumDir(String name) {
+    public void createAdminAlbum(String albumName) {
+        Path albumPath = resolveAndValidate(albumName);
+
         try {
-            Files.createDirectories(DIR.resolve(name).normalize());
+            Files.createDirectories(albumPath);
+            log.info("Created admin album: {}", albumName);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            log.error("Failed to create admin album: {}", albumName, e);
+            throw new StorageException("Failed to create admin album", e);
         }
     }
 
     @Override
-    public void storeByAdmin(String albumName, String fileName, InputStream fileData) {
+    public void saveFile(String path, String fileName, InputStream fileData) throws IOException {
+        Path targetDir = resolveAndValidate(path);
 
-        Path targetDir = DIR.resolve(albumName).normalize();
-        if (!targetDir.startsWith(DIR)) {
-            throw new SecurityException("Wrong path!");
+        if (!Files.isDirectory(targetDir)) {
+            throw new StorageException("Target directory does not exist: " + path);
         }
 
-        Path tmp = null;
+        Path tempFile = null;
         try {
-            tmp = Files.createTempFile(DIR, "upload-", ".tmp");
+            tempFile = Files.createTempFile(baseDirectory, "upload-", ".tmp");
+            Files.copy(fileData, tempFile, REPLACE_EXISTING);
 
-            Files.copy(fileData,tmp, REPLACE_EXISTING);
+            Path targetFile = uniquifyPath(targetDir.resolve(fileName));
 
-            Path target = uniquify(targetDir.resolve(fileName));
             try {
-                Files.move(tmp, target, ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ex) {
-                Files.move(tmp, target);
+                Files.move(tempFile, targetFile, ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tempFile, targetFile, REPLACE_EXISTING);
             }
+
+            log.info("Saved file: {}/{}", path, fileName);
+
         } catch (IOException e) {
-            if (tmp != null) {
-                try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
+            if (tempFile != null) {
+
+                Files.deleteIfExists(tempFile);
+
             }
-            throw new RuntimeException("Failed to save file", e);
+            throw new StorageException("Failed to save file: " + fileName, e);
         }
     }
 
     @Override
-    public void storeToAlbum(String photographEmail,String albumName, String fileName, InputStream fileData) {
-        Path targetDir = DIR.resolve(photographEmail + "/" + albumName).normalize();
-        if (!targetDir.startsWith(DIR)) {
-            throw new SecurityException("Wrong path!");
+    public InputStream getFile(String path, String fileName) {
+        Path filePath = resolveAndValidate(path, fileName);
+
+        if (!Files.isRegularFile(filePath)) {
+            throw new StorageException("File not found: " + path + "/" + fileName);
         }
-        Path tmp = null;
+
         try {
-            tmp = Files.createTempFile(DIR, "upload-", ".tmp");
-
-            Files.copy(fileData,tmp, REPLACE_EXISTING);
-
-            Path target = uniquify(targetDir.resolve(fileName));
-            try {
-                Files.move(tmp, target, ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ex) {
-                Files.move(tmp, target, REPLACE_EXISTING);
-            }
+            return Files.newInputStream(filePath);
         } catch (IOException e) {
-            if (tmp != null) {
-                try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
-            }
-            throw new RuntimeException("Failed to save file", e);
+            throw new StorageException("Failed to open file: " + fileName, e);
         }
+    }
+    @Override
+    public void deleteFile(String path, String fileName) {
+
     }
 
     @Override
-    public StreamingResponseBody downloadSelectedFilesAsZip(String albumName, List<String> fileNames, String photographEmail) {
-        Path albumDir = DIR.resolve(photographEmail).resolve(albumName).normalize();
+    public void renameFile(String path, String oldName, String newName) {
 
-        if (!albumDir.startsWith(DIR)) throw new SecurityException("Wrong path!");
-        if (!Files.isDirectory(albumDir)) throw new RuntimeException("Album not found: " + albumDir);
+    }
 
-        return outputStream -> {
-            try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
-                for (String fn : fileNames) {
-                    // prosta sanityzacja
-                    if (fn == null || fn.isBlank()) continue;
-                    Path filePath = albumDir.resolve(fn).normalize();
-                    if (!filePath.startsWith(albumDir)) {
-                        log.warn("Skipping suspicious path: {}", filePath);
-                        continue;
-                    }
-                    if (Files.isRegularFile(filePath)) {
-                        zos.putNextEntry(new ZipEntry(filePath.getFileName().toString()));
-                        Files.copy(filePath, zos);
-                        zos.closeEntry();
-                    } else {
-                        log.warn("Missing or not a file: {}", filePath);
-                    }
+    @Override
+    public byte[] createZipArchive(String albumPath, List<String> fileNames) {
+        Path albumDir = resolveAndValidate(albumPath);
+
+        if (!Files.isDirectory(albumDir)) {
+            throw new StorageException("Album directory not found: " + albumPath);
+        }
+
+        try (var baos = new java.io.ByteArrayOutputStream();
+             var zos = new ZipOutputStream(baos)) {
+
+            for (String fileName : fileNames) {
+                if (fileName == null || fileName.isBlank()) {
+                    continue;
                 }
-                zos.finish();
+
+                Path filePath = resolveAndValidate(albumPath, fileName);
+
+                if (!Files.isRegularFile(filePath)) {
+                    continue;
+                }
+
+                ZipEntry entry = new ZipEntry(filePath.getFileName().toString());
+                zos.putNextEntry(entry);
+                Files.copy(filePath, zos);
+                zos.closeEntry();
+
+                log.debug("Added to ZIP: {}", fileName);
             }
-        };
 
+            zos.finish();
+
+            return baos.toByteArray();
+
+        } catch (IOException e) {
+            throw new StorageException("Failed to create ZIP archive", e);
+        }
     }
 
-    @Override
-    public void delete(String albumId, String fileName) {
+    private Path resolveAndValidate(String... pathSegments) {
+        Path resolved = baseDirectory;
 
-    }
-
-    @Override
-    public void rename(String albumId, String oldName, String newName) {
-
-    }
-
-    private Path uniquify(Path target) {
-        if (!Files.exists(target)) return target;
-
-        String fileName = target.getFileName().toString();
-        String name = fileName;
-        String ext = "";
-
-        int dot = fileName.lastIndexOf('.');
-        if (dot > 0) {
-            name = fileName.substring(0, dot);
-            ext  = fileName.substring(dot);
+        for (String segment : pathSegments) {
+            if (segment == null || segment.isBlank()) {
+                throw new StorageException("Path segment cannot be empty");
+            }
+            resolved = resolved.resolve(segment);
         }
 
-        int i = 1;
+        Path normalized = resolved.normalize();
+
+        if (!normalized.startsWith(baseDirectory)) {
+            throw new SecurityException("Invalid path: path traversal detected");
+        }
+
+        return normalized;
+    }
+
+    private Path uniquifyPath(Path targetPath) {
+        if (!Files.exists(targetPath)) {
+            return targetPath;
+        }
+
+        String fileName = targetPath.getFileName().toString();
+        String baseName = fileName;
+        String extension = "";
+
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot > 0) {
+            baseName = fileName.substring(0, lastDot);
+            extension = fileName.substring(lastDot);
+        }
+
+        int counter = 1;
         Path candidate;
         do {
-            candidate = target.getParent().resolve(name + " (" + i++ + ")" + ext);
+            String uniqueName = baseName + " (" + counter++ + ")" + extension;
+            candidate = targetPath.getParent().resolve(uniqueName);
         } while (Files.exists(candidate));
+
+        log.debug("File exists, using unique name: {} -> {}", targetPath.getFileName(), candidate.getFileName());
 
         return candidate;
     }

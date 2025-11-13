@@ -3,40 +3,29 @@ package pl.photodrive.core.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pl.photodrive.core.application.command.album.*;
-import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.application.port.AuthenticatedUser;
 import pl.photodrive.core.application.port.CurrentUser;
-import pl.photodrive.core.domain.event.album.FilesDownloaded;
+import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
-import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.AlbumSaver;
 import pl.photodrive.core.domain.port.FileUniquenessChecker;
-import pl.photodrive.core.domain.port.StoragePort;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.port.repository.UserRepository;
-import pl.photodrive.core.domain.port.security.AccessChecker;
 import pl.photodrive.core.domain.vo.AlbumId;
-import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 
 
 @Slf4j
@@ -46,87 +35,194 @@ public class AlbumManagementService {
 
     private final AlbumRepository albumRepository;
     private final UserRepository userRepository;
-    private final CurrentUser currentUser;
     private final FileUniquenessChecker fileUniquenessChecker;
-    private final AlbumSaver albumSaver;
-    private final AccessChecker accessChecker;
-    private final ApplicationEventPublisher events;
-    private final StoragePort storagePort;
+    private final ApplicationEventPublisher eventPublisher;
+    private final FileStoragePort fileStoragePort;
 
     @Transactional
-    public Album createAlbumForAdmin(CreateAlbumCommand cmd) {
-        AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
-        if(!authenticatedUser.roles().contains(Role.ADMIN)) throw new SecurityException("ADMIN role required");
-        User admin = userRepository.findById(authenticatedUser.userId()).orElseThrow(() -> new UserException("User not found!"));
+    public Album createAdminAlbum(CreateAlbumCommand cmd, CurrentUser currentUser) {
+        checkUserHasRole(currentUser, Role.ADMIN);
 
-        Album album = Album.createForAdmin(cmd.name(),admin, albumRepository);
-        return albumRepository.save(album);
+        if (albumRepository.existsByName(cmd.albumName())) {
+            throw new AlbumException("Album with name '" + cmd.albumName() + "' already exists");
+        }
+
+        User admin = getUser(currentUser.requireAuthenticated().userId());
+
+        Album album = Album.createForAdmin(cmd.albumName(), admin);
+
+        Album savedAlbum = albumRepository.save(album);
+
+        publishEvents(savedAlbum);
+
+        return savedAlbum;
+
     }
 
     @Transactional
-    public Album createAlbumForClient(CreateAlbumForClientCommand cmd) {
-        AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
+    public Album createAlbumForClient(CreateAlbumCommand command, CurrentUser currentUser) {
+        checkUserHasRole(currentUser, Role.PHOTOGRAPHER);
 
-        UserId photographId =new UserId(authenticatedUser.userId().value());
-        User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
+        User photographer = getUser(currentUser.requireAuthenticated().userId());
+        User client = getUser(new UserId(command.clientId()));
 
-        Email clientEmail = new Email(cmd.clientEmail());
-        User client = userRepository.findByEmail(clientEmail).orElseThrow(() -> new UserException("Client not found!"));
+        String fullName = buildClientAlbumName(command.albumName(), client.getEmail().value());
+        if (albumRepository.existsByName(fullName)) {
+            throw new AlbumException("Album already exists");
+        }
 
-        Album album = Album.createForClient(cmd.name(), photograph, client, albumRepository);
+        Album album = Album.createForClient(command.albumName(), photographer, client);
 
-        return albumRepository.save(album);
+        Album savedAlbum = albumRepository.save(album);
+        publishEvents(savedAlbum);
+
+        return savedAlbum;
     }
 
     @Transactional
-    public void createAlbumForPhotographer(CreateAlbumForPhotographer cmd) {
-        UserId photographId = new UserId(cmd.photographId());
-        User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
+    public List<File> addFilesToAlbum(
+            AlbumId albumId,
+            List<MultipartFile> multipartFiles,
+            CurrentUser currentUser
+    ) {
+        Album album = getAlbum(albumId);
 
-        Album album = Album.createPhotographerRootAlbum(photograph);
+        User user = getUser(currentUser.requireAuthenticated().userId());
+
+        if (!album.canAccess(user.getId(), user.getRoles())) {
+            throw new SecurityException("User has no access to this album");
+        }
+
+        List<File> files = convertToFiles(multipartFiles);
+
+        List<FileAddedResult> results = album.addFiles(files);
+
         albumRepository.save(album);
+
+        publishFileAddedEvents(results, multipartFiles);
+
+        publishEvents(album);
+
+        return results.stream().map(FileAddedResult::file).toList();
     }
 
-    @Transactional
-    public List<File> addFilesToAdminAlbum(AddFileCommand cmd) {
-        Album album = albumRepository.findByName(cmd.albumName()).orElseThrow(() -> new AlbumException("Album not found!"));
+    @Transactional(readOnly = true)
+    public byte[] downloadFilesAsZip(DownloadFilesCommand command, CurrentUser currentUser) {
 
-        List<MultipartFile> multipartFiles = cmd.multipartFiles();
 
-        return album.addFilesToAdminAlbum(multipartFiles,cmd.albumName(),albumSaver,fileUniquenessChecker,currentUser,accessChecker);
+        Album album = getAlbum(command.albumId());
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        validateAccess(album, user);
+
+        List<FileName> fileNames = command.fileNames().stream()
+                .map(FileName::new)
+                .toList();
+
+        List<File> files = album.getFilesByNames(fileNames);
+        if (files.isEmpty()) {
+            throw new AlbumException("No files found for download");
+        }
+
+        String storagePath = resolveAlbumStoragePath(album);
+        byte[] zipData = fileStoragePort.createZipArchive(storagePath, command.fileNames());
+
+        log.info("Successfully created ZIP with {} files from album: {}",
+                files.size(), command.albumId().value());
+
+        return zipData;
     }
 
-    @Transactional
-    public List<File> addFilesToClient(AddFileToClientAlbumCommand cmd) {
-        AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
 
-        UserId photographId =new UserId(authenticatedUser.userId().value());
-        User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
-        Album album = albumRepository.findByName(cmd.albumName()).orElseThrow(() -> new AlbumException("Album not found!"));
-        List<MultipartFile> multipartFiles = cmd.multipartFiles();
+    private void publishFileAddedEvents(
+            List<FileAddedResult> results,
+            List<MultipartFile> multipartFiles
+    ) {
+        for (int i = 0; i < results.size(); i++) {
+            FileAddedResult result = results.get(i);
+            MultipartFile mpf = multipartFiles.get(i);
 
+            try {
+                Object enrichedEvent = enrichEventWithFileData(
+                        result.event(),
+                        mpf.getInputStream()
+                );
 
-        return album.addFilesToClientAlbum(multipartFiles, photograph.getEmail().value(), albumSaver,fileUniquenessChecker,currentUser,accessChecker);
+                eventPublisher.publishEvent(enrichedEvent);
+
+            } catch (IOException e) {
+                log.error("Failed to read file: {}", mpf.getOriginalFilename(), e);
+                throw new AlbumException("Failed to process file: " + mpf.getOriginalFilename());
+            }
+        }
     }
 
-    @Transactional
-    public StreamingResponseBody downloadFiles(DownloadFilesCommand cmd) {
-        AuthenticatedUser authenticatedUser = currentUser.get().orElseThrow(() -> new AuthenticatedUserException("User not found"));
+    private List<File> convertToFiles(List<MultipartFile> multipartFiles) {
+        List<File> files = new ArrayList<>();
 
-        UserId photographId =new UserId(authenticatedUser.userId().value());
-        User photograph = userRepository.findById(photographId).orElseThrow(() -> new UserException("Client not found!"));
+        for (MultipartFile mpf : multipartFiles) {
+            if (mpf.isEmpty()) {
+                log.warn("Skipping empty file: {}", mpf.getOriginalFilename());
+                continue;
+            }
 
-        Album album = albumRepository.findByName(cmd.albumName())
-                .orElseThrow(() -> new AlbumException("Album not found!"));
+            FileName fileName = new FileName(mpf.getOriginalFilename());
+            File file = File.create(
+                    fileName,
+                    mpf.getSize(),
+                    mpf.getContentType(),
+                    fileUniquenessChecker
+            );
 
+            files.add(file);
+        }
 
-        album.downloadSelectedFilesAsZip(album.getName(), cmd.fileNames(),accessChecker,currentUser);
+        return files;
+    }
 
-        StreamingResponseBody body =
-                storagePort.downloadSelectedFilesAsZip(album.getName(),cmd.fileNames(),photograph.getEmail().value());
+    private Object enrichEventWithFileData(Object event, java.io.InputStream inputStream) {
+        return event;
+    }
 
-        events.publishEvent(new FilesDownloaded(album.getName(), cmd.fileNames(), photograph.getEmail().value()));
-        return body;
+    private void publishEvents(Album album) {
+        album.pullDomainEvents().forEach(eventPublisher::publishEvent);
+    }
+
+    private void checkUserHasRole(CurrentUser currentUser, Role requiredRole) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        if (!user.getRoles().contains(requiredRole)) {
+            throw new SecurityException(
+                    "User does not have required role: " + requiredRole
+            );
+        }
+    }
+
+    private String resolveAlbumStoragePath(Album album) {
+        if (album.getPhotographId().equals(album.getClientId())) {
+            return album.getName();
+        }
+
+        User photographer = getUser(new UserId(album.getPhotographId()));
+        return photographer.getEmail().value() + "/" + album.getName();
+    }
+
+    private void validateAccess(Album album, User user) {
+        if (!album.canAccess(user.getId(), user.getRoles())) {
+            throw new SecurityException("User has no access to this album");
+        }
+    }
+
+    private User getUser(UserId userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new AlbumException("User not found: " + userId.value()));
+    }
+
+    private Album getAlbum(AlbumId albumId) {
+        return albumRepository.findByAlbumId(albumId)
+                .orElseThrow(() -> new AlbumException("Album not found: " + albumId.value()));
+    }
+
+    private String buildClientAlbumName(String baseName, String email) {
+        return baseName + "_" + email + "_" + java.time.LocalDate.now();
     }
 
 }

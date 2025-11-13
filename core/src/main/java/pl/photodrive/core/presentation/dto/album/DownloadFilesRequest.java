@@ -4,5 +4,5 @@ import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
 
-public record DownloadFilesRequest(@NotEmpty List<String> fileList) {
+public record DownloadFilesRequest(@NotEmpty List<String> fileList, String albumName) {
 }

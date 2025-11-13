@@ -1,20 +1,9 @@
 package pl.photodrive.core.domain.model;
 
-
-import org.springframework.web.multipart.MultipartFile;
-import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
-import pl.photodrive.core.domain.port.AlbumSaver;
-import pl.photodrive.core.domain.port.FileUniquenessChecker;
-import pl.photodrive.core.domain.port.repository.AlbumRepository;
-import pl.photodrive.core.domain.port.security.AccessChecker;
-import pl.photodrive.core.domain.vo.AlbumId;
-import pl.photodrive.core.domain.vo.FileId;
-import pl.photodrive.core.domain.vo.FileName;
+import pl.photodrive.core.domain.vo.*;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -30,15 +19,6 @@ public class Album {
 
     private transient final List<Object> domainEvents = new ArrayList<>();
 
-    public void registerEvent(Object event) {
-        this.domainEvents.add(event);
-    }
-
-    public List<Object> pullDomainEvents() {
-        List<Object> events = new ArrayList<>(this.domainEvents);
-        this.domainEvents.clear();
-        return Collections.unmodifiableList(events);
-    }
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
@@ -50,142 +30,176 @@ public class Album {
         this.ttd = ttd;
     }
 
-    public static Album createForAdmin(String albumName, User admin, AlbumRepository albumRepository) {
-        checkIfCreatorIsAnAdmin(admin);
-        checkIfAlbumExists(albumRepository, albumName);
+    public static Album createForAdmin(String albumName, User admin) {
+        if (!admin.getRoles().contains(Role.ADMIN)) {
+            throw new AlbumException("Only administrators can create admin albums");
+        }
+
         Album album = new Album(AlbumId.newId(), albumName, admin.getId().value(), admin.getId().value(), null);
         album.registerEvent(new AdminAlbumCreated(albumName, admin));
         return album;
     }
 
-    public static Album createForClient(String albumName, User photographer, User client, AlbumRepository albumRepository) {
-        checkIfCreatorIsAnPhotograph(photographer);
+    public static Album createForClient(String albumName, User photographer, User client) {
 
+        if (!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
+            throw new AlbumException("Only photographers can create client albums");
+        }
         if (!client.getRoles().contains(Role.CLIENT)) {
-            throw new AlbumException("Album must be assigned to a client.");
+            throw new AlbumException("Album must be assigned to a client");
         }
 
-        String name = createAlbumName(albumName, client.getEmail().value());
-        checkIfAlbumExists(albumRepository, name);
-        Album album = new Album(AlbumId.newId(), name, photographer.getId().value(), client.getId().value(), null);
-        album.registerEvent(new PhotographCreateAlbum(photographer, name));
+        String fullAlbumName = buildClientAlbumName(albumName, client.getEmail());
 
+        Album album = new Album(
+                AlbumId.newId(),
+                fullAlbumName,
+                photographer.getId().value(),
+                client.getId().value(),
+                null
+        );
+
+        album.registerEvent(new PhotographCreateAlbum(photographer, fullAlbumName));
         return album;
     }
 
     public static Album createPhotographerRootAlbum(User photographer) {
-        checkIfCreatorIsAnPhotograph(photographer);
+        if(!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
+            throw new AlbumException("Only photographers can have root albums");
+        }
 
-        String name = photographer.getEmail().value();
+        String rootAlbumName = photographer.getEmail().value();
 
-        Album album = new Album(AlbumId.newId(), name, photographer.getId().value(), null, null);
+        Album album = new Album(
+                AlbumId.newId(),
+                rootAlbumName,
+                photographer.getId().value(),
+                null,
+                null
+        );
+
         album.registerEvent(new PhotographerRootAlbumCreated(
-                album.getAlbumId(),
+                album.albumId,
                 photographer.getId(),
                 photographer.getEmail()
         ));
+
         return album;
 
     }
 
-    private static void checkIfCreatorIsAnAdmin(User admin) {
-        if (!admin.getRoles().contains(Role.ADMIN)) {
-            throw new AlbumException("Creator must be a admin.");
+    private static String buildClientAlbumName(String baseName, Email clientEmail) {
+        return String.format("%s_%s_%s", baseName, clientEmail.value(), LocalDate.now());
+    }
+
+    public List<FileAddedResult> addFiles(List<File> files) {
+        List<FileAddedResult> results = new ArrayList<>();
+
+        for (File file : files) {
+            FileAddedResult result = addFile(file);
+            results.add(result);
+        }
+
+        return results;
+    }
+
+    public FileAddedResult addFile(File file) {
+        if (photos.containsKey(file.getFileId())) {
+            throw new AlbumException("File already exists in album: " + file.getFileName().value());
+        }
+
+        photos.put(file.getFileId(), file);
+
+        if (isAdminAlbum()) {
+            return new FileAddedResult(file, new FileAddedToAlbum(file.getFileName(), this.name));
+        } else {
+            return new FileAddedResult(file, new FileAddedToClientAlbum(
+                    file.getFileName(),
+                    this.name,
+                    this.photographId.toString()
+            ));
         }
     }
-
-    private static void checkIfCreatorIsAnPhotograph(User photographer) {
-        if (!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
-            throw new AlbumException("Creator must be a photographer.");
-        }
-    }
-
-    private static void checkIfAlbumExists(AlbumRepository albumRepository, String name) {
-        if (albumRepository.existsByName(name)) throw new AlbumException("Folder already exists!");
-
-    }
-
-    private static String createAlbumName(String albumName, String email) {
-        return albumName + "_" + email + "_" + LocalDate.now();
-    }
-
-    public void addClientId(UUID clientId) {
-        this.clientId = clientId;
-    }
-
-    public void addFileToAdminAlbum(File file, String albumName, InputStream fileData) {
-        this.photos.putIfAbsent(file.getFileId(), file);
-        this.registerEvent(new FileAddedToAlbum(file.getFileName(), albumName, fileData));
-
-    }
-
-    public void addFileToClient(File file, String albumName, String photographEmail, InputStream fileData) {
-        this.photos.putIfAbsent(file.getFileId(), file);
-        this.registerEvent(new FileAddedToClientAlbum(file.getFileName(), albumName, photographEmail, fileData));
-
-    }
-
-    public List<File> addFilesToClientAlbum(List<MultipartFile> multipartFiles, String photographEmail, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker, CurrentUser currentUser, AccessChecker accessChecker) {
-        accessChecker.iSCurrentUserHasAccess(currentUser, Role.PHOTOGRAPHER);
-        accessChecker.isAlbumExists(photographEmail);
-
-        List<File> files = new ArrayList<>();
-        multipartFiles.forEach(multipartFile -> {
-            File file = File.create(new FileName(multipartFile.getOriginalFilename()), multipartFile.getSize(), multipartFile.getContentType(), fileUniquenessChecker);
-            files.add(file);
-            try {
-                this.addFileToClient(file, this.name, photographEmail, multipartFile.getInputStream());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            albumSaver.saveAlbum(this);
-        });
-
-        return files;
-    }
-
-    public List<File> addFilesToAdminAlbum(List<MultipartFile> multipartFiles, String albumName, AlbumSaver albumSaver, FileUniquenessChecker fileUniquenessChecker, CurrentUser currentUser, AccessChecker accessChecker) {
-        accessChecker.iSCurrentUserHasAccess(currentUser, Role.ADMIN);
-        accessChecker.isAlbumExists(albumName);
-
-
-        List<File> files = new ArrayList<>();
-
-        multipartFiles.forEach(multipartFile -> {
-            File file = File.create(new FileName(multipartFile.getOriginalFilename()), multipartFile.getSize(), multipartFile.getContentType(), fileUniquenessChecker);
-            files.add(file);
-            try {
-                this.addFileToAdminAlbum(file, albumName, multipartFile.getInputStream());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            albumSaver.saveAlbum(this);
-        });
-
-        return files;
-    }
-
-    public void downloadSelectedFilesAsZip(String albumName, List<String> fileNames, AccessChecker accessChecker, CurrentUser currentUser) {
-        accessChecker.isFilesExistsInAlbum(albumName,currentUser,fileNames);
-    }
-
-    public void assignsFiles(Map<FileId, File> newPhotos) {
-        if (newPhotos == null || newPhotos.isEmpty()) throw new AlbumException("There isn't a file to add");
-
-        for (Map.Entry<FileId, File> entry : newPhotos.entrySet()) {
-            this.photos.putIfAbsent(entry.getKey(), entry.getValue());
-        }
-    }
-
 
     public void removeFile(FileId fileId) {
-        this.photos.remove(fileId);
+        File removedFile = photos.remove(fileId);
+        if (removedFile == null) {
+            throw new AlbumException("File not found: " + fileId.value());
+        }
+
+        registerEvent(new FileRemovedFromAlbum(fileId, this.name));
     }
 
     public void renameFile(FileId fileId, FileName newFileName) {
         File file = photos.get(fileId);
-        if (file == null) throw new AlbumException("File not found!");
+        if (file == null) {
+            throw new AlbumException("File not found: " + fileId.value());
+        }
+
+        FileName oldFileName = file.getFileName();
         file.rename(newFileName);
+
+        registerEvent(new FileRenamedInAlbum(fileId, oldFileName, newFileName, this.name));
+    }
+
+    public void assignClient(UserId clientId) {
+        if (clientId == null) {
+            throw new AlbumException("Client ID cannot be null");
+        }
+
+        if (this.clientId != null && !this.clientId.equals(clientId)) {
+            throw new AlbumException("Album already has assigned client");
+        }
+
+        this.clientId = clientId.value();
+        registerEvent(new ClientAssignedToAlbum(this.albumId, clientId.value()));
+    }
+
+
+    public boolean canAccess(UserId userId, Set<Role> userRoles) {
+        if (userRoles.contains(Role.ADMIN)) {
+            return true;
+        }
+
+        if (userRoles.contains(Role.PHOTOGRAPHER) && photographId.equals(userId.value())) {
+            return true;
+        }
+
+        if (userRoles.contains(Role.CLIENT) && userId.value().equals(clientId)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean containsFile(FileId fileId) {
+        return photos.containsKey(fileId);
+    }
+    public Optional<File> getFile(FileId fileId) {
+        return Optional.ofNullable(photos.get(fileId));
+    }
+
+    public List<File> getFilesByNames(List<FileName> fileNames) {
+        Set<String> nameSet = new HashSet<>();
+        fileNames.forEach(fn -> nameSet.add(fn.value()));
+
+        return photos.values().stream()
+                .filter(file -> nameSet.contains(file.getFileName().value()))
+                .toList();
+    }
+
+    private boolean isAdminAlbum() {
+        return photographId.equals(clientId);
+    }
+
+    private void registerEvent(Object event) {
+        this.domainEvents.add(event);
+    }
+
+    public List<Object> pullDomainEvents() {
+        List<Object> events = new ArrayList<>(this.domainEvents);
+        this.domainEvents.clear();
+        return Collections.unmodifiableList(events);
     }
 
     public AlbumId getAlbumId() {

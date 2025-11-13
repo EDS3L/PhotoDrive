@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.FileStoragePort;
 import pl.photodrive.core.domain.event.album.AdminAlbumCreated;
+import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
 import pl.photodrive.core.domain.event.album.PhotographCreateAlbum;
 import pl.photodrive.core.domain.event.album.PhotographerRootAlbumCreated;
 
@@ -16,19 +18,6 @@ import pl.photodrive.core.domain.event.album.PhotographerRootAlbumCreated;
 @RequiredArgsConstructor
 public class AlbumStructureEventHandler {
     private final FileStoragePort fileStoragePort;
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handlePhotographerRootAlbumCreated(PhotographerRootAlbumCreated event) {
-        log.info("Handling PhotographerRootAlbumCreated event for: {}", event.photographerEmail().value());
-
-        try {
-            fileStoragePort.createPhotographerFolder(event.photographerEmail().value());
-            log.info("Successfully created photographer folder: {}", event.photographerEmail().value());
-        } catch (Exception e) {
-
-            throw new StorageOperationException("Failed to create photographer folder");
-        }
-    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAdminAlbumCreated(AdminAlbumCreated event) {
@@ -45,17 +34,22 @@ public class AlbumStructureEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePhotographCreateAlbum(PhotographCreateAlbum event) {
         log.info("Handling PhotographCreateAlbum event for album: {} by photographer: {}",
-                event.name(), event.photograph().getEmail().value());
+                event.name(),
+                event.photograph().getEmail().value());
 
         try {
-            fileStoragePort.createClientAlbum(
-                    event.name(),
-                    event.photograph().getEmail().value()
-            );
+            fileStoragePort.createClientAlbum(event.name(), event.photograph().getEmail().value());
             log.info("Successfully created client album folder: {}/{}",
-                    event.photograph().getEmail().value(), event.name());
+                    event.photograph().getEmail().value(),
+                    event.name());
         } catch (Exception e) {
             throw new StorageOperationException("Failed to create client album");
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFileAdded(FileAddedToAlbum event ) {
+        log.info("Handling FileAddedToAlbum event for album: {}", event.albumName());
+
     }
 }

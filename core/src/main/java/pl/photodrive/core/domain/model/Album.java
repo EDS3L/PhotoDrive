@@ -63,32 +63,7 @@ public class Album {
         return album;
     }
 
-    public static Album createPhotographerRootAlbum(User photographer) {
-        if(!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
-            throw new AlbumException("Only photographers can have root albums");
-        }
-
-        String rootAlbumName = photographer.getEmail().value();
-
-        Album album = new Album(
-                AlbumId.newId(),
-                rootAlbumName,
-                photographer.getId().value(),
-                null,
-                null
-        );
-
-        album.registerEvent(new PhotographerRootAlbumCreated(
-                album.albumId,
-                photographer.getId(),
-                photographer.getEmail()
-        ));
-
-        return album;
-
-    }
-
-    private static String buildClientAlbumName(String baseName, Email clientEmail) {
+    public static String buildClientAlbumName(String baseName, Email clientEmail) {
         return String.format("%s_%s_%s", baseName, clientEmail.value(), LocalDate.now());
     }
 
@@ -147,7 +122,7 @@ public class Album {
             throw new AlbumException("Client ID cannot be null");
         }
 
-        if (this.clientId != null && !this.clientId.equals(clientId)) {
+        if (this.clientId != null && !this.clientId.equals(clientId.value())) {
             throw new AlbumException("Album already has assigned client");
         }
 
@@ -162,10 +137,6 @@ public class Album {
         }
 
         if (userRoles.contains(Role.PHOTOGRAPHER) && photographId.equals(userId.value())) {
-            return true;
-        }
-
-        if (userRoles.contains(Role.CLIENT) && userId.value().equals(clientId)) {
             return true;
         }
 

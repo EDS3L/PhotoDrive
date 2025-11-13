@@ -38,9 +38,10 @@ public class AlbumManagementService {
     private final FileUniquenessChecker fileUniquenessChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final FileStoragePort fileStoragePort;
+    private final CurrentUser currentUser;
 
     @Transactional
-    public Album createAdminAlbum(CreateAlbumCommand cmd, CurrentUser currentUser) {
+    public Album createAdminAlbum(CreateAlbumCommand cmd) {
         checkUserHasRole(currentUser, Role.ADMIN);
 
         if (albumRepository.existsByName(cmd.albumName())) {
@@ -53,20 +54,20 @@ public class AlbumManagementService {
 
         Album savedAlbum = albumRepository.save(album);
 
-        publishEvents(savedAlbum);
+        publishEvents(album);
 
         return savedAlbum;
 
     }
 
     @Transactional
-    public Album createAlbumForClient(CreateAlbumCommand command, CurrentUser currentUser) {
+    public Album createAlbumForClient(CreateAlbumCommand command) {
         checkUserHasRole(currentUser, Role.PHOTOGRAPHER);
 
         User photographer = getUser(currentUser.requireAuthenticated().userId());
         User client = getUser(new UserId(command.clientId()));
 
-        String fullName = buildClientAlbumName(command.albumName(), client.getEmail().value());
+        String fullName = Album.buildClientAlbumName(command.albumName(), client.getEmail());
         if (albumRepository.existsByName(fullName)) {
             throw new AlbumException("Album already exists");
         }
@@ -74,17 +75,13 @@ public class AlbumManagementService {
         Album album = Album.createForClient(command.albumName(), photographer, client);
 
         Album savedAlbum = albumRepository.save(album);
-        publishEvents(savedAlbum);
+        publishEvents(album);
 
         return savedAlbum;
     }
 
     @Transactional
-    public List<File> addFilesToAlbum(
-            AlbumId albumId,
-            List<MultipartFile> multipartFiles,
-            CurrentUser currentUser
-    ) {
+    public List<File> addFilesToAlbum(AlbumId albumId, List<MultipartFile> multipartFiles) {
         Album album = getAlbum(albumId);
 
         User user = getUser(currentUser.requireAuthenticated().userId());
@@ -114,9 +111,7 @@ public class AlbumManagementService {
         User user = getUser(currentUser.requireAuthenticated().userId());
         validateAccess(album, user);
 
-        List<FileName> fileNames = command.fileNames().stream()
-                .map(FileName::new)
-                .toList();
+        List<FileName> fileNames = command.fileNames().stream().map(FileName::new).toList();
 
         List<File> files = album.getFilesByNames(fileNames);
         if (files.isEmpty()) {
@@ -126,26 +121,19 @@ public class AlbumManagementService {
         String storagePath = resolveAlbumStoragePath(album);
         byte[] zipData = fileStoragePort.createZipArchive(storagePath, command.fileNames());
 
-        log.info("Successfully created ZIP with {} files from album: {}",
-                files.size(), command.albumId().value());
+        log.info("Successfully created ZIP with {} files from album: {}", files.size(), command.albumId().value());
 
         return zipData;
     }
 
 
-    private void publishFileAddedEvents(
-            List<FileAddedResult> results,
-            List<MultipartFile> multipartFiles
-    ) {
+    private void publishFileAddedEvents(List<FileAddedResult> results, List<MultipartFile> multipartFiles) {
         for (int i = 0; i < results.size(); i++) {
             FileAddedResult result = results.get(i);
             MultipartFile mpf = multipartFiles.get(i);
 
             try {
-                Object enrichedEvent = enrichEventWithFileData(
-                        result.event(),
-                        mpf.getInputStream()
-                );
+                Object enrichedEvent = enrichEventWithFileData(result.event(), mpf.getInputStream());
 
                 eventPublisher.publishEvent(enrichedEvent);
 
@@ -166,12 +154,7 @@ public class AlbumManagementService {
             }
 
             FileName fileName = new FileName(mpf.getOriginalFilename());
-            File file = File.create(
-                    fileName,
-                    mpf.getSize(),
-                    mpf.getContentType(),
-                    fileUniquenessChecker
-            );
+            File file = File.create(fileName, mpf.getSize(), mpf.getContentType(), fileUniquenessChecker);
 
             files.add(file);
         }
@@ -190,9 +173,7 @@ public class AlbumManagementService {
     private void checkUserHasRole(CurrentUser currentUser, Role requiredRole) {
         User user = getUser(currentUser.requireAuthenticated().userId());
         if (!user.getRoles().contains(requiredRole)) {
-            throw new SecurityException(
-                    "User does not have required role: " + requiredRole
-            );
+            throw new SecurityException("User does not have required role: " + requiredRole);
         }
     }
 
@@ -212,17 +193,11 @@ public class AlbumManagementService {
     }
 
     private User getUser(UserId userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new AlbumException("User not found: " + userId.value()));
+        return userRepository.findById(userId).orElseThrow(() -> new AlbumException("User not found: " + userId.value()));
     }
 
     private Album getAlbum(AlbumId albumId) {
-        return albumRepository.findByAlbumId(albumId)
-                .orElseThrow(() -> new AlbumException("Album not found: " + albumId.value()));
-    }
-
-    private String buildClientAlbumName(String baseName, String email) {
-        return baseName + "_" + email + "_" + java.time.LocalDate.now();
+        return albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException("Album not found: " + albumId.value()));
     }
 
 }

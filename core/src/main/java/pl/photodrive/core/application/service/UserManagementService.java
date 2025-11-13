@@ -11,7 +11,6 @@ import pl.photodrive.core.application.command.user.AddUserCommand;
 import pl.photodrive.core.application.command.user.ChangePasswordCommand;
 import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
-import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.UserUniquenessChecker;

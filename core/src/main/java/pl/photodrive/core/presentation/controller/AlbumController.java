@@ -37,7 +37,7 @@ public class AlbumController {
     ) {
 
         Album album = albumService.createAdminAlbum(
-                new CreateAlbumCommand(request.name(),currentUserDetails.get().get().userId().value()),
+                new CreateAlbumCommand(request.name(),currentUserDetails.requireAuthenticated().userId().value()),
                 currentUserDetails
         );
 
@@ -52,7 +52,7 @@ public class AlbumController {
 
         CreateAlbumCommand command = new CreateAlbumCommand(
                 request.name(),
-                currentUserDetails.get().get().userId().value()
+                currentUserDetails.requireAuthenticated().userId().value()
         );
 
         Album album = albumService.createAlbumForClient(

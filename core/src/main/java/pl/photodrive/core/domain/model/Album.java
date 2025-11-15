@@ -1,7 +1,10 @@
 package pl.photodrive.core.domain.model;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.*;
 
 import java.time.Instant;
@@ -14,15 +17,16 @@ public class Album {
     private final String name;
     private final UUID photographId;
     private UUID clientId;
-    private final Map<FileId, File> photos = new LinkedHashMap<>();
+    private Map<FileId, File> photos = new LinkedHashMap<>();
     private final Instant ttd;
 
     private transient final List<Object> domainEvents = new ArrayList<>();
+    private static final Logger log = LoggerFactory.getLogger(Album.class);
 
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
-        if (photographId == null) throw new AlbumException("Album name cannot be null!");
+        if (photographId == null) throw new AlbumException("Photograph name cannot be null!");
         this.albumId = albumId;
         this.name = name;
         this.photographId = photographId;
@@ -83,12 +87,17 @@ public class Album {
             throw new AlbumException("File already exists in album: " + file.getFileName().value());
         }
 
+        FileName desired = file.getFileName();
+        FileName uniqueName = makeUniqueFileName(desired);
+
+        file.rename(uniqueName);
         photos.put(file.getFileId(), file);
 
         if (isAdminAlbum()) {
-            return new FileAddedResult(file, new FileAddedToAlbum(file.getFileName(), this.name));
+            return new FileAddedResult(file, new FileAddedToAlbum(file.getFileId(),file.getFileName(), this.name));
         } else {
             return new FileAddedResult(file, new FileAddedToClientAlbum(
+                    file.getFileId(),
                     file.getFileName(),
                     this.name,
                     this.photographId.toString()
@@ -131,6 +140,7 @@ public class Album {
     }
 
 
+
     public boolean canAccess(UserId userId, Set<Role> userRoles) {
         if (userRoles.contains(Role.ADMIN)) {
             return true;
@@ -141,6 +151,26 @@ public class Album {
         }
 
         return false;
+    }
+
+    public void assignPhotosToAlbum(Map<FileId, File> photos) {
+        this.photos = photos;
+    }
+
+
+    private FileName makeUniqueFileName(FileName desired) {
+        FileName result = FileNamingPolicy.makeUnique(
+                desired,
+                candidate -> {
+                    return photos.values().stream()
+                            .anyMatch(f -> f.getFileName().equals(candidate));
+                }
+        );
+
+        log.info("[Album: {}, id={}] makeUniqueFileName result for '{}': '{}'",
+                name, albumId.value(), desired.value(), result.value());
+
+        return result;
     }
 
     public boolean containsFile(FileId fileId) {

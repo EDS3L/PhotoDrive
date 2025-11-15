@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.FileStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
@@ -78,7 +79,7 @@ public class LocalStorageAdapter implements FileStoragePort {
             tempFile = Files.createTempFile(baseDirectory, "upload-", ".tmp");
             Files.copy(fileData, tempFile, REPLACE_EXISTING);
 
-            Path targetFile = uniquifyPath(targetDir.resolve(fileName));
+            Path targetFile = targetDir.resolve(fileName);
 
             try {
                 Files.move(tempFile, targetFile, ATOMIC_MOVE);
@@ -180,30 +181,4 @@ public class LocalStorageAdapter implements FileStoragePort {
         return normalized;
     }
 
-    private Path uniquifyPath(Path targetPath) {
-        if (!Files.exists(targetPath)) {
-            return targetPath;
-        }
-
-        String fileName = targetPath.getFileName().toString();
-        String baseName = fileName;
-        String extension = "";
-
-        int lastDot = fileName.lastIndexOf('.');
-        if (lastDot > 0) {
-            baseName = fileName.substring(0, lastDot);
-            extension = fileName.substring(lastDot);
-        }
-
-        int counter = 1;
-        Path candidate;
-        do {
-            String uniqueName = baseName + " (" + counter++ + ")" + extension;
-            candidate = targetPath.getParent().resolve(uniqueName);
-        } while (Files.exists(candidate));
-
-        log.debug("File exists, using unique name: {} -> {}", targetPath.getFileName(), candidate.getFileName());
-
-        return candidate;
-    }
 }

@@ -26,3 +26,5 @@ jwt:
 
 storage:
   dir: ${DIR}
+  temp:
+    path: ${TEMP}

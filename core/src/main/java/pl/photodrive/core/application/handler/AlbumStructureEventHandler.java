@@ -5,13 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.FileStoragePort;
 import pl.photodrive.core.domain.event.album.AdminAlbumCreated;
-import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
 import pl.photodrive.core.domain.event.album.PhotographCreateAlbum;
-import pl.photodrive.core.domain.event.album.PhotographerRootAlbumCreated;
 
 @Slf4j
 @Component
@@ -47,9 +44,4 @@ public class AlbumStructureEventHandler {
         }
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleFileAdded(FileAddedToAlbum event ) {
-        log.info("Handling FileAddedToAlbum event for album: {}", event.albumName());
-
-    }
 }

@@ -13,23 +13,26 @@ import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
 public class AlbumEntityMapper {
 
     public static Album toDomain(AlbumEntity entity) {
-        Album album = new Album(new AlbumId(entity.getAlbumId().getValue()),
+        Album album = new Album(
+                new AlbumId(entity.getAlbumId().getValue()),
                 entity.getName(),
                 entity.getPhotographId(),
                 entity.getClientId(),
-                entity.getTtd());
+                entity.getTtd()
+        );
 
         if (entity.getPhotos() != null && !entity.getPhotos().isEmpty()) {
             Map<FileId, File> domainFiles = new LinkedHashMap<>();
+
             entity.getPhotos().forEach((fileIdEmb, fileEntity) -> {
-                var domainFile = FileEntityMapper.toDomain(fileEntity);
+                File domainFile = FileEntityMapper.toDomain(fileEntity);
                 domainFiles.put(new FileId(fileIdEmb.getValue()), domainFile);
             });
-            album.assignClient(new UserId(entity.getClientId()));
+
+            album.assignPhotosToAlbum(domainFiles);
         }
 
         return album;

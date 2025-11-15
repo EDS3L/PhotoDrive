@@ -1,17 +1,22 @@
 package pl.photodrive.core.application.service;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.album.AddFileToAlbumCommand;
+import pl.photodrive.core.application.command.album.CreateAlbumCommand;
+import pl.photodrive.core.application.command.album.DownloadFilesCommand;
+import pl.photodrive.core.application.command.album.FileUpload;
+import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.application.port.FileStoragePort;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.model.Role;
@@ -19,13 +24,16 @@ import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.port.FileUniquenessChecker;
 import pl.photodrive.core.domain.port.repository.AlbumRepository;
 import pl.photodrive.core.domain.port.repository.UserRepository;
+import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.AlbumId;
+import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Slf4j
@@ -39,6 +47,8 @@ public class AlbumManagementService {
     private final ApplicationEventPublisher eventPublisher;
     private final FileStoragePort fileStoragePort;
     private final CurrentUser currentUser;
+    private final EntityManager entityManager;
+
 
     @Transactional
     public Album createAdminAlbum(CreateAlbumCommand cmd) {
@@ -81,8 +91,8 @@ public class AlbumManagementService {
     }
 
     @Transactional
-    public List<File> addFilesToAlbum(AlbumId albumId, List<MultipartFile> multipartFiles) {
-        Album album = getAlbum(albumId);
+    public List<FileId> addFilesToAlbum(AddFileToAlbumCommand command) {
+        Album album = getAlbum(command.albumId());
 
         User user = getUser(currentUser.requireAuthenticated().userId());
 
@@ -90,21 +100,42 @@ public class AlbumManagementService {
             throw new SecurityException("User has no access to this album");
         }
 
-        List<File> files = convertToFiles(multipartFiles);
+        List<File> files = new ArrayList<>();
+        Set<String> usedNames = new HashSet<>();
+
+        for (FileUpload upload : command.fileUploads()) {
+            FileName requestedName = upload.fileName();
+
+            FileName uniqueName = FileNamingPolicy.makeUnique(requestedName,
+                    candidate -> fileUniquenessChecker.isFileNameTaken(album.getAlbumId(),
+                            candidate) || usedNames.contains(candidate.value()));
+
+            usedNames.add(uniqueName.value());
+
+            File file = File.create(uniqueName, upload.sizeBytes(), upload.contentType());
+            files.add(file);
+        }
 
         List<FileAddedResult> results = album.addFiles(files);
 
         albumRepository.save(album);
+        publishDomainEvents(results);
 
-        publishFileAddedEvents(results, multipartFiles);
+        for (int i = 0; i < results.size(); i++) {
+            FileAddedResult result = results.get(i);
+            FileUpload upload = command.fileUploads().get(i);
 
-        publishEvents(album);
+            eventPublisher.publishEvent(new FileStorageRequested(album.getName(),
+                    result.file().getFileName(),
+                    upload.tempId()));
+        }
 
-        return results.stream().map(FileAddedResult::file).toList();
+        return results.stream().map(r -> r.file().getFileId()).toList();
     }
 
+
     @Transactional(readOnly = true)
-    public byte[] downloadFilesAsZip(DownloadFilesCommand command, CurrentUser currentUser) {
+    public byte[] downloadFilesAsZip(DownloadFilesCommand command) {
 
 
         Album album = getAlbum(command.albumId());
@@ -127,47 +158,12 @@ public class AlbumManagementService {
     }
 
 
-    private void publishFileAddedEvents(List<FileAddedResult> results, List<MultipartFile> multipartFiles) {
-        for (int i = 0; i < results.size(); i++) {
-            FileAddedResult result = results.get(i);
-            MultipartFile mpf = multipartFiles.get(i);
-
-            try {
-                Object enrichedEvent = enrichEventWithFileData(result.event(), mpf.getInputStream());
-
-                eventPublisher.publishEvent(enrichedEvent);
-
-            } catch (IOException e) {
-                log.error("Failed to read file: {}", mpf.getOriginalFilename(), e);
-                throw new AlbumException("Failed to process file: " + mpf.getOriginalFilename());
-            }
-        }
-    }
-
-    private List<File> convertToFiles(List<MultipartFile> multipartFiles) {
-        List<File> files = new ArrayList<>();
-
-        for (MultipartFile mpf : multipartFiles) {
-            if (mpf.isEmpty()) {
-                log.warn("Skipping empty file: {}", mpf.getOriginalFilename());
-                continue;
-            }
-
-            FileName fileName = new FileName(mpf.getOriginalFilename());
-            File file = File.create(fileName, mpf.getSize(), mpf.getContentType(), fileUniquenessChecker);
-
-            files.add(file);
-        }
-
-        return files;
-    }
-
-    private Object enrichEventWithFileData(Object event, java.io.InputStream inputStream) {
-        return event;
-    }
-
     private void publishEvents(Album album) {
         album.pullDomainEvents().forEach(eventPublisher::publishEvent);
+    }
+
+    private void publishDomainEvents(List<FileAddedResult> results) {
+        results.forEach(result -> eventPublisher.publishEvent(result.event()));
     }
 
     private void checkUserHasRole(CurrentUser currentUser, Role requiredRole) {
@@ -193,7 +189,7 @@ public class AlbumManagementService {
     }
 
     private User getUser(UserId userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new AlbumException("User not found: " + userId.value()));
+        return userRepository.findById(userId).orElseThrow(() -> new UserException("User not found: " + userId.value()));
     }
 
     private Album getAlbum(AlbumId albumId) {

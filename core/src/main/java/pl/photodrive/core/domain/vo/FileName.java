@@ -74,4 +74,20 @@ public record FileName(String value) {
             throw new FileException("Invalid or unsupported file format");
         }
     }
+
+    public String value() {
+        return value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FileName(String value1))) return false;
+        return java.util.Objects.equals(value, value1);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(value);
+    }
 }

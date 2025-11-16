@@ -9,7 +9,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.album.AddFileToAlbumCommand;
+import pl.photodrive.core.application.command.album.CreateAlbumCommand;
+import pl.photodrive.core.application.command.album.DownloadFilesCommand;
+import pl.photodrive.core.application.command.album.FileUpload;
 import pl.photodrive.core.application.port.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
@@ -17,7 +20,10 @@ import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
-import pl.photodrive.core.presentation.dto.album.*;
+import pl.photodrive.core.presentation.dto.album.AlbumResponse;
+import pl.photodrive.core.presentation.dto.album.CreateAlbumRequest;
+import pl.photodrive.core.presentation.dto.album.CreateClientAlbumRequest;
+import pl.photodrive.core.presentation.dto.album.DownloadFilesRequest;
 import pl.photodrive.core.presentation.dto.file.UploadResponse;
 
 import java.io.IOException;
@@ -34,7 +40,6 @@ public class AlbumController {
 
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
-
 
 
     @PostMapping("/admin")
@@ -55,79 +60,33 @@ public class AlbumController {
         return ResponseEntity.ok(AlbumResponse.fromDomain(album));
     }
 
-    @PostMapping(path = "/{albumId}/files/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UploadResponse> addFilesToAdminAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
-        log.info("[AlbumController] addFilesToClientAlbum: albumId={}, incoming files={}",
-                albumId,
-                files.stream().map(MultipartFile::getOriginalFilename).toList());
-
-        return getListResponseEntity(albumId, files);
-    }
-
-    @PostMapping(path = "/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadResponse> addFilesToClientAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
 
-        return getListResponseEntity(albumId, files);
-    }
-
-    private ResponseEntity<UploadResponse> getListResponseEntity(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
         validateFiles(files);
-
-        log.info("[AlbumController] Preparing upload to album {}. Files with details={}",
-                albumId,
-                files.stream()
-                        .map(f -> String.format("%s(size=%d, contentType=%s)",
-                                f.getOriginalFilename(), f.getSize(), f.getContentType()))
-                        .toList());
 
         List<FileUpload> fileUploads = new ArrayList<>();
 
-        for (MultipartFile mpf : files) {
-            try (InputStream is = mpf.getInputStream()) {
+        uploadFiles(files,fileUploads);
 
-                String tempId = temporaryStorageService.saveTemporary(is);
-
-                fileUploads.add(new FileUpload(
-                        new FileName(mpf.getOriginalFilename()),
-                        mpf.getSize(),
-                        mpf.getContentType(),
-                        tempId
-                ));
-            } catch (IOException e) {
-                log.error("Failed to save temporary file", e);
-                throw new AlbumException("Failed to process file: " + mpf.getOriginalFilename());
-            }
-
-        }
-
-        AddFileToAlbumCommand command = new AddFileToAlbumCommand(
-                new AlbumId(albumId),
-                fileUploads
-        );
+        AddFileToAlbumCommand command = new AddFileToAlbumCommand(new AlbumId(albumId), fileUploads);
 
         List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
 
-        return ResponseEntity.accepted()
-                .body(new UploadResponse(
-                        addedFileIds.stream()
-                                .map(id -> id.value().toString())
-                                .toList(),
-                        "Files are being processed"
-                ));
+        return ResponseEntity.accepted().body(new UploadResponse(addedFileIds.stream().map(id -> id.value().toString()).toList(),
+                "Files are being processed"));
     }
-
 
     @PostMapping("/{albumId}/download")
     public ResponseEntity<byte[]> downloadFilesAsZip(@PathVariable UUID albumId, @Valid @RequestBody DownloadFilesRequest request) {
 
-
-        DownloadFilesCommand command = new DownloadFilesCommand(request.albumName(),
+        DownloadFilesCommand command = new DownloadFilesCommand(
                 request.fileList(),
                 new AlbumId(albumId));
 
         byte[] zipData = albumService.downloadFilesAsZip(command);
 
-        String zipFileName = request.albumName() + ".zip";
+        String zipFileName = albumId + ".zip";
 
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).header(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + zipFileName + "\"").body(zipData);
@@ -144,6 +103,25 @@ public class AlbumController {
         if (totalSize > maxTotalSize) {
             throw new IllegalArgumentException("Total file size exceeds limit: " + maxTotalSize + " bytes");
         }
+    }
+
+    private void uploadFiles(List<MultipartFile> files,List<FileUpload> fileUploads) {
+        for (MultipartFile mpf : files) {
+            try (InputStream is = mpf.getInputStream()) {
+
+                String tempId = temporaryStorageService.saveTemporary(is);
+
+                fileUploads.add(new FileUpload(new FileName(mpf.getOriginalFilename()),
+                        mpf.getSize(),
+                        mpf.getContentType(),
+                        tempId));
+            } catch (IOException e) {
+                log.error("Failed to save temporary file", e);
+                throw new AlbumException("Failed to process file: " + mpf.getOriginalFilename());
+            }
+
+        }
+
     }
 
 }

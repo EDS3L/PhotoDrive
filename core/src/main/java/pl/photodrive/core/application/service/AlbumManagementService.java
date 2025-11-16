@@ -47,8 +47,6 @@ public class AlbumManagementService {
     private final ApplicationEventPublisher eventPublisher;
     private final FileStoragePort fileStoragePort;
     private final CurrentUser currentUser;
-    private final EntityManager entityManager;
-
 
     @Transactional
     public Album createAdminAlbum(CreateAlbumCommand cmd) {
@@ -103,32 +101,16 @@ public class AlbumManagementService {
         List<File> files = new ArrayList<>();
         Set<String> usedNames = new HashSet<>();
 
-        for (FileUpload upload : command.fileUploads()) {
-            FileName requestedName = upload.fileName();
-
-            FileName uniqueName = FileNamingPolicy.makeUnique(requestedName,
-                    candidate -> fileUniquenessChecker.isFileNameTaken(album.getAlbumId(),
-                            candidate) || usedNames.contains(candidate.value()));
-
-            usedNames.add(uniqueName.value());
-
-            File file = File.create(uniqueName, upload.sizeBytes(), upload.contentType());
-            files.add(file);
-        }
+        createFilesWithUniqueName(command,album,usedNames,files);
 
         List<FileAddedResult> results = album.addFiles(files);
 
+        publishUploadedEventsFiles(results,command,user,album);
+
         albumRepository.save(album);
+
         publishDomainEvents(results);
 
-        for (int i = 0; i < results.size(); i++) {
-            FileAddedResult result = results.get(i);
-            FileUpload upload = command.fileUploads().get(i);
-
-            eventPublisher.publishEvent(new FileStorageRequested(album.getName(),
-                    result.file().getFileName(),
-                    upload.tempId()));
-        }
 
         return results.stream().map(r -> r.file().getFileId()).toList();
     }
@@ -136,8 +118,6 @@ public class AlbumManagementService {
 
     @Transactional(readOnly = true)
     public byte[] downloadFilesAsZip(DownloadFilesCommand command) {
-
-
         Album album = getAlbum(command.albumId());
         User user = getUser(currentUser.requireAuthenticated().userId());
         validateAccess(album, user);
@@ -148,9 +128,12 @@ public class AlbumManagementService {
         if (files.isEmpty()) {
             throw new AlbumException("No files found for download");
         }
+        List<String> existingFileNames = files.stream()
+                .map(f -> f.getFileName().value())
+                .toList();
 
         String storagePath = resolveAlbumStoragePath(album);
-        byte[] zipData = fileStoragePort.createZipArchive(storagePath, command.fileNames());
+        byte[] zipData = fileStoragePort.createZipArchive(storagePath, existingFileNames);
 
         log.info("Successfully created ZIP with {} files from album: {}", files.size(), command.albumId().value());
 
@@ -194,6 +177,41 @@ public class AlbumManagementService {
 
     private Album getAlbum(AlbumId albumId) {
         return albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException("Album not found: " + albumId.value()));
+    }
+
+
+    private void createFilesWithUniqueName(AddFileToAlbumCommand command, Album album, Set<String> usedNames, List<File> files ) {
+        for (FileUpload upload : command.fileUploads()) {
+            FileName requestedName = upload.fileName();
+
+            FileName uniqueName = FileNamingPolicy.makeUnique(requestedName,
+                    candidate -> fileUniquenessChecker.isFileNameTaken(album.getAlbumId(),
+                            candidate) || usedNames.contains(candidate.value()));
+
+            usedNames.add(uniqueName.value());
+
+            File file = File.create(uniqueName, upload.sizeBytes(), upload.contentType());
+            files.add(file);
+        }
+    }
+
+    private void publishUploadedEventsFiles(List<FileAddedResult> results, AddFileToAlbumCommand command, User user, Album album) {
+        for (int i = 0; i < results.size(); i++) {
+            FileAddedResult result = results.get(i);
+            FileUpload upload = command.fileUploads().get(i);
+
+            if (user.getRoles().contains(Role.ADMIN)) {
+                eventPublisher.publishEvent(new FileStorageRequested(album.getName(),
+                        result.file().getFileName(),
+                        upload.tempId()));
+            } else if (user.getRoles().contains(Role.PHOTOGRAPHER)) {
+                log.info("[AlbumManagementService] photographer path");
+                String path = user.getEmail().value() + "/" + album.getName();
+                eventPublisher.publishEvent(new FileStorageRequested(path,
+                        result.file().getFileName(),
+                        upload.tempId()));
+            }
+        }
     }
 
 }

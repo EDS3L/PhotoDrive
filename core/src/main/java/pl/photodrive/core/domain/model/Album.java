@@ -1,7 +1,5 @@
 package pl.photodrive.core.domain.model;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.util.FileNamingPolicy;
@@ -21,7 +19,6 @@ public class Album {
     private final Instant ttd;
 
     private transient final List<Object> domainEvents = new ArrayList<>();
-    private static final Logger log = LoggerFactory.getLogger(Album.class);
 
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
@@ -126,21 +123,6 @@ public class Album {
         registerEvent(new FileRenamedInAlbum(fileId, oldFileName, newFileName, this.name));
     }
 
-    public void assignClient(UserId clientId) {
-        if (clientId == null) {
-            throw new AlbumException("Client ID cannot be null");
-        }
-
-        if (this.clientId != null && !this.clientId.equals(clientId.value())) {
-            throw new AlbumException("Album already has assigned client");
-        }
-
-        this.clientId = clientId.value();
-        registerEvent(new ClientAssignedToAlbum(this.albumId, clientId.value()));
-    }
-
-
-
     public boolean canAccess(UserId userId, Set<Role> userRoles) {
         if (userRoles.contains(Role.ADMIN)) {
             return true;
@@ -159,25 +141,12 @@ public class Album {
 
 
     private FileName makeUniqueFileName(FileName desired) {
-        FileName result = FileNamingPolicy.makeUnique(
+
+        return FileNamingPolicy.makeUnique(
                 desired,
-                candidate -> {
-                    return photos.values().stream()
-                            .anyMatch(f -> f.getFileName().equals(candidate));
-                }
+                candidate -> photos.values().stream()
+                        .anyMatch(f -> f.getFileName().equals(candidate))
         );
-
-        log.info("[Album: {}, id={}] makeUniqueFileName result for '{}': '{}'",
-                name, albumId.value(), desired.value(), result.value());
-
-        return result;
-    }
-
-    public boolean containsFile(FileId fileId) {
-        return photos.containsKey(fileId);
-    }
-    public Optional<File> getFile(FileId fileId) {
-        return Optional.ofNullable(photos.get(fileId));
     }
 
     public List<File> getFilesByNames(List<FileName> fileNames) {

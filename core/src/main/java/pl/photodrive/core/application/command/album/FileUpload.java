@@ -5,5 +5,4 @@ import pl.photodrive.core.domain.vo.FileName;
 
 @Slf4j
 public record FileUpload(FileName fileName, long sizeBytes, String contentType, String tempId) {
-
 }

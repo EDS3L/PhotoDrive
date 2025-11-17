@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.application.port.MailSenderPort;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.model.Role;
 
@@ -14,12 +15,21 @@ import pl.photodrive.core.domain.model.Role;
 @RequiredArgsConstructor
 public class UserEventHandler {
     private final FileStoragePort fileStoragePort;
+    private final MailSenderPort mailSenderPort;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePhotographCreated(UserCreated userCreated) {
         log.info("User created: {}", userCreated);
+        String safeEmail = mailSenderPort.escapeHtml(userCreated.email());
+        String safePassword = mailSenderPort.escapeHtml(userCreated.password());
 
-        if(userCreated.roles().contains(Role.PHOTOGRAPHER)) {
+        String accountCreatedTemplate = mailSenderPort.loadResourceAsString(
+                        "templates/email/account-created-credentials.html").replace("{{email}}", safeEmail)
+                .replace("{{password}}", safePassword);
+
+        mailSenderPort.send(userCreated.email(),"Twoje konto zostało założone!", accountCreatedTemplate);
+
+        if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
             log.info("Photographer created: {}", userCreated);
             fileStoragePort.createPhotographerFolder(userCreated.email());
         }

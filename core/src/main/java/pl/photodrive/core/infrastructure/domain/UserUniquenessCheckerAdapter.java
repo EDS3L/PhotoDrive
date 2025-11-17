@@ -2,8 +2,8 @@ package pl.photodrive.core.infrastructure.domain;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import pl.photodrive.core.domain.port.UserUniquenessChecker;
-import pl.photodrive.core.domain.port.repository.UserRepository;
+import pl.photodrive.core.application.port.UserUniquenessChecker;
+import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.vo.Email;
 
 @Component

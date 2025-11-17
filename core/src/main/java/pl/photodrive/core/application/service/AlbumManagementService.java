@@ -1,6 +1,5 @@
 package pl.photodrive.core.application.service;
 
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,9 +20,9 @@ import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.FileUniquenessChecker;
-import pl.photodrive.core.domain.port.repository.AlbumRepository;
-import pl.photodrive.core.domain.port.repository.UserRepository;
+import pl.photodrive.core.application.port.FileUniquenessChecker;
+import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;

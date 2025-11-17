@@ -1,4 +1,4 @@
-package pl.photodrive.core.domain.port;
+package pl.photodrive.core.application.port;
 
 import pl.photodrive.core.domain.vo.Email;
 

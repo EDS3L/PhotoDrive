@@ -2,7 +2,7 @@ package pl.photodrive.core.domain.model;
 
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.exception.UserException;
-import pl.photodrive.core.domain.port.PasswordHasher;
+import pl.photodrive.core.application.port.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
@@ -37,7 +37,7 @@ public class User {
 
         User user = new User(UserId.newId(), name, email, password, roles);
 
-        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles()));
+        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), user.getPassword().value()));
 
         return user;
     }

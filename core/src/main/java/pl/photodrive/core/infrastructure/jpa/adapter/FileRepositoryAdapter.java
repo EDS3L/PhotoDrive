@@ -2,7 +2,7 @@ package pl.photodrive.core.infrastructure.jpa.adapter;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import pl.photodrive.core.domain.port.repository.FileRepository;
+import pl.photodrive.core.application.port.repository.FileRepository;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.infrastructure.jpa.repository.FileJpaRepository;

@@ -13,9 +13,9 @@ import pl.photodrive.core.application.port.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.UserUniquenessChecker;
-import pl.photodrive.core.domain.port.repository.UserRepository;
-import pl.photodrive.core.domain.port.PasswordHasher;
+import pl.photodrive.core.application.port.UserUniquenessChecker;
+import pl.photodrive.core.application.port.repository.UserRepository;
+import pl.photodrive.core.application.port.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 

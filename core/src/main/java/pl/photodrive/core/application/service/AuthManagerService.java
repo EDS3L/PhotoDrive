@@ -8,8 +8,8 @@ import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.port.TokenEncoder;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.domain.port.repository.UserRepository;
-import pl.photodrive.core.domain.port.PasswordHasher;
+import pl.photodrive.core.application.port.repository.UserRepository;
+import pl.photodrive.core.application.port.PasswordHasher;
 
 import java.time.Clock;
 import java.time.Duration;

@@ -37,7 +37,7 @@ public class User {
 
         User user = new User(UserId.newId(), name, email, password, roles);
 
-        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), user.getPassword().value()));
+        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), password.value()));
 
         return user;
     }

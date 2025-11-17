@@ -39,7 +39,7 @@ public class MailSenderAdapter implements MailSenderPort {
                     StandardCharsets.UTF_8.name()
             );
 
-            helper.setFrom(new InternetAddress(username, "CeVeMe"));
+            helper.setFrom(new InternetAddress(username, "PhotoDrive"));
             helper.setTo(toEmail);
             helper.setSubject(subject);
 

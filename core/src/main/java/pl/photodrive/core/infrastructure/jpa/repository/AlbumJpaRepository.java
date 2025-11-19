@@ -14,5 +14,4 @@ public interface AlbumJpaRepository extends JpaRepository<AlbumEntity, AlbumIdEm
     List<AlbumEntity> findByClientId(UUID clientId);
     Optional<AlbumEntity> findByName(String name);
     boolean existsByName(String name);
-
 }

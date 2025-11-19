@@ -14,6 +14,7 @@ import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Repository
@@ -45,5 +46,10 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public Optional<User> findByEmail(Email email) {
         return jpa.findByEmail(new EmailEmbeddable(email.value())).map(UserEntityMapper::toDomain);
+    }
+
+    @Override
+    public Optional<User> findByUUID(UUID id) {
+        return jpa.findById(new UserIdEmbeddable(id)).map(UserEntityMapper::toDomain);
     }
 }

@@ -64,6 +64,26 @@ public class Album {
         return album;
     }
 
+    public static void removeFolder(Album albumDelete, User currentUser, String photographerEmail) {
+        if (albumDelete.getAlbumId().value() == null) {
+            throw new AlbumException("There's no album to delete");
+        }
+
+        if (!(currentUser.getRoles().contains(Role.PHOTOGRAPHER) || currentUser.getRoles().contains(Role.ADMIN))) {
+            throw new AlbumException("Only admin or photographer can delete albums");
+        }
+
+        boolean isOwner = albumDelete.getPhotographId().equals(currentUser.getId().value());
+        boolean isAdmin = currentUser.getRoles().contains(Role.ADMIN);
+
+        if (!(isOwner || isAdmin)) {
+            throw new AlbumException("Only admin or album owner can delete the album");
+        }
+
+        albumDelete.registerEvent(new PhotographRemoveAlbum(albumDelete.getName(), photographerEmail));
+    }
+
+
     public static String buildClientAlbumName(String baseName, Email clientEmail) {
         return String.format("%s_%s_%s", baseName, clientEmail.value(), LocalDate.now());
     }

@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -161,6 +162,34 @@ public class LocalStorageAdapter implements FileStoragePort {
             throw new StorageException("Failed to create ZIP archive", e);
         }
     }
+
+    @Override
+    public void deleteFolder(String albumName, String photographerEmail) {
+        Path folderPath = resolveAndValidate(photographerEmail, albumName);
+
+        if (!Files.exists(folderPath)) {
+            log.warn("Folder not found, cannot delete: {}", folderPath);
+            return;
+        }
+
+        try {
+            Files.walk(folderPath)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(p -> {
+                        try {
+                            Files.delete(p);
+                            log.debug("Deleted: {}", p);
+                        } catch (IOException e) {
+                            throw new StorageException("Failed to delete: " + p, e);
+                        }
+                    });
+
+            log.info("Successfully deleted folder: {}", folderPath);
+        } catch (IOException e) {
+            throw new StorageException("Failed to delete folder: " + folderPath, e);
+        }
+    }
+
 
     private Path resolveAndValidate(String... pathSegments) {
         Path resolved = baseDirectory;

@@ -9,6 +9,7 @@ import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.FileStoragePort;
 import pl.photodrive.core.domain.event.album.AdminAlbumCreated;
 import pl.photodrive.core.domain.event.album.PhotographCreateAlbum;
+import pl.photodrive.core.domain.event.album.PhotographRemoveAlbum;
 
 @Slf4j
 @Component
@@ -41,6 +42,18 @@ public class AlbumStructureEventHandler {
                     event.name());
         } catch (Exception e) {
             throw new StorageOperationException("Failed to create client album");
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handlePhotographDeleteAlbum(PhotographRemoveAlbum event) {
+        log.info("Handling PhotographRemove event for album: {} from photographer: {}", event.albumName(), event.photographerEmail());
+
+        try {
+            fileStoragePort.deleteFolder(event.albumName(), event.photographerEmail());
+            log.info("Successfully deleted folder");
+        } catch (Exception e) {
+            throw new StorageOperationException("Failed to remove folder");
         }
     }
 

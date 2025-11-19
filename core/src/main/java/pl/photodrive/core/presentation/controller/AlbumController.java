@@ -9,10 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import pl.photodrive.core.application.command.album.AddFileToAlbumCommand;
-import pl.photodrive.core.application.command.album.CreateAlbumCommand;
-import pl.photodrive.core.application.command.album.DownloadFilesCommand;
-import pl.photodrive.core.application.command.album.FileUpload;
+import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.port.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
@@ -40,6 +37,18 @@ public class AlbumController {
 
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
+
+
+    @DeleteMapping("/{albumId}/delete")
+    public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
+
+        RemoveAlbumPhotographCommand command =
+                new RemoveAlbumPhotographCommand(new AlbumId(albumId));
+
+        albumService.deleteAlbumByPhotographer(command);
+
+        return ResponseEntity.noContent().build();
+    }
 
 
     @PostMapping("/admin")
@@ -91,6 +100,7 @@ public class AlbumController {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).header(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + zipFileName + "\"").body(zipData);
     }
+
 
     private void validateFiles(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {

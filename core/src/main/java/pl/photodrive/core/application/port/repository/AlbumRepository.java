@@ -14,5 +14,6 @@ public interface AlbumRepository {
     Optional<Album> findByName(String name);
     List<Album> findByClientId(UUID clientId);
     boolean existsByName(String name);
+    Optional<Album> removeAlbum(AlbumId albumId);
 
 }

@@ -13,4 +13,5 @@ public interface FileStoragePort {
     void deleteFile(String path, String fileName);
     void renameFile(String path, String oldName, String newName);
     byte[] createZipArchive(String albumPath, List<String> fileNames);
+    void deleteFolder(String albumName, String photographerEmail);
 }

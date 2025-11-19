@@ -54,4 +54,16 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     public boolean existsByName(String name) {
         return jpa.existsByName(name);
     }
+
+    @Override
+    public Optional<Album> removeAlbum(AlbumId albumId) {
+        return jpa.findById(new AlbumIdEmbeddable(albumId.value()))
+                .map(entity -> {
+                    jpa.delete(entity);
+                    return AlbumEntityMapper.toDomain(entity);
+                });
+    }
+
+
+
 }

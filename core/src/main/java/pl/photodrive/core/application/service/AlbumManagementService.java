@@ -5,10 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pl.photodrive.core.application.command.album.AddFileToAlbumCommand;
-import pl.photodrive.core.application.command.album.CreateAlbumCommand;
-import pl.photodrive.core.application.command.album.DownloadFilesCommand;
-import pl.photodrive.core.application.command.album.FileUpload;
+import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.CurrentUser;
@@ -29,10 +26,7 @@ import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 @Slf4j
@@ -85,6 +79,22 @@ public class AlbumManagementService {
         publishEvents(album);
 
         return savedAlbum;
+    }
+
+    @Transactional
+    public void deleteAlbumByPhotographer(RemoveAlbumPhotographCommand command) {
+        Album album = getAlbum(command.albumId());
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        User photographer = userRepository.findByUUID(album.getPhotographId())
+                .orElseThrow(() -> new AlbumException("Photographer not found: " + album.getPhotographId()));
+
+
+        Album.removeFolder(album, user, photographer.getEmail().value());
+
+        Optional<Album> removed = albumRepository.removeAlbum(album.getAlbumId());
+        if (removed.isEmpty()) throw new AlbumException("There's no album to delete");
+
+        publishEvents(album);
     }
 
     @Transactional

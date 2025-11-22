@@ -5,11 +5,11 @@ import org.springframework.stereotype.Service;
 import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
-import pl.photodrive.core.application.port.TokenEncoder;
+import pl.photodrive.core.application.port.token.TokenEncoder;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.application.port.repository.UserRepository;
-import pl.photodrive.core.application.port.PasswordHasher;
+import pl.photodrive.core.application.port.password.PasswordHasher;
 
 import java.time.Clock;
 import java.time.Duration;

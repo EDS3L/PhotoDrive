@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.command.album.*;
-import pl.photodrive.core.application.port.TemporaryStoragePort;
+import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
@@ -42,10 +42,9 @@ public class AlbumController {
     @DeleteMapping("/{albumId}/delete")
     public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
 
-        RemoveAlbumPhotographCommand command =
-                new RemoveAlbumPhotographCommand(new AlbumId(albumId));
+        RemoveAlbumCommand command = new RemoveAlbumCommand(new AlbumId(albumId));
 
-        albumService.deleteAlbumByPhotographer(command);
+        albumService.deleteAlbum(command);
 
         return ResponseEntity.noContent().build();
     }
@@ -71,15 +70,13 @@ public class AlbumController {
 
     @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadResponse> addFilesToClientAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
-
         validateFiles(files);
 
         List<FileUpload> fileUploads = new ArrayList<>();
 
-        uploadFiles(files,fileUploads);
+        uploadFiles(files, fileUploads);
 
         AddFileToAlbumCommand command = new AddFileToAlbumCommand(new AlbumId(albumId), fileUploads);
-
         List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
 
         return ResponseEntity.accepted().body(new UploadResponse(addedFileIds.stream().map(id -> id.value().toString()).toList(),
@@ -89,9 +86,7 @@ public class AlbumController {
     @PostMapping("/{albumId}/download")
     public ResponseEntity<byte[]> downloadFilesAsZip(@PathVariable UUID albumId, @Valid @RequestBody DownloadFilesRequest request) {
 
-        DownloadFilesCommand command = new DownloadFilesCommand(
-                request.fileList(),
-                new AlbumId(albumId));
+        DownloadFilesCommand command = new DownloadFilesCommand(request.fileList(), new AlbumId(albumId));
 
         byte[] zipData = albumService.downloadFilesAsZip(command);
 
@@ -115,7 +110,7 @@ public class AlbumController {
         }
     }
 
-    private void uploadFiles(List<MultipartFile> files,List<FileUpload> fileUploads) {
+    private void uploadFiles(List<MultipartFile> files, List<FileUpload> fileUploads) {
         for (MultipartFile mpf : files) {
             try (InputStream is = mpf.getInputStream()) {
 

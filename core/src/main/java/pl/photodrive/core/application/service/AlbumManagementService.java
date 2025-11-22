@@ -8,8 +8,11 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.application.port.CurrentUser;
-import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.application.port.user.CurrentUser;
+import pl.photodrive.core.application.port.file.FileStoragePort;
+import pl.photodrive.core.application.port.file.FileUniquenessChecker;
+import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.exception.UserException;
@@ -17,16 +20,16 @@ import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.application.port.FileUniquenessChecker;
-import pl.photodrive.core.application.port.repository.AlbumRepository;
-import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 
 @Slf4j
@@ -82,17 +85,17 @@ public class AlbumManagementService {
     }
 
     @Transactional
-    public void deleteAlbumByPhotographer(RemoveAlbumPhotographCommand command) {
+    public void deleteAlbum(RemoveAlbumCommand command) {
         Album album = getAlbum(command.albumId());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        User photographer = userRepository.findByUUID(album.getPhotographId())
-                .orElseThrow(() -> new AlbumException("Photographer not found: " + album.getPhotographId()));
+        User photographer = getUser(new UserId(album.getPhotographId()));
 
+        album.removeFolder(album, user, photographer.getEmail().value());
 
-        Album.removeFolder(album, user, photographer.getEmail().value());
+        albumRepository.delete(album);
 
-        Optional<Album> removed = albumRepository.removeAlbum(album.getAlbumId());
-        if (removed.isEmpty()) throw new AlbumException("There's no album to delete");
+//        Optional<Album> removed = albumRepository.removeAlbum(album.getAlbumId());
+//        if (removed.isEmpty()) throw new AlbumException("There's no album to delete");
 
         publishEvents(album);
     }
@@ -110,11 +113,11 @@ public class AlbumManagementService {
         List<File> files = new ArrayList<>();
         Set<String> usedNames = new HashSet<>();
 
-        createFilesWithUniqueName(command,album,usedNames,files);
+        createFilesWithUniqueName(command, album, usedNames, files);
 
         List<FileAddedResult> results = album.addFiles(files);
 
-        publishUploadedEventsFiles(results,command,user,album);
+        publishUploadedEventsFiles(results, command, user, album);
 
         albumRepository.save(album);
 
@@ -133,13 +136,13 @@ public class AlbumManagementService {
 
         List<FileName> fileNames = command.fileNames().stream().map(FileName::new).toList();
 
+        album.downloadFiles(fileNames);
+
         List<File> files = album.getFilesByNames(fileNames);
         if (files.isEmpty()) {
             throw new AlbumException("No files found for download");
         }
-        List<String> existingFileNames = files.stream()
-                .map(f -> f.getFileName().value())
-                .toList();
+        List<String> existingFileNames = files.stream().map(f -> f.getFileName().value()).toList();
 
         String storagePath = resolveAlbumStoragePath(album);
         byte[] zipData = fileStoragePort.createZipArchive(storagePath, existingFileNames);
@@ -189,7 +192,7 @@ public class AlbumManagementService {
     }
 
 
-    private void createFilesWithUniqueName(AddFileToAlbumCommand command, Album album, Set<String> usedNames, List<File> files ) {
+    private void createFilesWithUniqueName(AddFileToAlbumCommand command, Album album, Set<String> usedNames, List<File> files) {
         for (FileUpload upload : command.fileUploads()) {
             FileName requestedName = upload.fileName();
 
@@ -210,16 +213,26 @@ public class AlbumManagementService {
             FileUpload upload = command.fileUploads().get(i);
 
             if (user.getRoles().contains(Role.ADMIN)) {
+                addFileToClientAlbumByAdmin(album, user, result, upload);
+
                 eventPublisher.publishEvent(new FileStorageRequested(album.getName(),
                         result.file().getFileName(),
                         upload.tempId()));
             } else if (user.getRoles().contains(Role.PHOTOGRAPHER)) {
-                log.info("[AlbumManagementService] photographer path");
                 String path = user.getEmail().value() + "/" + album.getName();
                 eventPublisher.publishEvent(new FileStorageRequested(path,
                         result.file().getFileName(),
                         upload.tempId()));
             }
+        }
+    }
+
+    private void addFileToClientAlbumByAdmin(Album album, User user, FileAddedResult result, FileUpload upload) {
+        if (!album.getPhotographId().equals(user.getId().value())) {
+            User photographUser = getUser(new UserId(album.getPhotographId()));
+            eventPublisher.publishEvent(new FileStorageRequested(photographUser.getEmail().value() + "/" + album.getName(),
+                    result.file().getFileName(),
+                    upload.tempId()));
         }
     }
 

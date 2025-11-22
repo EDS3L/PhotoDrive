@@ -64,6 +64,8 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
                 });
     }
 
-
-
+    @Override
+    public void delete(Album album) {
+        jpa.delete(AlbumEntityMapper.toEntity(album));
+    }
 }

@@ -1,4 +1,4 @@
-package pl.photodrive.core.application.port;
+package pl.photodrive.core.application.port.user;
 
 
 import java.util.Optional;

@@ -9,13 +9,13 @@ import pl.photodrive.core.application.command.user.ChangeEmailCommand;
 import pl.photodrive.core.application.command.user.RoleCommand;
 import pl.photodrive.core.application.command.user.AddUserCommand;
 import pl.photodrive.core.application.command.user.ChangePasswordCommand;
-import pl.photodrive.core.application.port.CurrentUser;
+import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.application.port.UserUniquenessChecker;
+import pl.photodrive.core.application.port.user.UserUniquenessChecker;
 import pl.photodrive.core.application.port.repository.UserRepository;
-import pl.photodrive.core.application.port.PasswordHasher;
+import pl.photodrive.core.application.port.password.PasswordHasher;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 
@@ -48,7 +48,7 @@ public class UserManagementService {
             throw new UserException("Only admins or photographer can add user");
         }
         Password hashedPassword = new Password(passwordHasher.encode(cmd.password()));
-        User user = User.create(cmd.name(), cmd.email(), hashedPassword, cmd.role());
+        User user = User.create(cmd.name(), cmd.email(), hashedPassword, cmd.role(), cmd.password());
 
         var savedUser = userRepository.save(user);
 

@@ -48,8 +48,4 @@ public class UserRepositoryAdapter implements UserRepository {
         return jpa.findByEmail(new EmailEmbeddable(email.value())).map(UserEntityMapper::toDomain);
     }
 
-    @Override
-    public Optional<User> findByUUID(UUID id) {
-        return jpa.findById(new UserIdEmbeddable(id)).map(UserEntityMapper::toDomain);
-    }
 }

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.exception.StorageOperationException;
-import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.domain.event.album.AdminAlbumCreated;
 import pl.photodrive.core.domain.event.album.PhotographCreateAlbum;
 import pl.photodrive.core.domain.event.album.PhotographRemoveAlbum;

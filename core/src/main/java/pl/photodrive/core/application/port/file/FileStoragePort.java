@@ -1,4 +1,4 @@
-package pl.photodrive.core.application.port;
+package pl.photodrive.core.application.port.file;
 
 import java.io.IOException;
 import java.io.InputStream;

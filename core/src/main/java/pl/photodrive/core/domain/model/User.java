@@ -1,14 +1,16 @@
 package pl.photodrive.core.domain.model;
 
+import lombok.extern.slf4j.Slf4j;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.exception.UserException;
-import pl.photodrive.core.application.port.PasswordHasher;
+import pl.photodrive.core.application.port.password.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 
 import java.util.*;
 
+@Slf4j
 public class User {
 
     private final UserId id;
@@ -31,13 +33,13 @@ public class User {
         this.roles = roles;
     }
 
-    public static User create(String name, Email email, Password password, Role role) {
+    public static User create(String name, Email email, Password password, Role role, String rawPassword) {
         Set<Role> roles = new HashSet<>();
         roles.add(role);
 
         User user = new User(UserId.newId(), name, email, password, roles);
 
-        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), password.value()));
+        user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), rawPassword));
 
         return user;
     }

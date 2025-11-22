@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.event.FileStorageRequested;
-import pl.photodrive.core.application.port.TemporaryStoragePort;
+import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.infrastructure.storage.LocalStorageAdapter;
 
 import java.io.IOException;

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.application.port.FileStoragePort;
+import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
 import java.io.IOException;

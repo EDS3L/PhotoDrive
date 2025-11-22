@@ -1,4 +1,4 @@
-package pl.photodrive.core.application.port;
+package pl.photodrive.core.application.port.file;
 
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileName;

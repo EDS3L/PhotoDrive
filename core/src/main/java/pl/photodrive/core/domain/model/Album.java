@@ -8,17 +8,17 @@ import pl.photodrive.core.domain.vo.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Album {
 
     private final AlbumId albumId;
     private final String name;
     private final UUID photographId;
+    private final Instant ttd;
+    private transient final List<Object> domainEvents = new ArrayList<>();
     private UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
-    private final Instant ttd;
-
-    private transient final List<Object> domainEvents = new ArrayList<>();
 
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
@@ -52,20 +52,18 @@ public class Album {
 
         String fullAlbumName = buildClientAlbumName(albumName, client.getEmail());
 
-        Album album = new Album(
-                AlbumId.newId(),
+        Album album = new Album(AlbumId.newId(),
                 fullAlbumName,
                 photographer.getId().value(),
                 client.getId().value(),
-                null
-        );
+                null);
 
         album.registerEvent(new PhotographCreateAlbum(photographer, fullAlbumName));
         return album;
     }
 
-    public static void removeFolder(Album albumDelete, User currentUser, String photographerEmail) {
-        if (albumDelete.getAlbumId().value() == null) {
+    public void removeFolder(Album albumDelete, User currentUser, String photographerEmail) {
+        if(albumDelete == null)  {
             throw new AlbumException("There's no album to delete");
         }
 
@@ -80,7 +78,21 @@ public class Album {
             throw new AlbumException("Only admin or album owner can delete the album");
         }
 
+        if(!this.photos.isEmpty()) {
+            photos.clear();
+        }
+
         albumDelete.registerEvent(new PhotographRemoveAlbum(albumDelete.getName(), photographerEmail));
+    }
+
+
+    public void removeFile(FileId fileId) {
+        File removedFile = photos.remove(fileId);
+        if (removedFile == null) {
+            throw new AlbumException("File not found: " + fileId.value());
+        }
+
+        registerEvent(new FileRemovedFromAlbum(fileId, this.name));
     }
 
 
@@ -111,24 +123,25 @@ public class Album {
         photos.put(file.getFileId(), file);
 
         if (isAdminAlbum()) {
-            return new FileAddedResult(file, new FileAddedToAlbum(file.getFileId(),file.getFileName(), this.name));
+            return new FileAddedResult(file, new FileAddedToAlbum(file.getFileId(), file.getFileName(), this.name));
         } else {
-            return new FileAddedResult(file, new FileAddedToClientAlbum(
-                    file.getFileId(),
-                    file.getFileName(),
-                    this.name,
-                    this.photographId.toString()
-            ));
+            return new FileAddedResult(file,
+                    new FileAddedToClientAlbum(file.getFileId(),
+                            file.getFileName(),
+                            this.name,
+                            this.photographId.toString()));
         }
     }
 
-    public void removeFile(FileId fileId) {
-        File removedFile = photos.remove(fileId);
-        if (removedFile == null) {
-            throw new AlbumException("File not found: " + fileId.value());
-        }
+    public void downloadFiles(List<FileName> fileNames) {
+        Set<String> availableFileNames = photos.values().stream().map(file -> file.getFileName().value()).collect(
+                Collectors.toSet());
 
-        registerEvent(new FileRemovedFromAlbum(fileId, this.name));
+        for(FileName requestedFileName : fileNames) {
+            if(!availableFileNames.contains(requestedFileName.value())) {
+                throw new AlbumException("File" + requestedFileName.value() + " does not exist in this album");
+            }
+        }
     }
 
     public void renameFile(FileId fileId, FileName newFileName) {
@@ -162,20 +175,15 @@ public class Album {
 
     private FileName makeUniqueFileName(FileName desired) {
 
-        return FileNamingPolicy.makeUnique(
-                desired,
-                candidate -> photos.values().stream()
-                        .anyMatch(f -> f.getFileName().equals(candidate))
-        );
+        return FileNamingPolicy.makeUnique(desired,
+                candidate -> photos.values().stream().anyMatch(f -> f.getFileName().equals(candidate)));
     }
 
     public List<File> getFilesByNames(List<FileName> fileNames) {
         Set<String> nameSet = new HashSet<>();
         fileNames.forEach(fn -> nameSet.add(fn.value()));
 
-        return photos.values().stream()
-                .filter(file -> nameSet.contains(file.getFileName().value()))
-                .toList();
+        return photos.values().stream().filter(file -> nameSet.contains(file.getFileName().value())).toList();
     }
 
     private boolean isAdminAlbum() {

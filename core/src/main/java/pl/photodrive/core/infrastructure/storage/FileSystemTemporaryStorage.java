@@ -3,7 +3,7 @@ package pl.photodrive.core.infrastructure.storage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import pl.photodrive.core.application.port.TemporaryStoragePort;
+import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
 import java.io.IOException;

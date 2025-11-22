@@ -9,7 +9,6 @@ import java.util.Optional;
 
 
 public interface UserJpaRepository extends JpaRepository<UserEntity, UserIdEmbeddable> {
-
     boolean existsByEmail(EmailEmbeddable email);
     Optional<UserEntity> findByEmail(EmailEmbeddable emailEmbeddable);
 }

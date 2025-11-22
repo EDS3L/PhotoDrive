@@ -5,8 +5,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import pl.photodrive.core.application.port.AuthenticatedUser;
-import pl.photodrive.core.application.port.CurrentUser;
+import pl.photodrive.core.application.port.user.AuthenticatedUser;
+import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.vo.UserId;
 

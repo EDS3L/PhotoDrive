@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import pl.photodrive.core.application.port.FileStoragePort;
-import pl.photodrive.core.application.port.MailSenderPort;
+import pl.photodrive.core.application.port.file.FileStoragePort;
+import pl.photodrive.core.application.port.mail.MailSenderPort;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.model.Role;
 
@@ -30,7 +30,6 @@ public class UserEventHandler {
         mailSenderPort.send(userCreated.email(),"Twoje konto zostało założone!", accountCreatedTemplate);
 
         if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
-            log.info("Photographer created: {}", userCreated);
             fileStoragePort.createPhotographerFolder(userCreated.email());
         }
     }

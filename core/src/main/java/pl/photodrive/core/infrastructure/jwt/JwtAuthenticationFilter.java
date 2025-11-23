@@ -23,15 +23,13 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final TokenDecoder tokenDecoder;
-
     private static final AntPathMatcher PM = new AntPathMatcher();
     private static final String COOKIE_NAME = "pd_at";
-    private static final String[] SKIP_PATHS = {"/auth/refresh", "/api/auth/refresh",
-            "/auth/login", "/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
+    private static final String[] SKIP_PATHS = {"/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
+    private final TokenDecoder tokenDecoder;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -50,23 +48,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("""
-        {
-          "status": 401,
-          "error": "UNAUTHORIZED",
-          "message": "Brak tokena uwierzytelniającego."
-        }
-        """);
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "Brak tokena uwierzytelniającego."
+                    }
+                    """);
             return;
         }
 
         try {
             var authentication = tokenDecoder.parse(token);
-            var authorities = authentication.roles().stream()
-                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r.name()))
-                    .toList();
+            var authorities = authentication.roles().stream().map(r -> new SimpleGrantedAuthority("ROLE_" + r.name())).toList();
 
-            var principal = new UsernamePasswordAuthenticationToken(
-                    authentication.userId().value().toString(),
+            var principal = new UsernamePasswordAuthenticationToken(authentication.userId().value().toString(),
                     null,
                     authorities);
 

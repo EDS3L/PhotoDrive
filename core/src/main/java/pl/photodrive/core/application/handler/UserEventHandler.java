@@ -7,7 +7,9 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.mail.MailSenderPort;
+import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
 import pl.photodrive.core.domain.event.user.UserCreated;
+import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.model.Role;
 
 @Slf4j
@@ -32,5 +34,28 @@ public class UserEventHandler {
         if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
             fileStoragePort.createPhotographerFolder(userCreated.email());
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleTokenCreated(PasswordTokenCreated passwordTokenCreated) {
+        log.info("User token created: {}", passwordTokenCreated);
+        String safeToken = mailSenderPort.escapeHtml(String.valueOf(passwordTokenCreated.token()));
+
+        String tokenCreatedTemplate = mailSenderPort.loadResourceAsString(
+                        "templates/email/password_reset_token.html").replace("{{token}}", safeToken);
+
+        mailSenderPort.send(passwordTokenCreated.email(),"Zrestartuj swoje hasło", tokenCreatedTemplate);
+
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleUserRemindPassword(UserRemindedPassword userRemindedPassword) {
+        log.info("User reminded password: {}", userRemindedPassword);
+
+        String remindPasswordTemplate = mailSenderPort.loadResourceAsString(
+                "templates/email/password_changed.html");
+
+        mailSenderPort.send(userRemindedPassword.email(),"Twoje hasło zostało zmienione", remindPasswordTemplate);
+
     }
 }

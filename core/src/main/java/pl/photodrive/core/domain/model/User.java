@@ -1,7 +1,9 @@
 package pl.photodrive.core.domain.model;
 
 import lombok.extern.slf4j.Slf4j;
+import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
 import pl.photodrive.core.domain.event.user.UserCreated;
+import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.application.port.password.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
@@ -18,10 +20,12 @@ public class User {
     private Email email;
     private Password password;
     private final Set<Role> roles;
+    private boolean changePasswordOnNextLogin;
+    private boolean isActive;
 
     private transient final List<Object> domainEvents = new ArrayList<>();
 
-    public User(UserId id, String name, Email email, Password password, Set<Role> roles) {
+    public User(UserId id, String name, Email email, Password password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive) {
         if (name == null) throw new UserException("Name cannot be null");
         if (email == null) throw new UserException("Email cannot be null");
         if (password == null) throw new UserException("Password cannot be null");
@@ -31,13 +35,15 @@ public class User {
         this.email = email;
         this.password = password;
         this.roles = roles;
+        this.changePasswordOnNextLogin = changePasswordOnNextLogin;
+        this.isActive = isActive;
     }
 
     public static User create(String name, Email email, Password password, Role role, String rawPassword) {
         Set<Role> roles = new HashSet<>();
         roles.add(role);
 
-        User user = new User(UserId.newId(), name, email, password, roles);
+        User user = new User(UserId.newId(), name, email, password, roles, true, true);
 
         user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), rawPassword));
 
@@ -68,12 +74,49 @@ public class User {
         this.password = new Password(passwordHasher.encode(password.value()));
     }
 
+    public void changePasswordWithToken(UUID token, String newPassword, PasswordHasher passwordHasher) {
+        if(token == null) throw new UserException("Token cannot be null");
+
+        if (passwordHasher.matches(newPassword, this.password.value())) {
+            throw new UserException("New password cannot be the same as the current password");
+        }
+
+        Password password = new Password(newPassword);
+        this.registerEvent(new UserRemindedPassword(this.getEmail().value()));
+
+        this.password = new Password(passwordHasher.encode(password.value()));
+    }
+
     public void changeEmail(String newEmail) {
         Email email = new Email(newEmail);
         if (this.email.equals(email)) {
             throw new UserException("New email cannot be the same as the current email");
         }
         this.email = email;
+    }
+
+    public void activeUser(boolean active) {
+        if(isActive) {
+            throw  new UserException("User is already active");
+        }
+        this.isActive = active;
+    }
+
+    public void detectiveUser(boolean active) {
+        if(!isActive) {
+            throw  new UserException("User is already detective");
+        }
+        this.isActive = active;
+    }
+
+    public void shouldChangePasswordOnNextLogin() {
+        if(changePasswordOnNextLogin) {
+            throw  new UserException("You must change the password!");
+        }
+    }
+
+    public void setChangePasswordOnNextLogin(boolean changePasswordOnNextLogin) {
+        this.changePasswordOnNextLogin = changePasswordOnNextLogin;
     }
 
     public void verifyPassword(String rawPassword, PasswordHasher passwordHasher) {
@@ -90,6 +133,14 @@ public class User {
         List<Object> events = new ArrayList<>(this.domainEvents);
         this.domainEvents.clear();
         return Collections.unmodifiableList(events);
+    }
+
+    public boolean isChangePasswordOnNextLogin() {
+        return changePasswordOnNextLogin;
+    }
+
+    public boolean isActive() {
+        return isActive;
     }
 
     public UserId getId() {

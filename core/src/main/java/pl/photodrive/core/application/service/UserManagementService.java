@@ -60,6 +60,7 @@ public class UserManagementService {
     public void changePassword(ChangePasswordCommand cmd) {
         User user = getUserForDB(cmd.userId());
         user.changePassword(cmd.currentPassword(),cmd.newPassword(), passwordHasher);
+        user.setChangePasswordOnNextLogin(false);
         userRepository.save(user);
     }
 

@@ -15,7 +15,9 @@ public class UserEntityMapper {
                 entity.getName(),
                 new Email(entity.getEmail().getValue()),
                 new Password(entity.getPassword().getValue()),
-                entity.getRoles());
+                entity.getRoles(),
+                entity.isChangePasswordOnNextLogin(),
+                entity.isActive());
     }
 
     public static UserEntity toEntity(User user) {
@@ -25,6 +27,8 @@ public class UserEntityMapper {
                 .email(new EmailEmbeddable(user.getEmail().value()))
                 .password(new PasswordEmbeddable(user.getPassword().value()))
                 .roles(user.getRoles())
+                .changePasswordOnNextLogin(user.isChangePasswordOnNextLogin())
+                .isActive(user.isActive())
                 .build();
     }
 }

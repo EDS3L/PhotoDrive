@@ -39,5 +39,7 @@ public class UserEntity {
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
     private Set<Role> roles;
+    boolean changePasswordOnNextLogin;
+    boolean isActive;
 
 }

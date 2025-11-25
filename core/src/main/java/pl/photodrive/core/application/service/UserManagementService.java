@@ -5,10 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pl.photodrive.core.application.command.user.ChangeEmailCommand;
-import pl.photodrive.core.application.command.user.RoleCommand;
-import pl.photodrive.core.application.command.user.AddUserCommand;
-import pl.photodrive.core.application.command.user.ChangePasswordCommand;
+import pl.photodrive.core.application.command.user.*;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
@@ -82,9 +79,30 @@ public class UserManagementService {
         return userRepository.save(user);
     }
 
+    public User activateUser(ActivateUserCommand cmd) {
+        User authorisedUser =  getUserForDB(currentUser.requireAuthenticated().userId());
+
+        User user = getUserForDB(cmd.userId());
+        user.activeUser(cmd.active(), authorisedUser);
+
+        return userRepository.save(user);
+    }
+
+    public User deactiveUser(ActivateUserCommand cmd) {
+        User authorisedUser =  getUserForDB(currentUser.requireAuthenticated().userId());
+
+        User user = getUserForDB(cmd.userId());
+        user.detectiveUser(cmd.active(), authorisedUser);
+
+        return userRepository.save(user);
+    }
+
+
+
     private User getUserForDB(UserId userid) {
         return userRepository.findById(userid).orElseThrow(() -> new UserException("User not found!"));
     }
+
 
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {

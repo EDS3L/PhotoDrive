@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import pl.photodrive.core.application.port.repository.PasswordTokenRepository;
 import pl.photodrive.core.domain.model.PasswordToken;
 import pl.photodrive.core.domain.vo.UserId;
+import pl.photodrive.core.infrastructure.jpa.entity.PasswordTokenEntity;
 import pl.photodrive.core.infrastructure.jpa.mapper.PasswordTokenEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.PasswordTokenJpaRepository;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
@@ -29,6 +30,7 @@ public class PasswordTokenRepositoryAdapter implements PasswordTokenRepository {
 
     @Override
     public Optional<PasswordToken> findByUserId(UserId userId) {
-        return Optional.of(PasswordTokenEntityMapper.toDomain(jpa.findByUserId(new UserIdEmbeddable(userId.value()))));
+        PasswordTokenEntity entity = jpa.findByUserId(new UserIdEmbeddable(userId.value()));
+        return Optional.ofNullable(entity).map(PasswordTokenEntityMapper::toDomain);
     }
 }

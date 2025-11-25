@@ -1,7 +1,6 @@
 package pl.photodrive.core.domain.model;
 
 import lombok.extern.slf4j.Slf4j;
-import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.exception.UserException;
@@ -95,14 +94,18 @@ public class User {
         this.email = email;
     }
 
-    public void activeUser(boolean active) {
+    public void activeUser(boolean active, User user) {
+        hasAccessToSetActive(user);
+
         if(isActive) {
             throw  new UserException("User is already active");
         }
         this.isActive = active;
     }
 
-    public void detectiveUser(boolean active) {
+    public void detectiveUser(boolean active,User user) {
+        hasAccessToSetActive(user);
+
         if(!isActive) {
             throw  new UserException("User is already detective");
         }
@@ -122,6 +125,12 @@ public class User {
     public void verifyPassword(String rawPassword, PasswordHasher passwordHasher) {
         if (!passwordHasher.matches(rawPassword, this.password.value())) {
             throw new UserException("Incorrect password");
+        }
+    }
+
+    private void hasAccessToSetActive(User user) {
+        if(!(user.getRoles().contains(Role.ADMIN) || user.getRoles().contains(Role.PHOTOGRAPHER))) {
+            throw new UserException("Access denied!");
         }
     }
 

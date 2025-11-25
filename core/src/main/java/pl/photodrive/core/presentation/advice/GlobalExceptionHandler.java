@@ -8,10 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.domain.exception.AlbumException;
-import pl.photodrive.core.domain.exception.EmailException;
-import pl.photodrive.core.domain.exception.FileException;
-import pl.photodrive.core.domain.exception.UserException;
+import pl.photodrive.core.domain.exception.*;
 import pl.photodrive.core.infrastructure.exception.ExpiredTokenException;
 import pl.photodrive.core.infrastructure.exception.InvalidTokenException;
 import pl.photodrive.core.presentation.dto.ApiException;
@@ -106,6 +103,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiException> invalidTokenException(InvalidTokenException ex, HttpServletRequest request) {
         ApiException error = new ApiException(
                 "INVALID_TOKEN_EXCEPTION",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+    }
+
+    @ExceptionHandler(PasswordTokenException.class)
+    public ResponseEntity<ApiException> PasswordTokenException(PasswordTokenException ex, HttpServletRequest request) {
+        ApiException error = new ApiException(
+                "PASSWORD_TOKEN_EXCEPTION",
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());

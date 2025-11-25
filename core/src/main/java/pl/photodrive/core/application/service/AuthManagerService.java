@@ -1,7 +1,10 @@
 package pl.photodrive.core.application.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.command.auth.RemindPasswordCommand;
 import pl.photodrive.core.application.dto.AccessToken;
@@ -20,6 +23,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthManagerService {
@@ -28,6 +32,8 @@ public class AuthManagerService {
     private final TokenEncoder tokenEncoder;
     private final Clock clock;
     private final PasswordTokenRepository passwordTokenRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     public AccessToken login(LoginCommand cmd) {
         User user = getUserByEmail(cmd.email());
@@ -45,20 +51,29 @@ public class AuthManagerService {
         return new AccessToken(jwt, ttl);
     }
 
+    @Transactional
     public void remindPassword(RemindPasswordCommand cmd) {
         User user = getUserByEmail(cmd.email());
 
         PasswordToken token = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new PasswordTokenException("Token not found!"));
 
-        if(token.getExpiration().isAfter(Instant.now())) throw new PasswordTokenException("Token is expired!");
+        if(token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException("Token is expired!");
         if(!token.getToken().equals(cmd.token())) throw new PasswordTokenException("Invalid token!");
 
         user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
+
+        publishEvents(user);
+
+        userRepository.save(user);
 
     }
 
     private User getUserByEmail(Email email) {
         return userRepository.findByEmail(email).orElseThrow(() -> new LoginFailedException("Invalid credentials!"));
+    }
+
+    private void publishEvents(User user) {
+        user.pullDomainEvents().forEach(eventPublisher::publishEvent);
     }
 
 }

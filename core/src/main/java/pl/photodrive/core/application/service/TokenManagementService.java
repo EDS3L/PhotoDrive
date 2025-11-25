@@ -33,13 +33,11 @@ public class TokenManagementService {
         User user = userRepository.findByEmail(new Email(email)).orElseThrow(() -> new UserException("User not found"));
 
         if(passwordTokenRepository.existsByUserId(user.getId())) {
-            log.info("Token with user id {} already exists", user.getId());
             PasswordToken passwordToken = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new UserException("User not found"));
             passwordToken.updateToken(UUID.randomUUID(), email);
             passwordTokenRepository.save(passwordToken);
             publishEvents(passwordToken);
         } else {
-            log.info("Token with user id {} does not exists", user.getId());
             PasswordToken passwordToken = PasswordToken.create(UUID.randomUUID(), EXPIRATION_TIME, Instant.now(), user);
             passwordTokenRepository.save(passwordToken);
             publishEvents(passwordToken);

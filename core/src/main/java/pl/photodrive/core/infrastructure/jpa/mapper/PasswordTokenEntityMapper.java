@@ -23,7 +23,7 @@ public class PasswordTokenEntityMapper {
                 .token(passwordToken.getToken())
                 .expiration(passwordToken.getExpiration())
                 .created(passwordToken.getCreated())
-                .userId(new UserIdEmbeddable(passwordToken.getId().value()))
+                .userId(new UserIdEmbeddable(passwordToken.getUserId().value()))
                 .build();
     }
 

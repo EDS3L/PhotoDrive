@@ -47,7 +47,7 @@ public class PasswordToken {
         if(this.token == token) {throw new PasswordTokenException("Token is the same");}
 
         this.registerEvent(new PasswordTokenCreated(email, token));
-
+        this.expiration = Instant.now().plusSeconds(900);
         this.token = token;
     }
 

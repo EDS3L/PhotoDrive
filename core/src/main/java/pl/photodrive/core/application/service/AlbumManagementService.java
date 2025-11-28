@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.user.CurrentUser;
@@ -15,6 +16,7 @@ import pl.photodrive.core.application.port.repository.AlbumRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
@@ -53,9 +55,7 @@ public class AlbumManagementService {
         }
 
         User admin = getUser(currentUser.requireAuthenticated().userId());
-
         Album album = Album.createForAdmin(cmd.albumName(), admin);
-
         Album savedAlbum = albumRepository.save(album);
 
         publishEvents(album);
@@ -150,6 +150,19 @@ public class AlbumManagementService {
         log.info("Successfully created ZIP with {} files from album: {}", files.size(), command.albumId().value());
 
         return zipData;
+    }
+
+    @Transactional
+    public void renameFile(RenameFileCommand cmd) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        Album album = albumRepository.findByAlbumId(cmd.albumId()).orElseThrow(() -> new AlbumException(
+                "Album with id '" + cmd.albumId() + "' does not exist"));
+
+        album.renameFile(cmd.fileId(), cmd.newFileName(), user);
+
+        albumRepository.save(album);
+
+        publishEvents(album);
     }
 
 

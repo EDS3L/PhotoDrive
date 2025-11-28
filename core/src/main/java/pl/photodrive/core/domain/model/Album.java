@@ -62,8 +62,12 @@ public class Album {
         return album;
     }
 
+    public static String buildClientAlbumName(String baseName, Email clientEmail) {
+        return String.format("%s_%s_%s", baseName, clientEmail.value(), LocalDate.now());
+    }
+
     public void removeFolder(Album albumDelete, User currentUser, String photographerEmail) {
-        if(albumDelete == null)  {
+        if (albumDelete == null) {
             throw new AlbumException("There's no album to delete");
         }
 
@@ -78,13 +82,12 @@ public class Album {
             throw new AlbumException("Only admin or album owner can delete the album");
         }
 
-        if(!this.photos.isEmpty()) {
+        if (!this.photos.isEmpty()) {
             photos.clear();
         }
 
         albumDelete.registerEvent(new PhotographRemoveAlbum(albumDelete.getName(), photographerEmail));
     }
-
 
     public void removeFile(FileId fileId) {
         File removedFile = photos.remove(fileId);
@@ -93,11 +96,6 @@ public class Album {
         }
 
         registerEvent(new FileRemovedFromAlbum(fileId, this.name));
-    }
-
-
-    public static String buildClientAlbumName(String baseName, Email clientEmail) {
-        return String.format("%s_%s_%s", baseName, clientEmail.value(), LocalDate.now());
     }
 
     public List<FileAddedResult> addFiles(List<File> files) {
@@ -137,23 +135,42 @@ public class Album {
         Set<String> availableFileNames = photos.values().stream().map(file -> file.getFileName().value()).collect(
                 Collectors.toSet());
 
-        for(FileName requestedFileName : fileNames) {
-            if(!availableFileNames.contains(requestedFileName.value())) {
+        for (FileName requestedFileName : fileNames) {
+            if (!availableFileNames.contains(requestedFileName.value())) {
                 throw new AlbumException("File" + requestedFileName.value() + " does not exist in this album");
             }
         }
     }
 
-    public void renameFile(FileId fileId, FileName newFileName) {
+    public void renameFile(FileId fileId, FileName newFileName, User user) {
         File file = photos.get(fileId);
         if (file == null) {
             throw new AlbumException("File not found: " + fileId.value());
         }
 
+        boolean fileExist = photos.values().stream().filter(f -> !f.getFileId().equals(fileId)).anyMatch(f -> f.getFileName().equals(
+                newFileName));
+
+        if (fileExist) {
+            throw new AlbumException("File with name '" + newFileName.value() + "' already exists in this album.");
+        }
+
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
+
+        if (!(isAdmin || isPhotograph)) {
+            throw new AlbumException("Only admin or album owner can rename the file");
+        }
+
         FileName oldFileName = file.getFileName();
         file.rename(newFileName);
 
-        registerEvent(new FileRenamedInAlbum(fileId, oldFileName, newFileName, this.name));
+        if (isAdmin) {
+            registerEvent(new FileRenamedInAlbum(this.name, oldFileName, newFileName));
+        } else if (isPhotograph) {
+            registerEvent(new FileRenamedInAlbum(user.getEmail().value() + "/" + this.name, oldFileName, newFileName));
+        }
+
     }
 
     public boolean canAccess(UserId userId, Set<Role> userRoles) {

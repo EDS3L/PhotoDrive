@@ -3,11 +3,25 @@ package pl.photodrive.core.infrastructure.jpa.adapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import pl.photodrive.core.application.port.repository.FileRepository;
+import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.model.Album;
+import pl.photodrive.core.domain.model.File;
+import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.AlbumId;
+import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
+import pl.photodrive.core.domain.vo.UserId;
+import pl.photodrive.core.infrastructure.jpa.entity.FileEntity;
+import pl.photodrive.core.infrastructure.jpa.mapper.AlbumEntityMapper;
+import pl.photodrive.core.infrastructure.jpa.mapper.FileEntityMapper;
+import pl.photodrive.core.infrastructure.jpa.mapper.UserEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.FileJpaRepository;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
+import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileNameEmbeddable;
+import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
+
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -17,6 +31,17 @@ public class FileRepositoryAdapter implements FileRepository {
 
     @Override
     public boolean existsByAlbumIdAndFileName(AlbumId albumId, FileName fileName) {
-        return jpa.existsByAlbumIdAndFileName(new AlbumIdEmbeddable(albumId.value()), new FileNameEmbeddable(fileName.value()));
+        return jpa.existsByAlbumIdAndFileName(new AlbumIdEmbeddable(albumId.value()),
+                new FileNameEmbeddable(fileName.value()));
+    }
+
+    @Override
+    public Optional<File> findById(FileId fileId) {
+        return jpa.findById(new FileIdEmbeddable(fileId.value())).map(FileEntityMapper::toDomain);
+    }
+
+    @Override
+    public File save(File file) {
+        return FileEntityMapper.toDomain(jpa.save(FileEntityMapper.toEntity(file)));
     }
 }

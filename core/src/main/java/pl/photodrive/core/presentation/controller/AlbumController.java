@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
@@ -17,10 +18,7 @@ import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
-import pl.photodrive.core.presentation.dto.album.AlbumResponse;
-import pl.photodrive.core.presentation.dto.album.CreateAlbumRequest;
-import pl.photodrive.core.presentation.dto.album.CreateClientAlbumRequest;
-import pl.photodrive.core.presentation.dto.album.DownloadFilesRequest;
+import pl.photodrive.core.presentation.dto.album.*;
 import pl.photodrive.core.presentation.dto.file.UploadResponse;
 
 import java.io.IOException;
@@ -85,7 +83,6 @@ public class AlbumController {
 
     @PostMapping("/{albumId}/download")
     public ResponseEntity<byte[]> downloadFilesAsZip(@PathVariable UUID albumId, @Valid @RequestBody DownloadFilesRequest request) {
-
         DownloadFilesCommand command = new DownloadFilesCommand(request.fileList(), new AlbumId(albumId));
 
         byte[] zipData = albumService.downloadFilesAsZip(command);
@@ -94,6 +91,20 @@ public class AlbumController {
 
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).header(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + zipFileName + "\"").body(zipData);
+    }
+
+    @PostMapping("/{albumIdUUID}/rename/{fileIdUUID}")
+    public ResponseEntity<Void> renameFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID, @RequestBody RenameFileRequest request) {
+        AlbumId albumId = new AlbumId(albumIdUUID);
+        FileId fileId =  new FileId(fileIdUUID);
+        FileName fileName =  new FileName(request.newFileName());
+
+        RenameFileCommand command = new RenameFileCommand(albumId, fileId, fileName);
+
+        albumService.renameFile(command);
+
+        return ResponseEntity.noContent().build();
+
     }
 
 

@@ -14,6 +14,7 @@ public class File {
     private final Instant uploadedAt;
     private FileName fileName;
 
+
     public File(FileId fileId, FileName fileName, long sizeBytes, String contentType, Instant uploadedAt) {
         if (sizeBytes <= 0) throw new FileException("Size cannot be null!");
         if (contentType == null) throw new FileException("Content type cannot be null!");
@@ -36,6 +37,7 @@ public class File {
         if (newFileName == null) throw new FileException("New file name cannot be null");
         this.fileName = newFileName;
     }
+
 
     public FileId getFileId() {
         return fileId;

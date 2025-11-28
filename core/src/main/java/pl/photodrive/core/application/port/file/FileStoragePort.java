@@ -11,7 +11,7 @@ public interface FileStoragePort {
     void saveFile(String path, String fileName, InputStream fileData) throws IOException;
     InputStream getFile(String path, String fileName);
     void deleteFile(String path, String fileName);
-    void renameFile(String path, String oldName, String newName);
+    void renameFile(String path,String oldName, String newName);
     byte[] createZipArchive(String albumPath, List<String> fileNames);
     void deleteFolder(String albumName, String photographerEmail);
 }

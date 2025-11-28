@@ -121,6 +121,19 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     @Override
     public void renameFile(String path, String oldName, String newName) {
+        Path filePath = resolveAndValidate(path + "/" + oldName);
+
+        if(!Files.isRegularFile(filePath)) {
+            throw new StorageException("File not found: " + path);
+        }
+
+        try {
+            Path targetPath = filePath.resolveSibling(newName);
+
+            Files.move(filePath,targetPath);
+        } catch (IOException e) {
+            throw new StorageException("Failed to rename file: " + path, e);
+        }
 
     }
 

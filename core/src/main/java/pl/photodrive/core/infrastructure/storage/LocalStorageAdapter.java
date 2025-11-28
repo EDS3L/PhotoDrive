@@ -116,7 +116,17 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
     @Override
     public void deleteFile(String path, String fileName) {
+        Path filePath = resolveAndValidate(path, fileName);
 
+        if (!Files.isRegularFile(filePath)) {
+            throw new StorageException("File not found: " + path + "/" + fileName);
+        }
+
+        try {
+            Files.delete(filePath);
+        }catch (IOException e) {
+            throw new StorageException("Failed to delete file: " + fileName, e);
+        }
     }
 
     @Override

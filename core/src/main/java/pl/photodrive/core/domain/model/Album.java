@@ -89,13 +89,27 @@ public class Album {
         albumDelete.registerEvent(new PhotographRemoveAlbum(albumDelete.getName(), photographerEmail));
     }
 
-    public void removeFile(FileId fileId) {
+    public void removeFile(FileId fileId, User user) {
+
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
+
+        if (!(isAdmin || isPhotograph)) {
+            throw new AlbumException("Only admin or album owner can rename the file");
+        }
+
         File removedFile = photos.remove(fileId);
         if (removedFile == null) {
             throw new AlbumException("File not found: " + fileId.value());
         }
 
-        registerEvent(new FileRemovedFromAlbum(fileId, this.name));
+        if (isAdmin) {
+            registerEvent(new FileRemovedFromAlbum(this.name, removedFile.getFileName().value()));
+        } else if (isPhotograph) {
+            registerEvent(new FileRemovedFromAlbum(user.getEmail().value() + "/" + this.name,
+                    removedFile.getFileName().value()));
+        }
+
     }
 
     public List<FileAddedResult> addFiles(List<File> files) {

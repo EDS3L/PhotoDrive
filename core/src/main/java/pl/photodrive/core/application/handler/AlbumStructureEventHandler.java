@@ -7,10 +7,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
-import pl.photodrive.core.domain.event.album.AdminAlbumCreated;
-import pl.photodrive.core.domain.event.album.FileRenamedInAlbum;
-import pl.photodrive.core.domain.event.album.PhotographCreateAlbum;
-import pl.photodrive.core.domain.event.album.PhotographRemoveAlbum;
+import pl.photodrive.core.domain.event.album.*;
 
 @Slf4j
 @Component
@@ -67,7 +64,17 @@ public class AlbumStructureEventHandler {
         try {
             fileStoragePort.renameFile(event.path(), event.oldFileName().value(),event.newFileName().value());
         } catch (Exception e) {
-            throw new StorageOperationException("Failed to remove folder");
+            throw new StorageOperationException("Failed to rename file");
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleRemoveFile(FileRemovedFromAlbum event) {
+        log.info("File removed");
+        try {
+            fileStoragePort.deleteFile(event.path(), event.fileName());
+        } catch (Exception e) {
+            throw new StorageOperationException("Failed to remove file");
         }
     }
 

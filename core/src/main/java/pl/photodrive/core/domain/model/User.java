@@ -1,6 +1,7 @@
 package pl.photodrive.core.domain.model;
 
 import lombok.extern.slf4j.Slf4j;
+import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.exception.UserException;
@@ -55,6 +56,7 @@ public class User {
     }
 
     public void removeRole(Role role) {
+        if(role.equals(Role.ADMIN)) throw new SecurityException("Cannot remove admin role");
         if (!this.roles.contains(role)) throw new UserException("This set role not contains " + role);
         if (this.roles.size() == 1) throw new UserException("You cannot remove all user role");
         this.roles.remove(role);

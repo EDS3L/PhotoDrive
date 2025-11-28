@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
@@ -162,6 +163,17 @@ public class AlbumManagementService {
 
         albumRepository.save(album);
 
+        publishEvents(album);
+    }
+
+    @Transactional
+    public void removeFile(RemoveFileCommand cmd) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        Album album = albumRepository.findByAlbumId(cmd.albumId()).orElseThrow(() -> new AlbumException(
+                "Album with id '" + cmd.albumId() + "' does not exist"));
+
+        album.removeFile(cmd.fileId(), user);
+        albumRepository.save(album);
         publishEvents(album);
     }
 

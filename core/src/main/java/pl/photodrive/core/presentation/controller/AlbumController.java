@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
@@ -93,7 +94,7 @@ public class AlbumController {
                 "attachment; filename=\"" + zipFileName + "\"").body(zipData);
     }
 
-    @PostMapping("/{albumIdUUID}/rename/{fileIdUUID}")
+    @PutMapping("/{albumIdUUID}/rename/{fileIdUUID}")
     public ResponseEntity<Void> renameFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID, @RequestBody RenameFileRequest request) {
         AlbumId albumId = new AlbumId(albumIdUUID);
         FileId fileId =  new FileId(fileIdUUID);
@@ -102,6 +103,19 @@ public class AlbumController {
         RenameFileCommand command = new RenameFileCommand(albumId, fileId, fileName);
 
         albumService.renameFile(command);
+
+        return ResponseEntity.noContent().build();
+
+    }
+
+    @PostMapping("/{albumIdUUID}/remove/{fileIdUUID}")
+    public ResponseEntity<Void> removeFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID) {
+        AlbumId albumId = new AlbumId(albumIdUUID);
+        FileId fileId =  new FileId(fileIdUUID);
+
+        RemoveFileCommand removeFileCommand = new RemoveFileCommand(fileId,albumId);
+
+        albumService.removeFile(removeFileCommand);
 
         return ResponseEntity.noContent().build();
 

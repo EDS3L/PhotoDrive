@@ -187,6 +187,24 @@ public class Album {
 
     }
 
+    public String getFilePath(User user, String photographEmail) {
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
+        boolean isClient = user.getRoles().contains(Role.CLIENT);
+
+
+        if (isAdmin && isOwner(user)) {
+            return this.name;
+        } else if (isPhotograph && isOwner(user)) {
+            return user.getEmail().value() + "/" + this.name;
+        } else if (isClient && isOwner(user)) {
+            return photographEmail + "/" + this.name;
+        } else {
+            throw new AlbumException("Access decided!");
+        }
+
+    }
+
     public boolean canAccess(UserId userId, Set<Role> userRoles) {
         if (userRoles.contains(Role.ADMIN)) {
             return true;
@@ -208,6 +226,30 @@ public class Album {
 
         return FileNamingPolicy.makeUnique(desired,
                 candidate -> photos.values().stream().anyMatch(f -> f.getFileName().equals(candidate)));
+    }
+
+    private boolean isOwner(User user) {
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
+        boolean isClient = user.getRoles().contains(Role.CLIENT);
+
+        if (isAdmin) {
+            if (photographId.equals(user.getId().value()) && clientId.equals(user.getId().value())) {
+                return true;
+            }
+        }
+
+        if (isPhotograph) {
+            if (photographId.equals(user.getId().value())) {
+                return true;
+            }
+        }
+
+        if (isClient) {
+            return clientId.equals(user.getId().value());
+        }
+
+        return false;
     }
 
     public List<File> getFilesByNames(List<FileName> fileNames) {

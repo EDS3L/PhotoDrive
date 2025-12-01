@@ -1,9 +1,12 @@
 package pl.photodrive.core.presentation.controller;
 
+import jakarta.servlet.ServletContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +27,9 @@ import pl.photodrive.core.presentation.dto.file.UploadResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,7 +42,9 @@ public class AlbumController {
 
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
+    private final ServletContext servletContext;
 
+    private final Path fileStorageLocation = Paths.get("/app/photodrive/").toAbsolutePath().normalize();
 
     @DeleteMapping("/{albumId}/delete")
     public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
@@ -120,6 +128,44 @@ public class AlbumController {
         return ResponseEntity.noContent().build();
 
     }
+
+    @GetMapping("{albumUUID}/photo/{fileName}")
+    public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName) {
+        AlbumId albumId = new AlbumId(albumUUID);
+        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumId);
+        try {
+            Path targetPath = this.fileStorageLocation.resolve(albumService.getFilePath(cmd)).resolve(fileName).normalize();
+
+            Resource resource = new UrlResource(targetPath.toUri());
+
+            if (resource.exists() && resource.isReadable()) {
+
+                String contentType = servletContext.getMimeType(resource.getFile().getAbsolutePath());
+
+                if (contentType == null) {
+                    if (fileName.toLowerCase().endsWith(".png")) {
+                        contentType = "image/png";
+                    } else if (fileName.toLowerCase().endsWith(".jpg") || fileName.toLowerCase().endsWith(".jpeg")) {
+                        contentType = "image/jpeg";
+                    } else {
+                        contentType = "application/octet-stream";
+                    }
+                }
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .body(resource);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+
+
+        } catch (IOException e) {
+            throw new AlbumException("Can't read file: " + e.getMessage());
+        }
+    }
+
 
 
     private void validateFiles(List<MultipartFile> files) {

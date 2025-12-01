@@ -17,7 +17,6 @@ import pl.photodrive.core.application.port.repository.AlbumRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
-import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
@@ -175,6 +174,19 @@ public class AlbumManagementService {
         album.removeFile(cmd.fileId(), user);
         albumRepository.save(album);
         publishEvents(album);
+    }
+
+    @Transactional(readOnly = true)
+    public String getFilePath(GetPhotoPathCommand cmd) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        Album album = getAlbum(cmd.albumId());
+
+        if(user.getRoles().contains(Role.CLIENT)) {
+            User photographer = getUser(new UserId(album.getPhotographId()));
+            return album.getFilePath(user, photographer.getEmail().value());
+        }
+
+        return album.getFilePath(user,null);
     }
 
 

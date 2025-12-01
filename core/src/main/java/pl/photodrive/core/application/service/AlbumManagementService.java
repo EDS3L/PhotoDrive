@@ -181,6 +181,22 @@ public class AlbumManagementService {
         publishEvents(album);
     }
 
+    @Transactional
+    public void setTTD(SetTTDCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        Album album = getAlbum(albumId);
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        UserId clientId = new UserId(album.getClientId());
+        User client = getUser(clientId);
+
+        album.setTTD(cmd.ttd(),user, client.getEmail().value());
+
+        albumRepository.save(album);
+
+        publishEvents(album);
+    }
+
+
     @Transactional(readOnly = true)
     public String getFilePath(GetPhotoPathCommand cmd) {
         AlbumId albumId = new AlbumId(cmd.albumId());

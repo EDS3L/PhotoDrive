@@ -15,7 +15,7 @@ public class Album {
     private final AlbumId albumId;
     private final String name;
     private final UUID photographId;
-    private final Instant ttd;
+    private Instant ttd;
     private transient final List<Object> domainEvents = new ArrayList<>();
     private UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
@@ -29,6 +29,30 @@ public class Album {
         this.photographId = photographId;
         this.clientId = clientId;
         this.ttd = ttd;
+    }
+
+    public void setTTD(Instant ttd, User user, String email) {
+        Instant now = Instant.now();
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
+
+        if(isAdmin) {
+            if(photographId.equals(user.getId().value()) && clientId.equals(user.getId().value())) {
+                throw new AlbumException("Cannot plant C4 for admin album");
+            }
+        }
+
+        if(ttd.isBefore(now)) {
+            throw new AlbumException("Cannot set TTD before now!");
+        }
+
+        if(isPhotograph) {
+            this.ttd = ttd;
+            this.registerEvent(new TtdSet(ttd, email));
+        } else {
+            throw new AlbumException("Access denied!");
+        }
+
     }
 
     public static Album createForAdmin(String albumName, User admin) {

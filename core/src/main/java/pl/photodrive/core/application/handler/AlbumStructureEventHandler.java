@@ -7,13 +7,18 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
+import pl.photodrive.core.application.port.mail.MailSenderPort;
 import pl.photodrive.core.domain.event.album.*;
+
+import java.time.Instant;
+import java.time.ZoneId;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AlbumStructureEventHandler {
     private final FileStoragePort fileStoragePort;
+    private final MailSenderPort mailSenderPort;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAdminAlbumCreated(AdminAlbumCreated event) {
@@ -76,6 +81,24 @@ public class AlbumStructureEventHandler {
         } catch (Exception e) {
             throw new StorageOperationException("Failed to remove file");
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleTtdSet(TtdSet event) {
+        log.info("Ttd set!");
+        Instant now = Instant.now();
+
+        String date = now.atZone(ZoneId.of("Europe/Warsaw")).toLocalDate().toString();
+        String time = now.atZone(ZoneId.of("Europe/Warsaw")).toLocalTime().toString();
+
+
+        String ttdSetTemplate = mailSenderPort.loadResourceAsString(
+                "templates/email/ttd-set.html").replace("{{date}}", date)
+                .replace("{{time}}", time);
+
+        mailSenderPort.send(event.email(), "Twoje zdjęcia mają ograniczony czas", ttdSetTemplate);
+
+
     }
 
 }

@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -156,6 +157,14 @@ public class AlbumController {
         } catch (IOException e) {
             throw new AlbumException("Can't read file: " + e.getMessage());
         }
+    }
+
+
+    @PatchMapping("{albumId}/setTtd")
+    public ResponseEntity<Void> setTtd(@PathVariable UUID albumId, @RequestParam Instant ttd) {
+        SetTTDCommand cmd = new SetTTDCommand(albumId, ttd);
+        albumService.setTTD(cmd);
+        return ResponseEntity.ok().build();
     }
 
 

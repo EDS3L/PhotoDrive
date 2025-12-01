@@ -26,7 +26,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
-        LoginCommand cmd = new LoginCommand(new Email(request.email()), request.password());
+        LoginCommand cmd = new LoginCommand(request.email(), request.password());
         var accessToken = authManagerService.login(cmd);
         var cookie = tokenCookieWriter.accessTokenCookie(accessToken.value(),accessToken.ttl());
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
@@ -40,8 +40,7 @@ public class AuthController {
 
     @PostMapping("/remindPassword")
     public ResponseEntity<Void> responseEntity(RemindPasswordRequest request) {
-        Email email = new Email(request.email());
-        RemindPasswordCommand remindPasswordCommand = new RemindPasswordCommand(email,request.token(),request.newPassword());
+        RemindPasswordCommand remindPasswordCommand = new RemindPasswordCommand(request.email(),request.token(),request.newPassword());
         authManagerService.remindPassword(remindPasswordCommand);
         return ResponseEntity.ok().build();
     }

@@ -34,9 +34,10 @@ public class AuthManagerService {
     private final PasswordTokenRepository passwordTokenRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-
+    @Transactional
     public AccessToken login(LoginCommand cmd) {
-        User user = getUserByEmail(cmd.email());
+        Email email = new Email(cmd.email());
+        User user = getUserByEmail(email);
 
         try {
             user.verifyPassword(cmd.rawPassword(), passwordHasher);
@@ -53,7 +54,8 @@ public class AuthManagerService {
 
     @Transactional
     public void remindPassword(RemindPasswordCommand cmd) {
-        User user = getUserByEmail(cmd.email());
+        Email email = new Email(cmd.email());
+        User user = getUserByEmail(email);
 
         PasswordToken token = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new PasswordTokenException("Token not found!"));
 

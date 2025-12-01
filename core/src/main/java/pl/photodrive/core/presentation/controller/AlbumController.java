@@ -49,7 +49,7 @@ public class AlbumController {
     @DeleteMapping("/{albumId}/delete")
     public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
 
-        RemoveAlbumCommand command = new RemoveAlbumCommand(new AlbumId(albumId));
+        RemoveAlbumCommand command = new RemoveAlbumCommand(albumId);
 
         albumService.deleteAlbum(command);
 
@@ -83,7 +83,7 @@ public class AlbumController {
 
         uploadFiles(files, fileUploads);
 
-        AddFileToAlbumCommand command = new AddFileToAlbumCommand(new AlbumId(albumId), fileUploads);
+        AddFileToAlbumCommand command = new AddFileToAlbumCommand(albumId, fileUploads);
         List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
 
         return ResponseEntity.accepted().body(new UploadResponse(addedFileIds.stream().map(id -> id.value().toString()).toList(),
@@ -92,7 +92,7 @@ public class AlbumController {
 
     @PostMapping("/{albumId}/download")
     public ResponseEntity<byte[]> downloadFilesAsZip(@PathVariable UUID albumId, @Valid @RequestBody DownloadFilesRequest request) {
-        DownloadFilesCommand command = new DownloadFilesCommand(request.fileList(), new AlbumId(albumId));
+        DownloadFilesCommand command = new DownloadFilesCommand(request.fileList(), albumId);
 
         byte[] zipData = albumService.downloadFilesAsZip(command);
 
@@ -104,11 +104,7 @@ public class AlbumController {
 
     @PutMapping("/{albumIdUUID}/rename/{fileIdUUID}")
     public ResponseEntity<Void> renameFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID, @RequestBody RenameFileRequest request) {
-        AlbumId albumId = new AlbumId(albumIdUUID);
-        FileId fileId =  new FileId(fileIdUUID);
-        FileName fileName =  new FileName(request.newFileName());
-
-        RenameFileCommand command = new RenameFileCommand(albumId, fileId, fileName);
+        RenameFileCommand command = new RenameFileCommand(albumIdUUID, fileIdUUID, request.newFileName());
 
         albumService.renameFile(command);
 
@@ -118,10 +114,7 @@ public class AlbumController {
 
     @PostMapping("/{albumIdUUID}/remove/{fileIdUUID}")
     public ResponseEntity<Void> removeFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID) {
-        AlbumId albumId = new AlbumId(albumIdUUID);
-        FileId fileId =  new FileId(fileIdUUID);
-
-        RemoveFileCommand removeFileCommand = new RemoveFileCommand(fileId,albumId);
+        RemoveFileCommand removeFileCommand = new RemoveFileCommand(fileIdUUID,albumIdUUID);
 
         albumService.removeFile(removeFileCommand);
 
@@ -131,8 +124,7 @@ public class AlbumController {
 
     @GetMapping("{albumUUID}/photo/{fileName}")
     public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName) {
-        AlbumId albumId = new AlbumId(albumUUID);
-        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumId);
+        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID);
         try {
             Path targetPath = this.fileStorageLocation.resolve(albumService.getFilePath(cmd)).resolve(fileName).normalize();
 

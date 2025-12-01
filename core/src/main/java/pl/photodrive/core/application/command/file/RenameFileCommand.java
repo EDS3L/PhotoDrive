@@ -4,5 +4,7 @@ import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 
-public record RenameFileCommand(AlbumId albumId, FileId fileId, FileName newFileName) {
+import java.util.UUID;
+
+public record RenameFileCommand(UUID albumId, UUID fileId, String newFileName) {
 }

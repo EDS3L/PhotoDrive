@@ -5,5 +5,5 @@ import pl.photodrive.core.domain.vo.UserId;
 
 import java.util.UUID;
 
-public record ChangeEmailCommand(UserId userId, String newEmail) {
+public record ChangeEmailCommand(UUID userId, String newEmail) {
 }

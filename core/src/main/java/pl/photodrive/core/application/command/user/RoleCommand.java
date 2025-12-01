@@ -5,5 +5,5 @@ import pl.photodrive.core.domain.vo.UserId;
 
 import java.util.UUID;
 
-public record RoleCommand(UserId userId, Role role) {
+public record RoleCommand(UUID userId, Role role) {
 }

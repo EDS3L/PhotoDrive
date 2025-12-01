@@ -9,6 +9,7 @@ import pl.photodrive.core.infrastructure.jpa.vo.user.EmailEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.user.PasswordEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -41,5 +42,19 @@ public class UserEntity {
     private Set<Role> roles;
     boolean changePasswordOnNextLogin;
     boolean isActive;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "assigned_users",
+            joinColumns = @JoinColumn(
+                    name = "photographer_user_id",
+                    referencedColumnName = "userId"
+            )
+    )
+    @AttributeOverrides({
+            @AttributeOverride(name = "id", column = @Column(name = "assigned_users")),
+            @AttributeOverride(name = "version", column = @Column(name = "assigned_users_version"))
+    })
+    private List<UserIdEmbeddable> assignedUsers;
 
 }

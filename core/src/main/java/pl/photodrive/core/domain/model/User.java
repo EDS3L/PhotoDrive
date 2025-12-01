@@ -22,10 +22,11 @@ public class User {
     private final Set<Role> roles;
     private boolean changePasswordOnNextLogin;
     private boolean isActive;
+    private List<UserId> assignedUsers = new ArrayList<>();
 
     private transient final List<Object> domainEvents = new ArrayList<>();
 
-    public User(UserId id, String name, Email email, Password password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive) {
+    public User(UserId id, String name, Email email, Password password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive, List<UserId> assignedUsers) {
         if (name == null) throw new UserException("Name cannot be null");
         if (email == null) throw new UserException("Email cannot be null");
         if (password == null) throw new UserException("Password cannot be null");
@@ -37,13 +38,14 @@ public class User {
         this.roles = roles;
         this.changePasswordOnNextLogin = changePasswordOnNextLogin;
         this.isActive = isActive;
+        this.assignedUsers = assignedUsers;
     }
 
     public static User create(String name, Email email, Password password, Role role, String rawPassword) {
         Set<Role> roles = new HashSet<>();
         roles.add(role);
 
-        User user = new User(UserId.newId(), name, email, password, roles, true, true);
+        User user = new User(UserId.newId(), name, email, password, roles, true, true, null);
 
         user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), rawPassword));
 
@@ -105,6 +107,31 @@ public class User {
         this.isActive = active;
     }
 
+    public void assignUsers(List<UserId> assignedUsers) {
+        if(!this.roles.contains(Role.PHOTOGRAPHER)) throw  new UserException("Users can only assigned to Photograph");
+        this.assignedUsers = assignedUsers;
+    }
+
+    public void disconnectUsers(List<UserId> disconnectedUsers) {
+        if (disconnectedUsers == null || disconnectedUsers.isEmpty()) {
+            return;
+        }
+        if (this.assignedUsers == null) {
+            throw new UserException("Assigned users list is null!");
+        }
+
+        List<UserId> usersToVerify = new ArrayList<>(disconnectedUsers);
+
+        usersToVerify.retainAll(this.assignedUsers);
+
+        if (usersToVerify.size() != disconnectedUsers.size()) {
+            throw new UserException("Some of the users listed are not assigned to a photographer!");
+        }
+
+        this.assignedUsers.removeAll(disconnectedUsers);
+
+    }
+
     public void detectiveUser(boolean active,User user) {
         hasAccessToSetActive(user);
 
@@ -118,10 +145,6 @@ public class User {
         if(changePasswordOnNextLogin) {
             throw  new UserException("You must change the password!");
         }
-    }
-
-    public void setChangePasswordOnNextLogin(boolean changePasswordOnNextLogin) {
-        this.changePasswordOnNextLogin = changePasswordOnNextLogin;
     }
 
     public void verifyPassword(String rawPassword, PasswordHasher passwordHasher) {
@@ -144,6 +167,14 @@ public class User {
         List<Object> events = new ArrayList<>(this.domainEvents);
         this.domainEvents.clear();
         return Collections.unmodifiableList(events);
+    }
+
+    public void setChangePasswordOnNextLogin(boolean changePasswordOnNextLogin) {
+        this.changePasswordOnNextLogin = changePasswordOnNextLogin;
+    }
+
+    public List<UserId> getAssignedUsers() {
+        return assignedUsers;
     }
 
     public boolean isChangePasswordOnNextLogin() {

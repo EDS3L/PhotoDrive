@@ -86,7 +86,8 @@ public class AlbumManagementService {
 
     @Transactional
     public void deleteAlbum(RemoveAlbumCommand command) {
-        Album album = getAlbum(command.albumId());
+        AlbumId albumId = new AlbumId(command.albumId());
+        Album album = getAlbum(albumId);
         User user = getUser(currentUser.requireAuthenticated().userId());
         User photographer = getUser(new UserId(album.getPhotographId()));
 
@@ -94,15 +95,13 @@ public class AlbumManagementService {
 
         albumRepository.delete(album);
 
-//        Optional<Album> removed = albumRepository.removeAlbum(album.getAlbumId());
-//        if (removed.isEmpty()) throw new AlbumException("There's no album to delete");
-
         publishEvents(album);
     }
 
     @Transactional
     public List<FileId> addFilesToAlbum(AddFileToAlbumCommand command) {
-        Album album = getAlbum(command.albumId());
+        AlbumId albumId = new AlbumId(command.albumId());
+        Album album = getAlbum(albumId);
 
         User user = getUser(currentUser.requireAuthenticated().userId());
 
@@ -130,7 +129,8 @@ public class AlbumManagementService {
 
     @Transactional(readOnly = true)
     public byte[] downloadFilesAsZip(DownloadFilesCommand command) {
-        Album album = getAlbum(command.albumId());
+        AlbumId albumId = new AlbumId(command.albumId());
+        Album album = getAlbum(albumId);
         User user = getUser(currentUser.requireAuthenticated().userId());
         validateAccess(album, user);
 
@@ -147,18 +147,21 @@ public class AlbumManagementService {
         String storagePath = resolveAlbumStoragePath(album);
         byte[] zipData = fileStoragePort.createZipArchive(storagePath, existingFileNames);
 
-        log.info("Successfully created ZIP with {} files from album: {}", files.size(), command.albumId().value());
+        log.info("Successfully created ZIP with {} files from album: {}", files.size(), albumId.value());
 
         return zipData;
     }
 
     @Transactional
     public void renameFile(RenameFileCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        FileId fileId = new  FileId(cmd.fileId());
+        FileName fileName = new FileName(cmd.newFileName());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        Album album = albumRepository.findByAlbumId(cmd.albumId()).orElseThrow(() -> new AlbumException(
+        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException(
                 "Album with id '" + cmd.albumId() + "' does not exist"));
 
-        album.renameFile(cmd.fileId(), cmd.newFileName(), user);
+        album.renameFile(fileId, fileName, user);
 
         albumRepository.save(album);
 
@@ -167,19 +170,22 @@ public class AlbumManagementService {
 
     @Transactional
     public void removeFile(RemoveFileCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        FileId fileId = new  FileId(cmd.fileId());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        Album album = albumRepository.findByAlbumId(cmd.albumId()).orElseThrow(() -> new AlbumException(
+        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException(
                 "Album with id '" + cmd.albumId() + "' does not exist"));
 
-        album.removeFile(cmd.fileId(), user);
+        album.removeFile(fileId, user);
         albumRepository.save(album);
         publishEvents(album);
     }
 
     @Transactional(readOnly = true)
     public String getFilePath(GetPhotoPathCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        Album album = getAlbum(cmd.albumId());
+        Album album = getAlbum(albumId);
 
         if(user.getRoles().contains(Role.CLIENT)) {
             User photographer = getUser(new UserId(album.getPhotographId()));

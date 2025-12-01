@@ -4,5 +4,5 @@ import pl.photodrive.core.domain.vo.Email;
 
 import java.util.UUID;
 
-public record RemindPasswordCommand(Email email, UUID token, String newPassword) {
+public record RemindPasswordCommand(String email, UUID token, String newPassword) {
 }

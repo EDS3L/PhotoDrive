@@ -1,6 +1,7 @@
 package pl.photodrive.core.infrastructure.jpa.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.infrastructure.jpa.entity.AlbumEntity;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
 
@@ -14,4 +15,5 @@ public interface AlbumJpaRepository extends JpaRepository<AlbumEntity, AlbumIdEm
     List<AlbumEntity> findByClientId(UUID clientId);
     Optional<AlbumEntity> findByName(String name);
     boolean existsByName(String name);
+
 }

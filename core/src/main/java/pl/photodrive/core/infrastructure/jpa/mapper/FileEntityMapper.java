@@ -14,7 +14,9 @@ public class FileEntityMapper {
                new FileName(entity.getFileName().getValue()),
                 entity.getSizeBytes(),
                 entity.getContentType(),
-                entity.getUploadedAt());
+                entity.getUploadedAt(),
+                entity.isVisible(),
+                entity.isHasWatermark());
     }
 
     public static FileEntity toEntity(File file) {
@@ -24,6 +26,8 @@ public class FileEntityMapper {
                 .sizeBytes(file.getSizeBytes())
                 .contentType(file.getContentType())
                 .uploadedAt(file.getUploadedAt())
+                .isVisible(file.isVisible())
+                .hasWatermark(file.isVisible())
                 .build();
     }
 }

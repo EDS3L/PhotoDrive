@@ -25,5 +25,7 @@ public class FileEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "album_id", nullable = false)
     private AlbumEntity album;
+    private boolean isVisible;
+    private boolean hasWatermark;
 
 }

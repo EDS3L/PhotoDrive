@@ -8,11 +8,16 @@ import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -29,6 +34,7 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     @Value("${storage.dir}")
     private Path baseDirectory;
+
 
     @Override
     public void createPhotographerFolder(String photographerEmail) {
@@ -187,9 +193,8 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
-    public void deleteFolder(String albumName, String photographerEmail) {
-        Path folderPath = resolveAndValidate(photographerEmail, albumName);
-
+    public void deleteFolder(String albumPath) {
+        Path folderPath = baseDirectory.resolve(albumPath).normalize();
         if (!Files.exists(folderPath)) {
             log.warn("Folder not found, cannot delete: {}", folderPath);
             return;
@@ -213,6 +218,55 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
     }
 
+    @Override
+    public void addWatermark(String path) {
+        String WATERMARK_PATH = baseDirectory + "/" +"watermark" + "/" + "watermark.png";
+
+        File surceFile = new File(baseDirectory + "/" + path);
+        log.info("Adding surce: {}", surceFile.getPath());
+        File watermarkFile = new File(WATERMARK_PATH);
+        log.info("Adding watermark: {}", watermarkFile.getPath());
+
+        if(!surceFile.exists() || !watermarkFile.exists()) {
+            throw new StorageException("File not found: " + path);
+        }
+
+        float alpha = 0.5f;
+
+        try {
+            BufferedImage image = ImageIO.read(surceFile);
+            BufferedImage watermarkImage = ImageIO.read(watermarkFile);
+
+            Graphics2D g2dImage = (Graphics2D) image.getGraphics();
+
+
+            g2dImage.drawImage(image, 0, 0, null);
+            g2dImage.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            int imageWidth = image.getWidth();
+            int imageHeight = image.getHeight();
+
+            int watermarkWidth = watermarkImage.getWidth();
+            int watermarkHeight = watermarkImage.getHeight();
+
+            int marginX =(int) (imageWidth * 0.10);
+            int marginY =(int) (imageHeight * 0.10);
+            int x = imageWidth - watermarkWidth - marginX;
+            int y = imageHeight - watermarkHeight - marginY;
+
+            g2dImage.drawImage(watermarkImage, x, y, watermarkWidth, watermarkHeight, null);
+
+            g2dImage.dispose();
+
+            File outputFile = new File(path);
+
+            ImageIO.write(image, "png", outputFile);
+
+            log.info("Successfully added watermark: {}", path);
+        } catch (IOException e) {
+            throw new StorageException("Failed to add watermark to file {}", e.getCause());
+        }
+    }
 
     private Path resolveAndValidate(String... pathSegments) {
         Path resolved = baseDirectory;

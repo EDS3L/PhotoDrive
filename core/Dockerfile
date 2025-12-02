@@ -17,6 +17,7 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app/photodrive
 RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/WESELE_client@wp.pl_2025-11-10
 RUN mkdir -p /app/photodrive/portfolio
+RUN mkdir -p /app/photodrive/watermark
 
 COPY --from=builder /app/photodrive/build/libs/*.jar app.jar
 

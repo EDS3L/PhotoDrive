@@ -50,12 +50,11 @@ public class AlbumStructureEventHandler {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePhotographDeleteAlbum(PhotographRemoveAlbum event) {
-        log.info("Handling PhotographRemove event for album: {} from photographer: {}",
-                event.albumName(),
-                event.photographerEmail());
+        log.info("Handling PhotographRemove event for album: {}",
+                event.albumPath());
 
         try {
-            fileStoragePort.deleteFolder(event.albumName(), event.photographerEmail());
+            fileStoragePort.deleteFolder(event.albumPath());
             log.info("Successfully deleted folder");
         } catch (Exception e) {
             throw new StorageOperationException("Failed to remove folder");
@@ -97,8 +96,22 @@ public class AlbumStructureEventHandler {
                 .replace("{{time}}", time);
 
         mailSenderPort.send(event.email(), "Twoje zdjęcia mają ograniczony czas", ttdSetTemplate);
+    }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleRemoveExpiredAlbum(ExpiredAlbumRemoved event) {
+        log.info("Removing expired album");
+        fileStoragePort.deleteFolder(event.path().value());
+    }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleChangeFileVisibility(FileVisibleStatusChanged event) {
+        log.info("Visibility changed");
+
+        String filesVisibleTemplate = mailSenderPort.loadResourceAsString("templates/email/files-visible-status.html")
+                .replace("{{fileCount}}",String.valueOf(event.sizeList()));
+
+        mailSenderPort.send(event.userEmail().value(), "Twoje pliki są widoczne", filesVisibleTemplate);
     }
 
 }

@@ -55,17 +55,14 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
         return jpa.existsByName(name);
     }
 
-    @Override
-    public Optional<Album> removeAlbum(AlbumId albumId) {
-        return jpa.findById(new AlbumIdEmbeddable(albumId.value()))
-                .map(entity -> {
-                    jpa.delete(entity);
-                    return AlbumEntityMapper.toDomain(entity);
-                });
-    }
 
     @Override
     public void delete(Album album) {
         jpa.delete(AlbumEntityMapper.toEntity(album));
+    }
+
+    @Override
+    public List<Album> findAll() {
+        return jpa.findAll().stream().map(AlbumEntityMapper::toDomain).toList();
     }
 }

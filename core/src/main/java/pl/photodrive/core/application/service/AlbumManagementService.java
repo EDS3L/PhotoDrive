@@ -6,15 +6,16 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
+import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.exception.UserException;
@@ -28,6 +29,7 @@ import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -155,11 +157,10 @@ public class AlbumManagementService {
     @Transactional
     public void renameFile(RenameFileCommand cmd) {
         AlbumId albumId = new AlbumId(cmd.albumId());
-        FileId fileId = new  FileId(cmd.fileId());
+        FileId fileId = new FileId(cmd.fileId());
         FileName fileName = new FileName(cmd.newFileName());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException(
-                "Album with id '" + cmd.albumId() + "' does not exist"));
+        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException("Album with id '" + cmd.albumId() + "' does not exist"));
 
         album.renameFile(fileId, fileName, user);
 
@@ -171,10 +172,9 @@ public class AlbumManagementService {
     @Transactional
     public void removeFile(RemoveFileCommand cmd) {
         AlbumId albumId = new AlbumId(cmd.albumId());
-        FileId fileId = new  FileId(cmd.fileId());
+        FileId fileId = new FileId(cmd.fileId());
         User user = getUser(currentUser.requireAuthenticated().userId());
-        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException(
-                "Album with id '" + cmd.albumId() + "' does not exist"));
+        Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException("Album with id '" + cmd.albumId() + "' does not exist"));
 
         album.removeFile(fileId, user);
         albumRepository.save(album);
@@ -189,7 +189,7 @@ public class AlbumManagementService {
         UserId clientId = new UserId(album.getClientId());
         User client = getUser(clientId);
 
-        album.setTTD(cmd.ttd(),user, client.getEmail().value());
+        album.setTTD(cmd.ttd(), user, client.getEmail().value());
 
         albumRepository.save(album);
 
@@ -203,14 +203,61 @@ public class AlbumManagementService {
         User user = getUser(currentUser.requireAuthenticated().userId());
         Album album = getAlbum(albumId);
 
-        if(user.getRoles().contains(Role.CLIENT)) {
+        if (user.getRoles().contains(Role.CLIENT)) {
             User photographer = getUser(new UserId(album.getPhotographId()));
             return album.getFilePath(user, photographer.getEmail().value());
         }
 
-        return album.getFilePath(user,null);
+        return album.getFilePath(user, null);
     }
 
+    @Transactional
+    public void removeExpiredAlbum() {
+        List<Album> albumList = albumRepository.findAll();
+        List<Album> expiredAlbumList = albumList.stream().filter(album -> album.getTtd() != null).filter(album -> album.getAlbumPath() != null).filter(
+                album -> album.getTtd().isBefore(Instant.now())).toList();
+
+        expiredAlbumList.forEach(album -> {
+            log.info("Expired album to remove {}", album.getName());
+        });
+
+        expiredAlbumList.forEach(album -> {
+            album.removeExpiredAlbum();
+            albumRepository.delete(album);
+            publishEvents(album);
+        });
+    }
+
+    @Transactional
+    public void changeVisibleStatus(ChangeVisibleCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        Album album = getAlbum(albumId);
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        User client = getUser(new UserId(album.getClientId()));
+
+        List<FileId> fileIdList = cmd.fileIds().stream().map(FileId::new).toList();
+
+        album.changeFileVisibleStatus(fileIdList, cmd.isVisible(),user,client.getEmail());
+
+        albumRepository.save(album);
+
+        publishEvents(album);
+    }
+
+    @Transactional
+    public void changeWatermarkStatus(ChangeWatermarkCommand cmd) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        Album album = getAlbum(albumId);
+
+        List<FileId> fileIdList = cmd.filesUUIDList().stream().map(FileId::new).toList();
+
+        album.changeWatermarkStatus(user,cmd.hasWatermark(),fileIdList);
+
+        albumRepository.save(album);
+
+        publishEvents(album);
+    }
 
     private void publishEvents(Album album) {
         album.pullDomainEvents().forEach(eventPublisher::publishEvent);

@@ -13,13 +13,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.command.album.*;
+import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
-import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.presentation.dto.album.*;
@@ -27,7 +27,6 @@ import pl.photodrive.core.presentation.dto.file.UploadResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -164,6 +163,20 @@ public class AlbumController {
     public ResponseEntity<Void> setTtd(@PathVariable UUID albumId, @RequestParam Instant ttd) {
         SetTTDCommand cmd = new SetTTDCommand(albumId, ttd);
         albumService.setTTD(cmd);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("{albumId}/files/setVisible")
+    public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @RequestBody ChangeVisibleRequest request ) {
+        ChangeVisibleCommand cmd = new ChangeVisibleCommand(albumId,request.idList(),visible);
+        albumService.changeVisibleStatus(cmd);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("{albumId}/files/addWatermark")
+    public ResponseEntity<Void> changeWatermarkState(@PathVariable UUID albumId, @RequestParam boolean hasWatermark, @RequestBody ChangeWatermarkRequest request) {
+        ChangeWatermarkCommand cmd = new ChangeWatermarkCommand(albumId, request.filesUUIDList(), hasWatermark);
+        albumService.changeWatermarkStatus(cmd);
         return ResponseEntity.ok().build();
     }
 

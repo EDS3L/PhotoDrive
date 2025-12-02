@@ -1,5 +1,6 @@
 package pl.photodrive.core.application.handler;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -7,6 +8,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
+import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
 import pl.photodrive.core.infrastructure.storage.LocalStorageAdapter;
 
 import java.io.IOException;
@@ -41,5 +43,11 @@ public class FileStorageEventHandler {
             log.error("[FileStorageEventHandler] Failed to store file: {}", event.fileName(), e);
         }
 
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleChangeWatermarkStatus(WatermarkAddedToPhoto event) {
+        log.info("[FileStorageEventHandler] Change watermark status: {}", event);
+       localStorageAdapter.addWatermark(event.path());
     }
 }

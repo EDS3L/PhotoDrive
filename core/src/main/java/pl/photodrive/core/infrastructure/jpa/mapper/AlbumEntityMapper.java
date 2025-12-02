@@ -3,11 +3,12 @@ package pl.photodrive.core.infrastructure.jpa.mapper;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.vo.AlbumId;
+import pl.photodrive.core.domain.vo.AlbumPath;
 import pl.photodrive.core.domain.vo.FileId;
-import pl.photodrive.core.domain.vo.UserId;
 import pl.photodrive.core.infrastructure.jpa.entity.AlbumEntity;
 import pl.photodrive.core.infrastructure.jpa.entity.FileEntity;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
+import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumPathEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;
 
 import java.util.LinkedHashMap;
@@ -21,7 +22,8 @@ public class AlbumEntityMapper {
                 entity.getName(),
                 entity.getPhotographId(),
                 entity.getClientId(),
-                entity.getTtd()
+                entity.getTtd(),
+                new AlbumPath(entity.getAlbumPath().getValue())
         );
 
         if (entity.getPhotos() != null && !entity.getPhotos().isEmpty()) {
@@ -45,6 +47,7 @@ public class AlbumEntityMapper {
                 .photographId(album.getPhotographId())
                 .clientId(album.getClientId())
                 .ttd(album.getTtd())
+                .albumPath(new AlbumPathEmbeddable(album.getAlbumPath().value()))
                 .build();
 
         if (album.getPhotos() != null && !album.getPhotos().isEmpty()) {

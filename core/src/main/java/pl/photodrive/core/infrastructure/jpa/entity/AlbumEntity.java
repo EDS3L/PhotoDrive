@@ -7,6 +7,7 @@ import org.hibernate.type.SqlTypes;
 import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
+import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumPathEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;
 
 import java.time.Instant;
@@ -38,4 +39,6 @@ public class AlbumEntity {
     @MapKey(name = "fileId")
     private Map<FileIdEmbeddable, FileEntity> photos = new LinkedHashMap<>();
     private Instant ttd;
+    @Embedded
+    private AlbumPathEmbeddable albumPath;
 }

@@ -1,7 +1,9 @@
 package pl.photodrive.core.domain.model;
 
+import lombok.extern.slf4j.Slf4j;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.*;
 
@@ -10,6 +12,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class Album {
 
     private final AlbumId albumId;
@@ -17,18 +20,25 @@ public class Album {
     private final UUID photographId;
     private Instant ttd;
     private transient final List<Object> domainEvents = new ArrayList<>();
-    private UUID clientId;
+    private final UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
+    private final AlbumPath albumPath;
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff", ".heic"
+    );
 
 
-    public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd) {
+    public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
         if (photographId == null) throw new AlbumException("Photograph name cannot be null!");
+        if(albumPath == null) throw new AlbumException("Album path cannot be null!");
         this.albumId = albumId;
         this.name = name;
         this.photographId = photographId;
         this.clientId = clientId;
         this.ttd = ttd;
+        this.albumPath = albumPath;
     }
 
     public void setTTD(Instant ttd, User user, String email) {
@@ -60,7 +70,7 @@ public class Album {
             throw new AlbumException("Only administrators can create admin albums");
         }
 
-        Album album = new Album(AlbumId.newId(), albumName, admin.getId().value(), admin.getId().value(), null);
+        Album album = new Album(AlbumId.newId(), albumName, admin.getId().value(), admin.getId().value(), null, new AlbumPath(albumName));
         album.registerEvent(new AdminAlbumCreated(albumName, admin));
         return album;
     }
@@ -75,12 +85,13 @@ public class Album {
         }
 
         String fullAlbumName = buildClientAlbumName(albumName, client.getEmail());
-
+        log.info("Album path: {}", photographer.getEmail().value() + "/" +fullAlbumName);
         Album album = new Album(AlbumId.newId(),
                 fullAlbumName,
                 photographer.getId().value(),
                 client.getId().value(),
-                null);
+                null,
+                new AlbumPath(photographer.getEmail().value() + "/" +fullAlbumName));
 
         album.registerEvent(new PhotographCreateAlbum(photographer, fullAlbumName));
         return album;
@@ -110,7 +121,7 @@ public class Album {
             photos.clear();
         }
 
-        albumDelete.registerEvent(new PhotographRemoveAlbum(albumDelete.getName(), photographerEmail));
+        albumDelete.registerEvent(new PhotographRemoveAlbum(albumPath.value()));
     }
 
     public void removeFile(FileId fileId, User user) {
@@ -211,6 +222,83 @@ public class Album {
 
     }
 
+    public void removeExpiredAlbum() {
+        if(this.ttd.isBefore(Instant.now())) {
+            log.info("This album {} is expired",  this.name);
+            registerEvent(new ExpiredAlbumRemoved(albumPath));
+        } else {
+            throw new AlbumException("Album is not expired");
+        }
+    }
+
+
+    public void changeFileVisibleStatus(List<FileId> fileIdList, boolean isVisible, User user, Email userEmail) {
+        if (!isOwner(user)) {
+            throw new AlbumException("User is not allowed to change file visibility");
+        }
+
+        fileIdList.forEach(fileId -> {
+            File file = photos.get(fileId);
+            if (file == null) {
+                throw new AlbumException("File not found: " + fileId.value());
+            }
+
+            if(isVisible) {
+                file.setViable();
+            } else {
+                file.setUnviable();
+            }
+
+        });
+
+      if(!clientId.equals(photographId)) {
+          if(isVisible) {
+              this.registerEvent(new FileVisibleStatusChanged(userEmail, fileIdList.size()));
+          }
+      }
+
+    }
+
+    public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList) {
+        if (!isOwner(user)) {
+            throw new AlbumException("User is not allowed to change file visibility");
+        }
+
+        if(fileIdList.size() > 15) {
+            throw new AlbumException("There are more than 15 files in this album");
+        }
+
+        fileIdList.forEach(fileId -> {
+            File file = photos.get(fileId);
+
+            if (file == null) {
+                throw new AlbumException("File not found: " + fileId.value());
+            }
+
+            validateExtensions(file);
+
+            if(hasWatermark) {
+                file.setWaterMark();
+                this.registerEvent(new WatermarkAddedToPhoto(this.albumPath.value() + "/" + file.getFileName().value()));
+            } else {
+                file.disableWatermark();
+            }
+        });
+    }
+
+
+    private static void validateExtensions(File file) {
+        String fileName = file.getFileName().value();
+        String lower = fileName.toLowerCase();
+
+        if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
+            throw new FileException("Invalid or unsupported file format");
+        }
+    }
+
+
+
+
     public String getFilePath(User user, String photographEmail) {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
@@ -295,6 +383,11 @@ public class Album {
         List<Object> events = new ArrayList<>(this.domainEvents);
         this.domainEvents.clear();
         return Collections.unmodifiableList(events);
+    }
+
+
+    public AlbumPath getAlbumPath() {
+        return albumPath;
     }
 
     public AlbumId getAlbumId() {

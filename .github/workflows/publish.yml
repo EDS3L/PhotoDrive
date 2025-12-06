@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - 'src/main/**'
+      - '**/src/main/**'
       - 'Dockerfile'
       - 'pom.xml'
       - 'docker-compose.prod.yml'
@@ -22,7 +22,7 @@ jobs:
         with:
           filters: |
             relevant:
-              - 'src/main/**'
+              - 'core/src/main/**'
               - 'Dockerfile'
               - 'pom.xml'
 
@@ -44,8 +44,9 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./core/
+          file: ./core/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/drogaprogramisty:example-backend-app
+          tags: ${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -79,6 +79,7 @@ public class LocalStorageAdapter implements FileStoragePort {
     public void saveFile(String path, String fileName, InputStream fileData) throws IOException {
         Path targetDir = resolveAndValidate(path);
 
+        log.info("Saving file in: {}", targetDir);
         if (!Files.isDirectory(targetDir)) {
             throw new StorageException("Target directory does not exist: " + path);
         }
@@ -317,7 +318,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         if (!normalized.startsWith(baseDirectory)) {
             throw new SecurityException("Invalid path: path traversal detected");
         }
-
         return normalized;
     }
 

@@ -391,24 +391,38 @@ public class AlbumManagementService {
 
     @Transactional(readOnly = true)
     public List<String> getAllUrlsFromAlbum(GetUrlsCommand cmd) {
+        User loggedUser = getUser(currentUser.requireAuthenticated().userId());
         AlbumId albumId = new AlbumId(cmd.albumId());
         Album album = getAlbum(albumId);
+
+        if (!album.hasAccessToGetFilesFromAlbum(loggedUser, cmd.showOnlyVisable()))
+            throw new AlbumException("Access denied!");
 
         List<String> urls = new ArrayList<>();
 
         album.getPhotos().values().forEach(file -> {
             String fileName = file.getFileName().value();
-
             String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
-            if (cmd.width() == null && cmd.height() == null) {
-                urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName);
+            if (cmd.showOnlyVisable()) {
+                if (file.isVisible()) {
+                    addLinksToList(cmd, album, encodedFileName, urls);
+                }
             } else {
-                urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName + "?width=" + cmd.width() + "&height=" + cmd.height());
+                addLinksToList(cmd, album, encodedFileName, urls);
             }
         });
 
         return urls;
     }
+
+    private void addLinksToList(GetUrlsCommand cmd, Album album, String encodedFileName, List<String> urls) {
+        if (cmd.width() == null && cmd.height() == null) {
+            urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName);
+        } else {
+            urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName + "?width=" + cmd.width() + "&height=" + cmd.height());
+        }
+    }
+
 
     private void publishEvents(Album album) {
         album.pullDomainEvents().forEach(eventPublisher::publishEvent);

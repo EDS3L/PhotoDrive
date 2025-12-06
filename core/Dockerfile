@@ -1,5 +1,5 @@
 FROM eclipse-temurin:21-jdk-alpine AS builder
-WORKDIR /photodrive/build
+WORKDIR /build/photodrive
 
 COPY build.gradle settings.gradle gradlew ./
 COPY gradle/ gradle/
@@ -17,10 +17,15 @@ WORKDIR /app/photodrive
 
 RUN adduser -D -H -u 10001 -s /sbin/nologin appuser
 
-COPY --from=builder /photodrive/build/target/extracted/dependencies/ ./
-COPY --from=builder /photodrive/build/target/extracted/spring-boot-loader/ ./
-COPY --from=builder /photodrive/build/target/extracted/snapshot-dependencies/ ./
-COPY --from=builder /photodrive/build/target/extracted/application/ ./
+COPY --from=builder /build/photodrive/target/extracted/dependencies/ ./
+COPY --from=builder /build/photodrive/target/extracted/spring-boot-loader/ ./
+COPY --from=builder /build/photodrive/target/extracted/snapshot-dependencies/ ./
+COPY --from=builder /build/photodrive/target/extracted/application/ ./
+
+
+RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/WESELE_client@wp.pl_2025-11-10
+RUN mkdir -p /app/photodrive/portfolio
+RUN mkdir -p /app/photodrive/watermark
 
 RUN chown -R appuser:appuser .
 

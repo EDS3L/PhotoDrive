@@ -31,9 +31,9 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @RestController
@@ -94,8 +94,8 @@ public class AlbumController {
     }
 
     @GetMapping("{albumId}/file/url/all")
-    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
-        GetUrlsCommand cmd = new GetUrlsCommand(albumId, "http://localhost:8080", width, height);
+    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height, @RequestParam(required = false) boolean showOnlyVisable) {
+        GetUrlsCommand cmd = new GetUrlsCommand(albumId, "http://localhost:8080", width, height, showOnlyVisable);
         return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
     }
 
@@ -127,10 +127,10 @@ public class AlbumController {
         return ResponseEntity.ok(AlbumResponse.fromDomain(album));
     }
 
+//    //todo verify
     @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadResponse> addFilesToClientAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
         validateFiles(files);
-
         List<FileUpload> fileUploads = new ArrayList<>();
 
         uploadFiles(files, fileUploads);
@@ -138,9 +138,15 @@ public class AlbumController {
         AddFileToAlbumCommand command = new AddFileToAlbumCommand(albumId, fileUploads);
         List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
 
-        return ResponseEntity.accepted().body(new UploadResponse(addedFileIds.stream().map(id -> id.value().toString()).toList(),
-                "Files are being processed"));
+        Map<String, String> fileMap = IntStream.range(0, addedFileIds.size()).boxed().collect(Collectors.toMap(
+                i -> addedFileIds.get(i).value().toString(),
+                i -> files.get(i).getOriginalFilename()
+        ));
+
+        return ResponseEntity.accepted().body(new UploadResponse(fileMap, "Files are being processed"));
     }
+
+
 
     @PostMapping("/{albumId}/download")
     public ResponseEntity<byte[]> downloadFilesAsZip(@PathVariable UUID albumId, @Valid @RequestBody DownloadFilesRequest request) {

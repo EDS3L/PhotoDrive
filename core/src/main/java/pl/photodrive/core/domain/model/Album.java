@@ -307,12 +307,13 @@ public class Album {
         }
     }
 
-    public boolean hasAccessToGetFilesFromAlbum(User currentUser) {
+    public boolean hasAccessToGetFilesFromAlbum(User currentUser, boolean visible) {
         if (currentUser.getRoles().contains(Role.ADMIN)) {
             return true;
         } else if (currentUser.getRoles().contains(Role.PHOTOGRAPHER)) {
             return this.getPhotographId().equals(currentUser.getId().value());
         } else if (currentUser.getRoles().contains(Role.CLIENT)) {
+            if(!visible) throw new AlbumException("Access denied!");
             return this.getClientId().equals(currentUser.getId().value());
         }
         return false;

@@ -6,7 +6,7 @@ on:
     paths:
       - '**/src/main/**'
       - 'Dockerfile'
-      - 'pom.xml'
+      - 'build.gradle'
       - 'docker-compose.prod.yml'
 
 jobs:

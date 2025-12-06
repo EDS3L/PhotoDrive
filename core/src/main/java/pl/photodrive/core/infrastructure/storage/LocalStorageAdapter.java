@@ -8,7 +8,9 @@ import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
-import javax.imageio.ImageIO;
+import javax.imageio.*;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -19,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -222,49 +225,83 @@ public class LocalStorageAdapter implements FileStoragePort {
     public void addWatermark(String path) {
         String WATERMARK_PATH = baseDirectory + "/" +"watermark" + "/" + "watermark.png";
 
-        File surceFile = new File(baseDirectory + "/" + path);
-        log.info("Adding surce: {}", surceFile.getPath());
+        File sourceFile = new File(baseDirectory + "/" + path);
+        log.info("Adding source: {}", sourceFile.getPath());
         File watermarkFile = new File(WATERMARK_PATH);
         log.info("Adding watermark: {}", watermarkFile.getPath());
 
-        if(!surceFile.exists() || !watermarkFile.exists()) {
+        if(!sourceFile.exists() || !watermarkFile.exists()) {
             throw new StorageException("File not found: " + path);
         }
 
-        float alpha = 0.5f;
+        float alpha = 0.9f;
 
         try {
-            BufferedImage image = ImageIO.read(surceFile);
+            BufferedImage image = ImageIO.read(sourceFile);
             BufferedImage watermarkImage = ImageIO.read(watermarkFile);
 
-            Graphics2D g2dImage = (Graphics2D) image.getGraphics();
+            String originalFormat = getImageFormat(sourceFile);
 
+            Graphics2D g2d = image.createGraphics();
 
-            g2dImage.drawImage(image, 0, 0, null);
-            g2dImage.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            double scaleFactor = 3.0;
 
             int imageWidth = image.getWidth();
             int imageHeight = image.getHeight();
+            int watermarkWidth = (int) (watermarkImage.getWidth() * scaleFactor);
+            int watermarkHeight = (int) (watermarkImage.getHeight() * scaleFactor);
 
-            int watermarkWidth = watermarkImage.getWidth();
-            int watermarkHeight = watermarkImage.getHeight();
-
-            int marginX =(int) (imageWidth * 0.10);
-            int marginY =(int) (imageHeight * 0.10);
+            int marginX = (int) (imageWidth * 0.10);
+            int marginY = (int) (imageHeight * 0.10);
             int x = imageWidth - watermarkWidth - marginX;
             int y = imageHeight - watermarkHeight - marginY;
 
-            g2dImage.drawImage(watermarkImage, x, y, watermarkWidth, watermarkHeight, null);
+            g2d.drawImage(watermarkImage, x, y, watermarkWidth, watermarkHeight, null);
+            g2d.dispose();
 
-            g2dImage.dispose();
+            File outputFile = new File(baseDirectory + "/" + path);
 
-            File outputFile = new File(path);
-
-            ImageIO.write(image, "png", outputFile);
+            if ("jpg".equalsIgnoreCase(originalFormat) || "jpeg".equalsIgnoreCase(originalFormat)) {
+                saveAsJPEG(image, outputFile, 0.9f);
+            } else {
+                ImageIO.write(image, originalFormat, outputFile);
+            }
 
             log.info("Successfully added watermark: {}", path);
         } catch (IOException e) {
-            throw new StorageException("Failed to add watermark to file {}", e.getCause());
+            throw new StorageException("Failed to add watermark to file", e);
+        }
+    }
+
+    private String getImageFormat(File file) throws IOException {
+        ImageInputStream iis = ImageIO.createImageInputStream(file);
+        Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+        if (readers.hasNext()) {
+            ImageReader reader = readers.next();
+            String format = reader.getFormatName();
+            iis.close();
+            return format;
+        }
+        iis.close();
+        return "png";
+    }
+
+    private void saveAsJPEG(BufferedImage image, File outputFile, float quality) throws IOException {
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        param.setCompressionQuality(quality);
+
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(outputFile)) {
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(image, null, null), param);
+            writer.dispose();
         }
     }
 

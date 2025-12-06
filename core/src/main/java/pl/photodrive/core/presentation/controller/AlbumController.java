@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
+import pl.photodrive.core.application.command.file.FileResource;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
@@ -23,6 +24,7 @@ import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.presentation.dto.album.*;
+import pl.photodrive.core.presentation.dto.file.RemoveFilesRequest;
 import pl.photodrive.core.presentation.dto.file.UploadResponse;
 
 import java.io.IOException;
@@ -46,6 +48,57 @@ public class AlbumController {
 
     private final Path fileStorageLocation = Paths.get("/app/photodrive/").toAbsolutePath().normalize();
 
+
+    @GetMapping("/all")
+    public ResponseEntity<List<AlbumDto>> getAllAlbums() {
+        return ResponseEntity.ok().body(albumService.getAllAlbums().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
+                album.getName(),
+                album.getPhotographId(),
+                album.getClientId(),
+                album.getTtd(),
+                album.getPhotos(),
+                album.getAlbumPath())).toList());
+    }
+
+    @GetMapping("/getAllAssignedAlbums")
+    public ResponseEntity<List<AlbumDto>> getAllAssignedAlbums() {
+        return ResponseEntity.ok().body(albumService.getAssignedAlbums().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
+                album.getName(),
+                album.getPhotographId(),
+                album.getClientId(),
+                album.getTtd(),
+                album.getPhotos(),
+                album.getAlbumPath())).toList());
+    }
+
+    @GetMapping("/all/withoutTdd")
+    public ResponseEntity<List<AlbumDto>> getAllAlbumsWithoutTTD() {
+        return ResponseEntity.ok().body(albumService.getAllAlbumsWithoutTTD().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
+                album.getName(),
+                album.getPhotographId(),
+                album.getClientId(),
+                album.getTtd(),
+                album.getPhotos(),
+                album.getAlbumPath())).toList());
+    }
+
+    @GetMapping("/allAssignedAlbum/withoutTdd")
+    public ResponseEntity<List<AlbumDto>> getAllAssignedAlbumsWithoutTTD() {
+        return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
+                album.getName(),
+                album.getPhotographId(),
+                album.getClientId(),
+                album.getTtd(),
+                album.getPhotos(),
+                album.getAlbumPath())).toList());
+    }
+
+    @GetMapping("{albumId}/file/url/all")
+    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
+        GetUrlsCommand cmd = new GetUrlsCommand(albumId,"http://localhost:8080",width,height);
+        return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
+    }
+
     @DeleteMapping("/{albumId}/delete")
     public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
 
@@ -56,8 +109,7 @@ public class AlbumController {
         return ResponseEntity.noContent().build();
     }
 
-
-    @PostMapping("/admin")
+    @PostMapping("/admin/create")
     public ResponseEntity<AlbumResponse> createAdminAlbum(@Valid @RequestBody CreateAlbumRequest request) {
 
         Album album = albumService.createAdminAlbum(new CreateAlbumCommand(request.name(), null));
@@ -112,50 +164,22 @@ public class AlbumController {
 
     }
 
-    @PostMapping("/{albumIdUUID}/remove/{fileIdUUID}")
-    public ResponseEntity<Void> removeFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID) {
-        RemoveFileCommand removeFileCommand = new RemoveFileCommand(fileIdUUID,albumIdUUID);
+    @PostMapping("/{albumIdUUID}/remove")
+    public ResponseEntity<Void> removeFiles(@PathVariable UUID albumIdUUID, @RequestBody RemoveFilesRequest request) {
+        RemoveFileCommand removeFileCommand = new RemoveFileCommand(request.fileIdList(), albumIdUUID);
 
-        albumService.removeFile(removeFileCommand);
+        albumService.removeFiles(removeFileCommand);
 
         return ResponseEntity.noContent().build();
 
     }
 
     @GetMapping("{albumUUID}/photo/{fileName}")
-    public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName) {
-        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID);
-        try {
-            Path targetPath = this.fileStorageLocation.resolve(albumService.getFilePath(cmd)).resolve(fileName).normalize();
-
-            Resource resource = new UrlResource(targetPath.toUri());
-
-            if (resource.exists() && resource.isReadable()) {
-
-                String contentType = servletContext.getMimeType(resource.getFile().getAbsolutePath());
-
-                if (contentType == null) {
-                    if (fileName.toLowerCase().endsWith(".png")) {
-                        contentType = "image/png";
-                    } else if (fileName.toLowerCase().endsWith(".jpg") || fileName.toLowerCase().endsWith(".jpeg")) {
-                        contentType = "image/jpeg";
-                    } else {
-                        contentType = "application/octet-stream";
-                    }
-                }
-
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-
-
-        } catch (IOException e) {
-            throw new AlbumException("Can't read file: " + e.getMessage());
-        }
+    public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
+        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID,fileName,fileStorageLocation,servletContext, width, height);
+        FileResource fileResponse = albumService.getFilePath(cmd);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(fileResponse.contentType())).header(HttpHeaders.CONTENT_DISPOSITION,
+                "inline; filename=\"" + fileResponse.resource().getFilename() + "\"").body(fileResponse.resource());
     }
 
 
@@ -167,8 +191,8 @@ public class AlbumController {
     }
 
     @PatchMapping("{albumId}/files/setVisible")
-    public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @RequestBody ChangeVisibleRequest request ) {
-        ChangeVisibleCommand cmd = new ChangeVisibleCommand(albumId,request.idList(),visible);
+    public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @RequestBody ChangeVisibleRequest request) {
+        ChangeVisibleCommand cmd = new ChangeVisibleCommand(albumId, request.idList(), visible);
         albumService.changeVisibleStatus(cmd);
         return ResponseEntity.ok().build();
     }
@@ -179,7 +203,6 @@ public class AlbumController {
         albumService.changeWatermarkStatus(cmd);
         return ResponseEntity.ok().build();
     }
-
 
 
     private void validateFiles(List<MultipartFile> files) {

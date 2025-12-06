@@ -1,6 +1,11 @@
 package pl.photodrive.core.presentation.dto.album;
 
-import java.util.UUID;
+import pl.photodrive.core.domain.model.File;
+import pl.photodrive.core.domain.vo.AlbumPath;
+import pl.photodrive.core.domain.vo.FileId;
 
-public record AlbumDto(UUID albumId, String name, UUID photographId, UUID clientId) {
+import java.time.Instant;
+import java.util.*;
+
+public record AlbumDto(UUID albumId, String name, UUID photographId, UUID clientId, Instant ttd,Map<FileId, File> photos, AlbumPath albumPath) {
 }

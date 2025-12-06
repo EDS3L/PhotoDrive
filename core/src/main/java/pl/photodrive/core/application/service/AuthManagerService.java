@@ -39,6 +39,8 @@ public class AuthManagerService {
         Email email = new Email(cmd.email());
         User user = getUserByEmail(email);
 
+        user.login();
+
         try {
             user.verifyPassword(cmd.rawPassword(), passwordHasher);
         } catch (UserException e) {

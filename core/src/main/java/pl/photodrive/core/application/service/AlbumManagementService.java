@@ -1,12 +1,17 @@
 package pl.photodrive.core.application.service;
 
+import jakarta.servlet.ServletContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
+import pl.photodrive.core.application.command.file.FileResource;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
@@ -29,6 +34,15 @@ import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -170,15 +184,17 @@ public class AlbumManagementService {
     }
 
     @Transactional
-    public void removeFile(RemoveFileCommand cmd) {
+    public void removeFiles(RemoveFileCommand cmd) {
         AlbumId albumId = new AlbumId(cmd.albumId());
-        FileId fileId = new FileId(cmd.fileId());
         User user = getUser(currentUser.requireAuthenticated().userId());
         Album album = albumRepository.findByAlbumId(albumId).orElseThrow(() -> new AlbumException("Album with id '" + cmd.albumId() + "' does not exist"));
 
-        album.removeFile(fileId, user);
-        albumRepository.save(album);
-        publishEvents(album);
+        cmd.fileIdList().forEach(FielUuid -> {
+            FileId fileId = new FileId(FielUuid);
+            album.removeFiles(fileId, user);
+            albumRepository.save(album);
+            publishEvents(album);
+        });
     }
 
     @Transactional
@@ -198,18 +214,96 @@ public class AlbumManagementService {
 
 
     @Transactional(readOnly = true)
-    public String getFilePath(GetPhotoPathCommand cmd) {
+    public FileResource getFilePath(GetPhotoPathCommand cmd) {
         AlbumId albumId = new AlbumId(cmd.albumId());
         User user = getUser(currentUser.requireAuthenticated().userId());
         Album album = getAlbum(albumId);
 
         if (user.getRoles().contains(Role.CLIENT)) {
             User photographer = getUser(new UserId(album.getPhotographId()));
-            return album.getFilePath(user, photographer.getEmail().value());
+            return getFileResource(cmd.fileName(),
+                    album.getFilePath(user, photographer.getEmail().value()),
+                    cmd.fileStorageLocation(),
+                    cmd.servletContext(),
+                    cmd.width(),
+                    cmd.height());
         }
 
-        return album.getFilePath(user, null);
+
+        return getFileResource(cmd.fileName(),
+                album.getFilePath(user, null),
+                cmd.fileStorageLocation(),
+                cmd.servletContext(),
+                cmd.width(),
+                cmd.height());
     }
+
+    private FileResource getFileResource(String fileName, String filePath, Path fileStorageLocation, ServletContext servletContext, Integer width, Integer height) {
+
+        try {
+            Path targetPath = fileStorageLocation.resolve(filePath).resolve(fileName).normalize();
+
+            Resource resource = new UrlResource(targetPath.toUri());
+
+
+            if (resource.exists() && resource.isReadable()) {
+
+                String contentType = servletContext.getMimeType(resource.getFile().getAbsolutePath());
+
+                if (contentType == null) {
+                    if (fileName.toLowerCase().endsWith(".png")) {
+                        contentType = "image/png";
+                    } else if (fileName.toLowerCase().endsWith(".jpg") || fileName.toLowerCase().endsWith(".jpeg")) {
+                        contentType = "image/jpeg";
+                    } else {
+                        contentType = "application/octet-stream";
+                    }
+                }
+
+                if (width == null) {
+                    width = 0;
+                }
+
+                if (height == null) {
+                    height = 0;
+                }
+
+                if (width > 0 && height > 0) {
+                    Resource resizedResource = resizeFile(resource, width, height);
+                    return new FileResource(resizedResource, contentType);
+                }
+
+                return new FileResource(resource, contentType);
+            } else {
+                throw new AlbumException("File not found");
+            }
+
+
+        } catch (IOException e) {
+            throw new AlbumException("Can't read file: " + e.getMessage());
+        }
+    }
+
+    private Resource resizeFile(Resource originalResource, Integer width, Integer height) throws IOException {
+        BufferedImage image = ImageIO.read(originalResource.getInputStream());
+        BufferedImage resizedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
+        Graphics2D g2d = resizedImage.createGraphics();
+
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.drawImage(image, 0, 0, width, height, null);
+        g2d.dispose();
+
+        String filename = originalResource.getFilename();
+        String format = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(resizedImage, format, baos);
+        byte[] imageBytes = baos.toByteArray();
+
+        return new ByteArrayResource(imageBytes);
+    }
+
 
     @Transactional
     public void removeExpiredAlbum() {
@@ -237,7 +331,7 @@ public class AlbumManagementService {
 
         List<FileId> fileIdList = cmd.fileIds().stream().map(FileId::new).toList();
 
-        album.changeFileVisibleStatus(fileIdList, cmd.isVisible(),user,client.getEmail());
+        album.changeFileVisibleStatus(fileIdList, cmd.isVisible(), user, client.getEmail());
 
         albumRepository.save(album);
 
@@ -252,11 +346,69 @@ public class AlbumManagementService {
 
         List<FileId> fileIdList = cmd.filesUUIDList().stream().map(FileId::new).toList();
 
-        album.changeWatermarkStatus(user,cmd.hasWatermark(),fileIdList);
+        album.changeWatermarkStatus(user, cmd.hasWatermark(), fileIdList);
 
         albumRepository.save(album);
 
         publishEvents(album);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Album> getAllAlbums() {
+        User loggedUser = getUser(currentUser.requireAuthenticated().userId());
+
+        if (loggedUser.hasAccessToReadAllAlbums(loggedUser)) {
+            return albumRepository.findAll();
+        }
+
+        throw new AlbumException("Access denied!");
+    }
+
+    @Transactional(readOnly = true)
+    public List<Album> getAssignedAlbums() {
+        User loggedUser = getUser(currentUser.requireAuthenticated().userId());
+        List<Album> albumList = albumRepository.findAll();
+
+        if (loggedUser.hasAccessToReadUserAlbums(loggedUser)) {
+            return albumList.stream().filter(e -> e.getPhotographId().equals(loggedUser.getId().value())).toList();
+        } else if (loggedUser.hasAccessToReadAssignedAlbums(loggedUser)) {
+            return albumList.stream().filter(album -> album.getClientId() != null).filter(e -> e.getClientId().equals(
+                    loggedUser.getId().value())).toList();
+        } else {
+            throw new AlbumException("You are not assigned to any album!");
+        }
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<Album> getAllAlbumsWithoutTTD() {
+        return getAllAlbums().stream().filter(album -> album.getTtd() == null).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Album> getAssignedAlbumsWithoutTTD() {
+        return getAssignedAlbums().stream().filter(album -> album.getTtd() == null).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getAllUrlsFromAlbum(GetUrlsCommand cmd) {
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        Album album = getAlbum(albumId);
+
+        List<String> urls = new ArrayList<>();
+
+        album.getPhotos().values().forEach(file -> {
+            String fileName = file.getFileName().value();
+
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");;
+            if(cmd.width() == null && cmd.height() == null) {
+                urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName);
+            } else {
+                urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName + "?width=" + cmd.width() + "&height=" + cmd.height());
+            }
+        });
+
+        return urls;
     }
 
     private void publishEvents(Album album) {

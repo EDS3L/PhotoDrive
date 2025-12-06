@@ -124,7 +124,7 @@ public class Album {
         albumDelete.registerEvent(new PhotographRemoveAlbum(albumPath.value()));
     }
 
-    public void removeFile(FileId fileId, User user) {
+    public void removeFiles(FileId fileId, User user) {
 
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
@@ -279,9 +279,11 @@ public class Album {
 
             if(hasWatermark) {
                 file.setWaterMark();
+                photos.put(fileId, file);
                 this.registerEvent(new WatermarkAddedToPhoto(this.albumPath.value() + "/" + file.getFileName().value()));
             } else {
                 file.disableWatermark();
+                photos.put(fileId, file);
             }
         });
     }
@@ -294,6 +296,17 @@ public class Album {
         if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
             throw new FileException("Invalid or unsupported file format");
         }
+    }
+
+    public boolean hasAccessToGetFilesFromAlbum(User currentUser) {
+        if(currentUser.getRoles().contains(Role.ADMIN)) {
+            return true;
+        } else if(currentUser.getRoles().contains(Role.PHOTOGRAPHER)) {
+            return this.getPhotographId().equals(currentUser.getId().value());
+        } else if(currentUser.getRoles().contains(Role.CLIENT)) {
+            return this.getClientId().equals(currentUser.getId().value());
+        }
+        return false;
     }
 
 

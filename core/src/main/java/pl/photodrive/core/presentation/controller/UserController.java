@@ -7,9 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.photodrive.core.application.command.user.*;
 import pl.photodrive.core.application.service.UserManagementService;
-import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.Password;
-import pl.photodrive.core.domain.vo.UserId;
+
 import pl.photodrive.core.presentation.dto.user.*;
 import pl.photodrive.core.presentation.mapper.ApiMappers;
 
@@ -25,10 +24,21 @@ public class UserController {
 
     private final UserManagementService userService;
 
-    @GetMapping
+    @GetMapping("/all")
     public List<UserDto> getAll(){
         return userService.getAllUsers().stream().map(ApiMappers::toDto).toList();
     }
+
+    @GetMapping("/activeUsers")
+    public List<UserDto> getAllActiveUsers(){
+        return userService.getAllActiveUsers().stream().map(ApiMappers::toDto).toList();
+    }
+
+    @GetMapping("/getAssignedUsers")
+    public List<UserDto> getAllAssignedUsers(){
+        return userService.getPhotographUsers().stream().map(ApiMappers::toDto).toList();
+    }
+
 
     @PostMapping("/add")
     public ResponseEntity<UserDto> add(@Valid @RequestBody CreateUserRequest request) {

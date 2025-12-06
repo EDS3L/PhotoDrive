@@ -27,7 +27,7 @@ public class FileEntityMapper {
                 .contentType(file.getContentType())
                 .uploadedAt(file.getUploadedAt())
                 .isVisible(file.isVisible())
-                .hasWatermark(file.isVisible())
+                .hasWatermark(file.isHasWatermark())
                 .build();
     }
 }

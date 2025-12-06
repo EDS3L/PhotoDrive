@@ -24,6 +24,7 @@ public class User {
     private boolean isActive;
     private List<UserId> assignedUsers = new ArrayList<>();
 
+
     private transient final List<Object> domainEvents = new ArrayList<>();
 
     public User(UserId id, String name, Email email, Password password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive, List<UserId> assignedUsers) {
@@ -50,6 +51,16 @@ public class User {
         user.registerEvent(new UserCreated(user.getId().value(), user.getEmail().value(), user.getRoles(), rawPassword));
 
         return user;
+    }
+
+    public void login() {
+        if(!isActive) {
+            throw new UserException("User is not active!");
+        }
+
+        if(changePasswordOnNextLogin) {
+            throw new UserException("You should change your password!");
+        }
     }
 
     public void addRole(Role role) {
@@ -132,6 +143,27 @@ public class User {
 
     }
 
+    public boolean hasAccessToReadAllAlbums(User loggedUser) {
+        return loggedUser.getRoles().contains(Role.ADMIN);
+
+    }
+
+    public boolean hasAccessToReadUserAlbums(User loggedUser) {
+        return loggedUser.getRoles().contains(Role.PHOTOGRAPHER);
+    }
+
+    public boolean hasAccessToReadAssignedAlbums(User loggedUser) {
+        return loggedUser.getRoles().contains(Role.CLIENT);
+
+    }
+
+    public List<UserId> getPhotographUsers(User currentUser) {
+        if(!currentUser.getRoles().contains(Role.PHOTOGRAPHER)) throw new UserException("Access denied!");
+        if (!currentUser.getId().equals(this.getId())) throw new UserException("Cannot access unassigned customer list!");
+
+        return this.assignedUsers;
+    }
+
     public void detectiveUser(boolean active,User user) {
         hasAccessToSetActive(user);
 
@@ -152,6 +184,18 @@ public class User {
             throw new UserException("Incorrect password");
         }
     }
+
+    public boolean hasAccessToReadAllUsers(User currentUser) {
+        boolean isAdmin = currentUser.getRoles().contains(Role.ADMIN);
+
+        if(!isAdmin) {
+            throw new UserException("Access denied!");
+        } else {
+            return true;
+        }
+
+    }
+
 
     private void hasAccessToSetActive(User user) {
         if(!(user.getRoles().contains(Role.ADMIN) || user.getRoles().contains(Role.PHOTOGRAPHER))) {

@@ -163,6 +163,48 @@ public class UserManagementService {
         userRepository.save(photographer);
     }
 
+    @Transactional(readOnly = true)
+    public List<User> getAllActiveUsers() {
+        User authorisedUser = getAuthorisedUser();
+
+        if(authorisedUser.hasAccessToReadAllUsers(authorisedUser)) {
+            List<User> users = userRepository.findAll();
+            return users.stream().filter(User::isActive).toList();
+        } else {
+            return Collections.emptyList();
+        }
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> getAllUsers() {
+        User authorisedUser = getAuthorisedUser();
+
+        if(authorisedUser.hasAccessToReadAllUsers(authorisedUser)) {
+            return userRepository.findAll();
+        } else {
+            return Collections.emptyList();
+        }
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> getPhotographUsers() {
+        User authorisedUser = getAuthorisedUser();
+
+        List<UserId> userIdList = authorisedUser.getPhotographUsers(authorisedUser);
+
+        List<User> users = new ArrayList<>();
+
+        userIdList.forEach(userId ->  {
+            User user = getUserForDB(userId);
+            users.add(user);
+        });
+
+        return users;
+    }
+
+
     private User getUserForDB(UserId userid) {
         return userRepository.findById(userid).orElseThrow(() -> new UserException("User not found!"));
     }
@@ -173,10 +215,6 @@ public class UserManagementService {
     }
 
 
-    @Transactional(readOnly = true)
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
 
     private void publishEvents(User user) {
         user.pullDomainEvents().forEach(eventPublisher::publishEvent);

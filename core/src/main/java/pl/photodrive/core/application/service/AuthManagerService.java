@@ -9,14 +9,14 @@ import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.command.auth.RemindPasswordCommand;
 import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
+import pl.photodrive.core.application.port.password.PasswordHasher;
 import pl.photodrive.core.application.port.repository.PasswordTokenRepository;
+import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.token.TokenEncoder;
 import pl.photodrive.core.domain.exception.PasswordTokenException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.PasswordToken;
 import pl.photodrive.core.domain.model.User;
-import pl.photodrive.core.application.port.repository.UserRepository;
-import pl.photodrive.core.application.port.password.PasswordHasher;
 import pl.photodrive.core.domain.vo.Email;
 
 import java.time.Clock;
@@ -50,7 +50,10 @@ public class AuthManagerService {
         user.shouldChangePasswordOnNextLogin();
         user.setChangePasswordOnNextLogin(false);
         Duration ttl = Duration.ofMinutes(15);
-        String jwt = tokenEncoder.createAccessToken(user.getId(), user.getRoles(), clock.instant(), Duration.ofMinutes(15));
+        String jwt = tokenEncoder.createAccessToken(user.getId(),
+                user.getRoles(),
+                clock.instant(),
+                Duration.ofMinutes(15));
         return new AccessToken(jwt, ttl);
     }
 
@@ -59,10 +62,11 @@ public class AuthManagerService {
         Email email = new Email(cmd.email());
         User user = getUserByEmail(email);
 
-        PasswordToken token = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new PasswordTokenException("Token not found!"));
+        PasswordToken token = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new PasswordTokenException(
+                "Token not found!"));
 
-        if(token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException("Token is expired!");
-        if(!token.getToken().equals(cmd.token())) throw new PasswordTokenException("Invalid token!");
+        if (token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException("Token is expired!");
+        if (!token.getToken().equals(cmd.token())) throw new PasswordTokenException("Invalid token!");
 
         user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
 

@@ -8,5 +8,6 @@ import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 public interface PasswordTokenJpaRepository extends JpaRepository<PasswordTokenEntity, PasswordTokenIdEmbeddable> {
     boolean existsByUserId(@UniqueElements UserIdEmbeddable userId);
+
     PasswordTokenEntity findByUserId(@UniqueElements UserIdEmbeddable userId);
 }

@@ -9,20 +9,10 @@ import java.time.Duration;
 public class TokenCookieWriter {
 
     public ResponseCookie accessTokenCookie(String jwt, Duration ttl) {
-        return ResponseCookie.from("pd_at", jwt)
-                .httpOnly(true)
-                .secure(false)
-                .path("/")
-                .maxAge(ttl)
-                .build();
+        return ResponseCookie.from("pd_at", jwt).httpOnly(true).secure(false).path("/").maxAge(ttl).build();
     }
 
     public ResponseCookie deleteAccessTokenCookie() {
-        return ResponseCookie.from("pd_at","")
-                .httpOnly(true)
-                .secure(false)
-                .path("/")
-                .maxAge(0)
-                .build();
+        return ResponseCookie.from("pd_at", "").httpOnly(true).secure(false).path("/").maxAge(0).build();
     }
 }

@@ -15,6 +15,6 @@ public record FileId(UUID value) {
     }
 
     private static void validate(UUID value) {
-        if(value == null) throw new UserException("User id cannot be null!");
+        if (value == null) throw new UserException("User id cannot be null!");
     }
 }

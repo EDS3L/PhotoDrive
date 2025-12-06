@@ -16,7 +16,6 @@ public interface FileJpaRepository extends JpaRepository<FileEntity, FileIdEmbed
             THEN true ELSE false END
             FROM FileEntity f WHERE f.album.albumId = :albumId AND f.fileName = :fileName
             """)
-    boolean existsByAlbumIdAndFileName(@Param("albumId") AlbumIdEmbeddable albumId,
-                                       @Param("fileName") FileNameEmbeddable fileName);
+    boolean existsByAlbumIdAndFileName(@Param("albumId") AlbumIdEmbeddable albumId, @Param("fileName") FileNameEmbeddable fileName);
 
 }

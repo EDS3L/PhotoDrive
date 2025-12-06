@@ -28,7 +28,8 @@ public record AlbumPath(String value) {
         }
 
         if (!VALID_CHARS_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException("Album path can only contain letters, digits, spaces, '/', '-', '_', '.', '@', and '+'.");
+            throw new IllegalArgumentException(
+                    "Album path can only contain letters, digits, spaces, '/', '-', '_', '.', '@', and '+'.");
         }
 
         if (value.endsWith("/")) {

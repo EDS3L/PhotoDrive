@@ -39,7 +39,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -400,8 +399,8 @@ public class AlbumManagementService {
         album.getPhotos().values().forEach(file -> {
             String fileName = file.getFileName().value();
 
-            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");;
-            if(cmd.width() == null && cmd.height() == null) {
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+            if (cmd.width() == null && cmd.height() == null) {
                 urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName);
             } else {
                 urls.add(cmd.domainPath() + "/api/album/" + album.getAlbumId().value() + "/photo/" + encodedFileName + "?width=" + cmd.width() + "&height=" + cmd.height());

@@ -1,6 +1,5 @@
 package pl.photodrive.core.infrastructure.config;
 
-import com.nimbusds.jose.JWSSigner;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,27 +24,21 @@ public class WebConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
-        http.cors(
-                        cors -> cors.configurationSource(corsConfig()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/user/**").hasAnyRole("ADMIN","PHOTOGRAPHER")
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(e -> e
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"Unauthorized\"}");
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"Forbidden\"}");
-                        }))
-                .headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
+        http.cors(cors -> cors.configurationSource(corsConfig())).csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(
+                auth -> auth.requestMatchers("/api/user/**").hasAnyRole("ADMIN", "PHOTOGRAPHER").requestMatchers(
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html").permitAll().requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(
+                jwt,
+                UsernamePasswordAuthenticationFilter.class).exceptionHandling(e -> e.authenticationEntryPoint((request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Unauthorized\"}");
+        }).accessDeniedHandler((request, response, accessDeniedException) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Forbidden\"}");
+        })).headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
 
 
         return http.build();
@@ -56,7 +49,12 @@ public class WebConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "content-disposition"));
+        configuration.setAllowedHeaders(List.of("Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "content-disposition"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 

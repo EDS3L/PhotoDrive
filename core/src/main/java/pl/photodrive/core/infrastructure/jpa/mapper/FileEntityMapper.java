@@ -11,7 +11,7 @@ public class FileEntityMapper {
 
     public static File toDomain(FileEntity entity) {
         return new File((new FileId(entity.getFileId().getValue())),
-               new FileName(entity.getFileName().getValue()),
+                new FileName(entity.getFileName().getValue()),
                 entity.getSizeBytes(),
                 entity.getContentType(),
                 entity.getUploadedAt(),
@@ -20,14 +20,8 @@ public class FileEntityMapper {
     }
 
     public static FileEntity toEntity(File file) {
-        return  FileEntity.builder()
-                .fileId(new FileIdEmbeddable(file.getFileId().value()))
-                .fileName(new FileNameEmbeddable(file.getFileName().value()))
-                .sizeBytes(file.getSizeBytes())
-                .contentType(file.getContentType())
-                .uploadedAt(file.getUploadedAt())
-                .isVisible(file.isVisible())
-                .hasWatermark(file.isHasWatermark())
-                .build();
+        return FileEntity.builder().fileId(new FileIdEmbeddable(file.getFileId().value())).fileName(new FileNameEmbeddable(
+                file.getFileName().value())).sizeBytes(file.getSizeBytes()).contentType(file.getContentType()).uploadedAt(
+                file.getUploadedAt()).isVisible(file.isVisible()).hasWatermark(file.isHasWatermark()).build();
     }
 }

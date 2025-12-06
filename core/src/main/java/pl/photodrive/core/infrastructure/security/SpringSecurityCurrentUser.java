@@ -40,12 +40,8 @@ class SpringSecurityCurrentUser implements CurrentUser {
 
         var userId = new UserId(userUuid);
 
-        var roles = auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(a -> a.startsWith("ROLE_"))
-                .map(a -> a.substring(5))
-                .map(Role::valueOf)
-                .collect(Collectors.toUnmodifiableSet());
+        var roles = auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).filter(a -> a.startsWith("ROLE_")).map(
+                a -> a.substring(5)).map(Role::valueOf).collect(Collectors.toUnmodifiableSet());
 
         return Optional.of(new AuthenticatedUser(userId, roles, Instant.MAX));
     }

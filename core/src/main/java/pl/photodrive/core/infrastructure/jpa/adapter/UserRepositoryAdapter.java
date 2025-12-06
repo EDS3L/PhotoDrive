@@ -2,8 +2,8 @@ package pl.photodrive.core.infrastructure.jpa.adapter;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.application.port.repository.UserRepository;
+import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.UserId;
 import pl.photodrive.core.infrastructure.jpa.entity.UserEntity;
@@ -14,7 +14,6 @@ import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Repository

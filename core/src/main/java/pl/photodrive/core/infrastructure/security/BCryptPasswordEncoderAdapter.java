@@ -19,6 +19,6 @@ public class BCryptPasswordEncoderAdapter implements PasswordHasher {
 
     @Override
     public boolean matches(CharSequence raw, String hashed) {
-        return bCryptPasswordEncoder.matches(raw,hashed);
+        return bCryptPasswordEncoder.matches(raw, hashed);
     }
 }

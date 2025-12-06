@@ -11,7 +11,9 @@ import java.util.Optional;
 public interface FileRepository {
 
     boolean existsByAlbumIdAndFileName(AlbumId albumId, FileName fileName);
+
     Optional<File> findById(FileId fileId);
+
     File save(File file);
 
 }

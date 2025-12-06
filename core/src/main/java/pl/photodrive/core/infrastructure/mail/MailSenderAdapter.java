@@ -32,17 +32,15 @@ public class MailSenderAdapter implements MailSenderPort {
     public void send(String toEmail, String subject, String body) {
         try {
             MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    msg,
+            MimeMessageHelper helper = new MimeMessageHelper(msg,
                     MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
+                    StandardCharsets.UTF_8.name());
 
             helper.setFrom(new InternetAddress(username, "PhotoDrive"));
             helper.setTo(toEmail);
             helper.setSubject(subject);
 
-            helper.setText(body,true);
+            helper.setText(body, true);
 
             mailSender.send(msg);
         } catch (MessagingException | UnsupportedEncodingException e) {

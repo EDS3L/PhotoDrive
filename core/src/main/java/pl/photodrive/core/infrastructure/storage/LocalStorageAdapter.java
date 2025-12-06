@@ -19,7 +19,6 @@ import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -123,6 +122,7 @@ public class LocalStorageAdapter implements FileStoragePort {
             throw new StorageException("Failed to open file: " + fileName, e);
         }
     }
+
     @Override
     public void deleteFile(String path, String fileName) {
         Path filePath = resolveAndValidate(path, fileName);
@@ -133,7 +133,7 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             Files.delete(filePath);
-        }catch (IOException e) {
+        } catch (IOException e) {
             throw new StorageException("Failed to delete file: " + fileName, e);
         }
     }
@@ -142,14 +142,14 @@ public class LocalStorageAdapter implements FileStoragePort {
     public void renameFile(String path, String oldName, String newName) {
         Path filePath = resolveAndValidate(path + "/" + oldName);
 
-        if(!Files.isRegularFile(filePath)) {
+        if (!Files.isRegularFile(filePath)) {
             throw new StorageException("File not found: " + path);
         }
 
         try {
             Path targetPath = filePath.resolveSibling(newName);
 
-            Files.move(filePath,targetPath);
+            Files.move(filePath, targetPath);
         } catch (IOException e) {
             throw new StorageException("Failed to rename file: " + path, e);
         }
@@ -164,8 +164,7 @@ public class LocalStorageAdapter implements FileStoragePort {
             throw new StorageException("Album directory not found: " + albumPath);
         }
 
-        try (var baos = new java.io.ByteArrayOutputStream();
-             var zos = new ZipOutputStream(baos)) {
+        try (var baos = new java.io.ByteArrayOutputStream(); var zos = new ZipOutputStream(baos)) {
 
             for (String fileName : fileNames) {
                 if (fileName == null || fileName.isBlank()) {
@@ -204,16 +203,14 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
 
         try {
-            Files.walk(folderPath)
-                    .sorted(Comparator.reverseOrder())
-                    .forEach(p -> {
-                        try {
-                            Files.delete(p);
-                            log.debug("Deleted: {}", p);
-                        } catch (IOException e) {
-                            throw new StorageException("Failed to delete: " + p, e);
-                        }
-                    });
+            Files.walk(folderPath).sorted(Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.delete(p);
+                    log.debug("Deleted: {}", p);
+                } catch (IOException e) {
+                    throw new StorageException("Failed to delete: " + p, e);
+                }
+            });
 
             log.info("Successfully deleted folder: {}", folderPath);
         } catch (IOException e) {
@@ -223,14 +220,14 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     @Override
     public void addWatermark(String path) {
-        String WATERMARK_PATH = baseDirectory + "/" +"watermark" + "/" + "watermark.png";
+        String WATERMARK_PATH = baseDirectory + "/" + "watermark" + "/" + "watermark.png";
 
         File sourceFile = new File(baseDirectory + "/" + path);
         log.info("Adding source: {}", sourceFile.getPath());
         File watermarkFile = new File(WATERMARK_PATH);
         log.info("Adding watermark: {}", watermarkFile.getPath());
 
-        if(!sourceFile.exists() || !watermarkFile.exists()) {
+        if (!sourceFile.exists() || !watermarkFile.exists()) {
             throw new StorageException("File not found: " + path);
         }
 

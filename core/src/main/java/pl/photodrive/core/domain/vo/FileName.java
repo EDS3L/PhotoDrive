@@ -6,20 +6,58 @@ import java.util.Set;
 
 public record FileName(String value) {
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff",
-            ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".heic"
-    );
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".webp",
+            ".tiff",
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".mkv",
+            ".wmv",
+            ".flv",
+            ".webm",
+            ".mpeg",
+            ".mpg",
+            ".heic");
 
-    private static final Set<String> FORBIDDEN_EXTENSIONS = Set.of(
-            ".exe", ".bat", ".sh", ".cmd", ".com", ".msi", ".scr", ".jar", ".ps1", ".vb", ".vbs"
-    );
+    private static final Set<String> FORBIDDEN_EXTENSIONS = Set.of(".exe",
+            ".bat",
+            ".sh",
+            ".cmd",
+            ".com",
+            ".msi",
+            ".scr",
+            ".jar",
+            ".ps1",
+            ".vb",
+            ".vbs");
 
-    private static final Set<String> RESERVED_WINDOWS_NAMES = Set.of(
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    );
+    private static final Set<String> RESERVED_WINDOWS_NAMES = Set.of("CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            "COM1",
+            "COM2",
+            "COM3",
+            "COM4",
+            "COM5",
+            "COM6",
+            "COM7",
+            "COM8",
+            "COM9",
+            "LPT1",
+            "LPT2",
+            "LPT3",
+            "LPT4",
+            "LPT5",
+            "LPT6",
+            "LPT7",
+            "LPT8",
+            "LPT9");
 
     public FileName {
         validate(value);

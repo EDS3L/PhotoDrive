@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -84,7 +83,8 @@ public class AlbumController {
 
     @GetMapping("/allAssignedAlbum/withoutTdd")
     public ResponseEntity<List<AlbumDto>> getAllAssignedAlbumsWithoutTTD() {
-        return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
+        return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> new AlbumDto(
+                album.getAlbumId().value(),
                 album.getName(),
                 album.getPhotographId(),
                 album.getClientId(),
@@ -95,7 +95,7 @@ public class AlbumController {
 
     @GetMapping("{albumId}/file/url/all")
     public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
-        GetUrlsCommand cmd = new GetUrlsCommand(albumId,"http://localhost:8080",width,height);
+        GetUrlsCommand cmd = new GetUrlsCommand(albumId, "http://localhost:8080", width, height);
         return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
     }
 
@@ -176,7 +176,12 @@ public class AlbumController {
 
     @GetMapping("{albumUUID}/photo/{fileName}")
     public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
-        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID,fileName,fileStorageLocation,servletContext, width, height);
+        GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID,
+                fileName,
+                fileStorageLocation,
+                servletContext,
+                width,
+                height);
         FileResource fileResponse = albumService.getFilePath(cmd);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(fileResponse.contentType())).header(HttpHeaders.CONTENT_DISPOSITION,
                 "inline; filename=\"" + fileResponse.resource().getFilename() + "\"").body(fileResponse.resource());

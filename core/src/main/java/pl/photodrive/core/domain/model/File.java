@@ -17,7 +17,7 @@ public class File {
     boolean hasWatermark;
 
 
-    public File(FileId fileId, FileName fileName, long sizeBytes, String contentType, Instant uploadedAt, boolean isVisible,boolean hasWatermark) {
+    public File(FileId fileId, FileName fileName, long sizeBytes, String contentType, Instant uploadedAt, boolean isVisible, boolean hasWatermark) {
         if (sizeBytes <= 0) throw new FileException("Size cannot be null!");
         if (contentType == null) throw new FileException("Content type cannot be null!");
         if (uploadedAt == null || uploadedAt.isAfter(Instant.now()))
@@ -31,9 +31,9 @@ public class File {
         this.hasWatermark = hasWatermark;
     }
 
-    public static File create(FileName fileName, long sizeBytes, String contentType ) {
+    public static File create(FileName fileName, long sizeBytes, String contentType) {
         if (sizeBytes <= 0) throw new FileException("Size cannot be negative");
-        return new File(new FileId(FileId.newId()), fileName, sizeBytes, contentType, Instant.now(),  false, false);
+        return new File(new FileId(FileId.newId()), fileName, sizeBytes, contentType, Instant.now(), false, false);
     }
 
 
@@ -43,22 +43,22 @@ public class File {
     }
 
     public void setViable() {
-        if(this.isVisible) throw  new FileException("File is already viable");
+        if (this.isVisible) throw new FileException("File is already viable");
         this.isVisible = true;
     }
 
     public void setUnviable() {
-        if(!this.isVisible) throw  new FileException("File is already unviable");
+        if (!this.isVisible) throw new FileException("File is already unviable");
         this.isVisible = false;
     }
 
     public void setWaterMark() {
-        if(this.hasWatermark) throw new FileException("File is already watermarked");
+        if (this.hasWatermark) throw new FileException("File is already watermarked");
         this.hasWatermark = true;
     }
 
     public void disableWatermark() {
-        if(!this.hasWatermark) throw new FileException("File is not watermarked");
+        if (!this.hasWatermark) throw new FileException("File is not watermarked");
         this.hasWatermark = false;
     }
 
@@ -69,6 +69,7 @@ public class File {
     public boolean isHasWatermark() {
         return hasWatermark;
     }
+
     public FileId getFileId() {
         return fileId;
     }

@@ -1,26 +1,31 @@
-FROM eclipse-temurin:21-jdk-jammy AS builder
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /photodrive/build
 
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle/ gradle/
+RUN ./gradlew dependencies --no-daemon
+
+COPY src ./src
+RUN ./gradlew bootJar -x test --no-daemon
+
+RUN java -Djarmode=layertools \
+    -jar build/libs/*.jar extract --destination target/extracted
+
+
+FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app/photodrive
 
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-COPY src src
+RUN adduser -D -H -u 10001 -s /sbin/nologin appuser
 
-RUN chmod +x ./gradlew
+COPY --from=builder /photodrive/build/target/extracted/dependencies/ ./
+COPY --from=builder /photodrive/build/target/extracted/spring-boot-loader/ ./
+COPY --from=builder /photodrive/build/target/extracted/snapshot-dependencies/ ./
+COPY --from=builder /photodrive/build/target/extracted/application/ ./
 
-RUN ./gradlew build -x test --no-daemon --stacktrace
+RUN chown -R appuser:appuser .
 
-FROM eclipse-temurin:21-jre-jammy
-
-WORKDIR /app/photodrive
-RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/WESELE_client@wp.pl_2025-11-10
-RUN mkdir -p /app/photodrive/portfolio
-RUN mkdir -p /app/photodrive/watermark
-
-COPY --from=builder /app/photodrive/build/libs/*.jar app.jar
+USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","org.springframework.boot.loader.launch.JarLauncher"]

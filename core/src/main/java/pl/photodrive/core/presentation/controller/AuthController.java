@@ -10,7 +10,6 @@ import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.command.auth.RemindPasswordCommand;
 import pl.photodrive.core.application.service.AuthManagerService;
 import pl.photodrive.core.application.service.TokenManagementService;
-import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.presentation.dto.user.LoginRequest;
 import pl.photodrive.core.presentation.dto.user.RemindPasswordRequest;
 import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
@@ -28,7 +27,7 @@ public class AuthController {
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
         LoginCommand cmd = new LoginCommand(request.email(), request.password());
         var accessToken = authManagerService.login(cmd);
-        var cookie = tokenCookieWriter.accessTokenCookie(accessToken.value(),accessToken.ttl());
+        var cookie = tokenCookieWriter.accessTokenCookie(accessToken.value(), accessToken.ttl());
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 
@@ -40,7 +39,9 @@ public class AuthController {
 
     @PostMapping("/remindPassword")
     public ResponseEntity<Void> responseEntity(RemindPasswordRequest request) {
-        RemindPasswordCommand remindPasswordCommand = new RemindPasswordCommand(request.email(),request.token(),request.newPassword());
+        RemindPasswordCommand remindPasswordCommand = new RemindPasswordCommand(request.email(),
+                request.token(),
+                request.newPassword());
         authManagerService.remindPassword(remindPasswordCommand);
         return ResponseEntity.ok().build();
     }

@@ -5,7 +5,10 @@ import java.io.InputStream;
 
 public interface TemporaryStoragePort {
     String saveTemporary(InputStream data) throws IOException;
+
     InputStream getFile(String tempId) throws IOException;
+
     boolean exists(String tempId);
+
     void delete(String tempId);
 }

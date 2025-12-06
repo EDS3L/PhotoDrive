@@ -9,11 +9,18 @@ import java.util.UUID;
 
 public interface AlbumRepository {
     Album save(Album album);
+
     Optional<Album> findByAlbumId(AlbumId albumId);
+
     Album findByPhotographId(UUID photographId);
+
     Optional<Album> findByName(String name);
+
     List<Album> findByClientId(UUID clientId);
+
     boolean existsByName(String name);
+
     void delete(Album album);
+
     List<Album> findAll();
 }

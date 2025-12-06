@@ -7,12 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.port.repository.PasswordTokenRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
-import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.PasswordToken;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.Email;
-
 
 import java.time.Instant;
 import java.util.UUID;
@@ -32,8 +30,9 @@ public class TokenManagementService {
         Instant EXPIRATION_TIME = Instant.now().plusSeconds(900);
         User user = userRepository.findByEmail(new Email(email)).orElseThrow(() -> new UserException("User not found"));
 
-        if(passwordTokenRepository.existsByUserId(user.getId())) {
-            PasswordToken passwordToken = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new UserException("User not found"));
+        if (passwordTokenRepository.existsByUserId(user.getId())) {
+            PasswordToken passwordToken = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new UserException(
+                    "User not found"));
             passwordToken.updateToken(UUID.randomUUID(), email);
             passwordTokenRepository.save(passwordToken);
             publishEvents(passwordToken);

@@ -17,14 +17,12 @@ import java.util.Map;
 public class AlbumEntityMapper {
 
     public static Album toDomain(AlbumEntity entity) {
-        Album album = new Album(
-                new AlbumId(entity.getAlbumId().getValue()),
+        Album album = new Album(new AlbumId(entity.getAlbumId().getValue()),
                 entity.getName(),
                 entity.getPhotographId(),
                 entity.getClientId(),
                 entity.getTtd(),
-                new AlbumPath(entity.getAlbumPath().getValue())
-        );
+                new AlbumPath(entity.getAlbumPath().getValue()));
 
         if (entity.getPhotos() != null && !entity.getPhotos().isEmpty()) {
             Map<FileId, File> domainFiles = new LinkedHashMap<>();
@@ -41,14 +39,9 @@ public class AlbumEntityMapper {
     }
 
     public static AlbumEntity toEntity(Album album) {
-        AlbumEntity entity = AlbumEntity.builder()
-                .albumId(new AlbumIdEmbeddable(album.getAlbumId().value()))
-                .name(album.getName())
-                .photographId(album.getPhotographId())
-                .clientId(album.getClientId())
-                .ttd(album.getTtd())
-                .albumPath(new AlbumPathEmbeddable(album.getAlbumPath().value()))
-                .build();
+        AlbumEntity entity = AlbumEntity.builder().albumId(new AlbumIdEmbeddable(album.getAlbumId().value())).name(album.getName()).photographId(
+                album.getPhotographId()).clientId(album.getClientId()).ttd(album.getTtd()).albumPath(new AlbumPathEmbeddable(
+                album.getAlbumPath().value())).build();
 
         if (album.getPhotos() != null && !album.getPhotos().isEmpty()) {
             album.getPhotos().forEach((fileId, domainFile) -> {

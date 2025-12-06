@@ -50,8 +50,7 @@ public class AlbumStructureEventHandler {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePhotographDeleteAlbum(PhotographRemoveAlbum event) {
-        log.info("Handling PhotographRemove event for album: {}",
-                event.albumPath());
+        log.info("Handling PhotographRemove event for album: {}", event.albumPath());
 
         try {
             fileStoragePort.deleteFolder(event.albumPath());
@@ -66,7 +65,7 @@ public class AlbumStructureEventHandler {
         log.info("File renamed");
 
         try {
-            fileStoragePort.renameFile(event.path(), event.oldFileName().value(),event.newFileName().value());
+            fileStoragePort.renameFile(event.path(), event.oldFileName().value(), event.newFileName().value());
         } catch (Exception e) {
             throw new StorageOperationException("Failed to rename file");
         }
@@ -91,9 +90,8 @@ public class AlbumStructureEventHandler {
         String time = now.atZone(ZoneId.of("Europe/Warsaw")).toLocalTime().toString();
 
 
-        String ttdSetTemplate = mailSenderPort.loadResourceAsString(
-                "templates/email/ttd-set.html").replace("{{date}}", date)
-                .replace("{{time}}", time);
+        String ttdSetTemplate = mailSenderPort.loadResourceAsString("templates/email/ttd-set.html").replace("{{date}}",
+                date).replace("{{time}}", time);
 
         mailSenderPort.send(event.email(), "Twoje zdjęcia mają ograniczony czas", ttdSetTemplate);
     }
@@ -108,8 +106,9 @@ public class AlbumStructureEventHandler {
     public void handleChangeFileVisibility(FileVisibleStatusChanged event) {
         log.info("Visibility changed");
 
-        String filesVisibleTemplate = mailSenderPort.loadResourceAsString("templates/email/files-visible-status.html")
-                .replace("{{fileCount}}",String.valueOf(event.sizeList()));
+        String filesVisibleTemplate = mailSenderPort.loadResourceAsString("templates/email/files-visible-status.html").replace(
+                "{{fileCount}}",
+                String.valueOf(event.sizeList()));
 
         mailSenderPort.send(event.userEmail().value(), "Twoje pliki są widoczne", filesVisibleTemplate);
     }

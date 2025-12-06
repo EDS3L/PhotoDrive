@@ -26,10 +26,11 @@ public class UserEventHandler {
         String safePassword = mailSenderPort.escapeHtml(userCreated.password());
 
         String accountCreatedTemplate = mailSenderPort.loadResourceAsString(
-                        "templates/email/account-created-credentials.html").replace("{{email}}", safeEmail)
-                .replace("{{password}}", safePassword);
+                "templates/email/account-created-credentials.html").replace("{{email}}", safeEmail).replace(
+                "{{password}}",
+                safePassword);
 
-        mailSenderPort.send(userCreated.email(),"Twoje konto zostało założone!", accountCreatedTemplate);
+        mailSenderPort.send(userCreated.email(), "Twoje konto zostało założone!", accountCreatedTemplate);
 
         if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
             fileStoragePort.createPhotographerFolder(userCreated.email());
@@ -41,10 +42,11 @@ public class UserEventHandler {
         log.info("User token created: {}", passwordTokenCreated);
         String safeToken = mailSenderPort.escapeHtml(String.valueOf(passwordTokenCreated.token()));
 
-        String tokenCreatedTemplate = mailSenderPort.loadResourceAsString(
-                        "templates/email/password_reset_token.html").replace("{{token}}", safeToken);
+        String tokenCreatedTemplate = mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html").replace(
+                "{{token}}",
+                safeToken);
 
-        mailSenderPort.send(passwordTokenCreated.email(),"Zrestartuj swoje hasło", tokenCreatedTemplate);
+        mailSenderPort.send(passwordTokenCreated.email(), "Zrestartuj swoje hasło", tokenCreatedTemplate);
 
     }
 
@@ -52,10 +54,9 @@ public class UserEventHandler {
     public void handleUserRemindPassword(UserRemindedPassword userRemindedPassword) {
         log.info("User reminded password: {}", userRemindedPassword);
 
-        String remindPasswordTemplate = mailSenderPort.loadResourceAsString(
-                "templates/email/password_changed.html");
+        String remindPasswordTemplate = mailSenderPort.loadResourceAsString("templates/email/password_changed.html");
 
-        mailSenderPort.send(userRemindedPassword.email(),"Twoje hasło zostało zmienione", remindPasswordTemplate);
+        mailSenderPort.send(userRemindedPassword.email(), "Twoje hasło zostało zmienione", remindPasswordTemplate);
 
     }
 }

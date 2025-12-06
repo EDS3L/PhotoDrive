@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import pl.photodrive.core.domain.model.File;
-import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumPathEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.file.FileIdEmbeddable;

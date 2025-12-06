@@ -29,8 +29,7 @@ public class UserEntityMapper {
     public static UserEntity toEntity(User user) {
         List<UserIdEmbeddable> assignedUserEmbeddable = new ArrayList<>();
         if (user.getAssignedUsers() != null) {
-            assignedUserEmbeddable = user.getAssignedUsers().stream().map(domainId -> new UserIdEmbeddable(
-                    domainId.value())).toList();
+            assignedUserEmbeddable = user.getAssignedUsers().stream().map(domainId -> new UserIdEmbeddable(domainId.value())).toList();
         }
 
         return UserEntity.builder().userId(new UserIdEmbeddable(user.getId().value())).name(user.getName()).email(new EmailEmbeddable(

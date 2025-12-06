@@ -1,6 +1,5 @@
 package pl.photodrive.core.application.handler;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,7 +30,7 @@ public class FileStorageEventHandler {
             if (!temporaryStoragePort.exists(tempId)) {
                 log.error("[FileStorageEventHandler] Temporary file not found: {}", tempId);
                 return;
-            };
+            }
 
             InputStream inputStream = temporaryStoragePort.getFile(tempId);
 
@@ -48,6 +47,6 @@ public class FileStorageEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleChangeWatermarkStatus(WatermarkAddedToPhoto event) {
         log.info("[FileStorageEventHandler] Change watermark status: {}", event);
-       localStorageAdapter.addWatermark(event.path());
+        localStorageAdapter.addWatermark(event.path());
     }
 }

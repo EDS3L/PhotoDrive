@@ -25,6 +25,7 @@ import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.presentation.dto.album.*;
 import pl.photodrive.core.presentation.dto.file.RemoveFilesRequest;
 import pl.photodrive.core.presentation.dto.file.UploadResponse;
+import pl.photodrive.core.presentation.dto.file.UploadResponseFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -131,19 +132,17 @@ public class AlbumController {
     @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadResponse> addFilesToClientAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
         validateFiles(files);
-        List<FileUpload> fileUploads = new ArrayList<>();
 
+        List<FileUpload> fileUploads = new ArrayList<>();
         uploadFiles(files, fileUploads);
 
         AddFileToAlbumCommand command = new AddFileToAlbumCommand(albumId, fileUploads);
         List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
 
-        Map<String, String> fileMap = IntStream.range(0, addedFileIds.size()).boxed().collect(Collectors.toMap(
-                i -> addedFileIds.get(i).value().toString(),
-                i -> files.get(i).getOriginalFilename()
-        ));
+        List<UploadResponseFile> responseFiles = IntStream.range(0, addedFileIds.size())
+                .mapToObj(index -> new UploadResponseFile(addedFileIds.get(index).value().toString(),files.get(index).getOriginalFilename())).toList();
 
-        return ResponseEntity.accepted().body(new UploadResponse(fileMap, "Files are being processed"));
+        return ResponseEntity.accepted().body(new UploadResponse(responseFiles, "Files are being processed"));
     }
 
 

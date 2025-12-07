@@ -1,6 +1,6 @@
 package pl.photodrive.core.presentation.dto.file;
 
-import java.util.Map;//
+import java.util.List;
 
-public record UploadResponse(Map<String, String> files, String message) {
+public record UploadResponse(List<UploadResponseFile> responseFile, String message) {
 }

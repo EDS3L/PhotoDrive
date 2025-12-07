@@ -1,0 +1,23 @@
+services:
+  example-backend-app:
+    image: docker.io/edsel7/eds3l:photodrive
+    container_name: photodrive
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATASOURCE_PASSWORD: ${DATASOURCE_PASSWORD}
+      DATASOURCE_URL: ${DATASOURCE_URL}
+      DATASOURCE_USERNAME: ${DATASOURCE_USERNAME}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      DIR: ${DIR}
+      TEMP: ${TEMP}
+      TOKEN_SECRETKEY: ${TOKEN_SECRETKEY}
+      SPRING_PROFILES_ACTIVE: prod
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.photodrive.rule=Host(`20.251.154.210`)"
+#      - "traefik.http.routers.photodrive.entrypoints=websecure"
+#      - "traefik.http.routers.photodrive.tls.certresolver=my-resolver"

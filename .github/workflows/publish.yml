@@ -7,7 +7,7 @@ on:
       - '**/src/main/**'
       - 'Dockerfile'
       - 'build.gradle'
-      - 'docker-compose.prod.yml'
+      - '../../core/docker-compose.prod.yml'
 
 jobs:
 
@@ -50,3 +50,44 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    if: always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy docker-compose to VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "core/docker-compose.prod.yml"
+          target: "/home/${{ secrets.USERNAME }}/photodrive"
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+          script: |
+            echo "${{ secrets.DOCKER_TOKEN }}" | docker login docker.io -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            
+            export DATASOURCE_PASSWORD="${{ secrets.DATASOURCE_PASSWORD }}"
+            export DATASOURCE_URL="${{ secrets.DATASOURCE_URL }}"
+            export DATASOURCE_USERNAME="${{ secrets.DATASOURCE_USERNAME }}"
+            export MAIL_HOST="${{ secrets.MAIL_HOST }}"
+            export MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
+            export MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
+            export DIR="${{ secrets.DIR }}"
+            export TEMP="${{ secrets.TEMP }}"
+            export TOKEN_SECRETKEY="${{ secrets.TOKEN_SECRETKEY }}"
+
+            cd /home/${{ secrets.USERNAME }}/photodrive
+            docker pull docker.io/${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive
+            
+            docker compose -f core/docker-compose.prod.yml up -d --remove-orphans

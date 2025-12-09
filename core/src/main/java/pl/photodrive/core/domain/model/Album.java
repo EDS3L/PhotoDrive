@@ -448,7 +448,7 @@ public class Album {
     }
 
     public long calcToGB(long size) {
-        return size *1024*1024*1024;
+        return size * 1024L * 1024L * 1024L;
     }
 
 

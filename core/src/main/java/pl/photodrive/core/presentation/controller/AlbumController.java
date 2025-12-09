@@ -128,7 +128,6 @@ public class AlbumController {
         return ResponseEntity.ok(AlbumResponse.fromDomain(album));
     }
 
-//    //todo verify
     @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadResponse> addFilesToClientAlbum(@PathVariable UUID albumId, @RequestPart("files") List<MultipartFile> files) {
         validateFiles(files);
@@ -211,6 +210,13 @@ public class AlbumController {
     public ResponseEntity<Void> changeWatermarkState(@PathVariable UUID albumId, @RequestParam boolean hasWatermark, @RequestBody ChangeWatermarkRequest request) {
         ChangeWatermarkCommand cmd = new ChangeWatermarkCommand(albumId, request.filesUUIDList(), hasWatermark);
         albumService.changeWatermarkStatus(cmd);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("{albumId}/album/{targetAlbumId}/swap/{fileId}")
+    public ResponseEntity<Void> swapFile(@PathVariable UUID albumId, @PathVariable UUID targetAlbumId, @PathVariable UUID fileId) {
+        SwapFileCommand cmd = new SwapFileCommand(albumId, targetAlbumId, fileId);
+        albumService.swapFile(cmd);
         return ResponseEntity.ok().build();
     }
 

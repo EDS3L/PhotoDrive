@@ -237,6 +237,27 @@ public class AlbumManagementService {
                 cmd.height());
     }
 
+
+    @Transactional
+    public void swapFile(SwapFileCommand cmd) {
+        FileId fileId = new FileId(cmd.fileId());
+        AlbumId albumId = new AlbumId(cmd.albumId());
+        AlbumId targetAlbumId = new AlbumId(cmd.targetAlbumId());
+        User loggedInUser = getUser(currentUser.requireAuthenticated().userId());
+
+        Album album = getAlbum(albumId);
+        Album targetAlbum = getAlbum(targetAlbumId);
+
+
+        album.swapFile(targetAlbum.getPhotos(),loggedInUser,targetAlbum.getAlbumPath(),fileId);
+
+        albumRepository.save(album);
+        albumRepository.save(targetAlbum);
+
+        publishEvents(album);
+
+    }
+
     private FileResource getFileResource(String fileName, String filePath, Path fileStorageLocation, ServletContext servletContext, Integer width, Integer height) {
 
         try {

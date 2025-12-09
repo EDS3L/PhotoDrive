@@ -13,8 +13,6 @@ public interface FileStoragePort {
 
     void saveFile(String path, String fileName, InputStream fileData) throws IOException;
 
-    InputStream getFile(String path, String fileName);
-
     void deleteFile(String path, String fileName);
 
     void renameFile(String path, String oldName, String newName);
@@ -24,4 +22,6 @@ public interface FileStoragePort {
     void deleteFolder(String albumPath);
 
     void addWatermark(String path);
+
+    void swapFile(String albumPath, String targetPath, String fileName);
 }

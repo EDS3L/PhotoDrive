@@ -110,21 +110,6 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
-    public InputStream getFile(String path, String fileName) {
-        Path filePath = resolveAndValidate(path, fileName);
-
-        if (!Files.isRegularFile(filePath)) {
-            throw new StorageException("File not found: " + path + "/" + fileName);
-        }
-
-        try {
-            return Files.newInputStream(filePath);
-        } catch (IOException e) {
-            throw new StorageException("Failed to open file: " + fileName, e);
-        }
-    }
-
-    @Override
     public void deleteFile(String path, String fileName) {
         Path filePath = resolveAndValidate(path, fileName);
 
@@ -275,6 +260,35 @@ public class LocalStorageAdapter implements FileStoragePort {
         } catch (IOException e) {
             throw new StorageException("Failed to add watermark to file", e);
         }
+    }
+
+    @Override
+    public void swapFile(String albumPath, String targetPath, String fileName) {
+        Path sourceFilePath =  resolveAndValidate(albumPath, fileName);
+        Path targetDir =  resolveAndValidate(targetPath);
+
+        if(!Files.isRegularFile(sourceFilePath)) {
+            throw new StorageException("File not found: " + sourceFilePath);
+        }
+
+        Path targetFilePath = targetDir.resolve(fileName);
+
+        log.info("Swapping file {} from {} to {}", fileName, sourceFilePath, targetFilePath);
+
+        try {
+            try {
+                Files.move(sourceFilePath,targetDir,ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                throw new StorageException("Failed to move file from " + sourceFilePath + " to " + targetFilePath, e);
+            }
+
+            log.info("Successfully swapped file from {} to {}", sourceFilePath, targetFilePath);
+        } catch (IOException e) {
+            throw new StorageException("Failed to move file from " + sourceFilePath + " to " + targetFilePath, e);
+        }
+
+
+
     }
 
     private String getImageFormat(File file) throws IOException {

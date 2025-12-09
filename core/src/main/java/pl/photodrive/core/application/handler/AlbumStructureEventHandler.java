@@ -113,4 +113,11 @@ public class AlbumStructureEventHandler {
         mailSenderPort.send(event.userEmail().value(), "Twoje pliki są widoczne", filesVisibleTemplate);
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleSwapFile(FileSwaped event) {
+        log.info("Swap file event started!");
+
+        fileStoragePort.swapFile(event.albumPath().value(),event.targetAlbumPath().value(),event.fileName().value());
+    }
+
 }

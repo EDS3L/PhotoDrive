@@ -319,6 +319,25 @@ public class Album {
         return false;
     }
 
+    public void swapFile(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
+        boolean isAdmin =  currentUser.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph =  currentUser.getRoles().contains(Role.PHOTOGRAPHER);
+
+        if(!(isAdmin || isPhotograph)) {
+            throw new AlbumException("Only admin or album owner can swap the file");
+        }
+
+        if(photos.get(targetFileId) == null) {
+            throw new AlbumException("File not found: " + targetFileId.value());
+        }
+
+        File file = photos.get(targetFileId);
+        fileIdMap.put(targetFileId,file);
+        photos.remove(targetFileId);
+
+        this.registerEvent(new FileSwaped(albumPath,targetAlbumPath,file.getFileName()));
+    }
+
 
     public String getFilePath(User user, String photographEmail) {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);

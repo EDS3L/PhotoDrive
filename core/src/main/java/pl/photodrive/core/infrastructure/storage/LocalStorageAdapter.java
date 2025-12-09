@@ -277,7 +277,7 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             try {
-                Files.move(sourceFilePath,targetDir,ATOMIC_MOVE);
+                Files.move(sourceFilePath,targetFilePath,ATOMIC_MOVE);
             } catch (AtomicMoveNotSupportedException e) {
                 throw new StorageException("Failed to move file from " + sourceFilePath + " to " + targetFilePath, e);
             }

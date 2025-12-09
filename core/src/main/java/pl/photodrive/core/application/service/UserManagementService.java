@@ -121,15 +121,11 @@ public class UserManagementService {
 
         List<UserId> activeUsers = new ArrayList<>();
 
-        if (!authorisedUser.getRoles().contains(Role.ADMIN)) {
-            throw new UserException("Only admins can assign users");
-        }
-
         usersToAssign.forEach(user -> {
             user.ifPresent(value -> activeUsers.add(value.getId()));
         });
 
-        photographer.assignUsers(activeUsers);
+        photographer.assignUsers(activeUsers, authorisedUser);
 
         userRepository.save(photographer);
 

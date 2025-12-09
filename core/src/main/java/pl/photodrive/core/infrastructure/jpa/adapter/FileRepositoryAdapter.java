@@ -36,4 +36,9 @@ public class FileRepositoryAdapter implements FileRepository {
     public File save(File file) {
         return FileEntityMapper.toDomain(jpa.save(FileEntityMapper.toEntity(file)));
     }
+
+    @Override
+    public long countBySizeBytes() {
+        return jpa.countBySizeBytes();
+    }
 }

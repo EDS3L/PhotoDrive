@@ -3,6 +3,7 @@ package pl.photodrive.core.application.service;
 import jakarta.servlet.ServletContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -19,6 +20,7 @@ import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.FileRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
@@ -60,6 +62,10 @@ public class AlbumManagementService {
     private final ApplicationEventPublisher eventPublisher;
     private final FileStoragePort fileStoragePort;
     private final CurrentUser currentUser;
+    private final FileRepository fileRepository;
+
+    @Value("${ORG_MAX_SIZE}")
+    private long orgMaxSize;
 
     @Transactional
     public Album createAdminAlbum(CreateAlbumCommand cmd) {
@@ -118,6 +124,8 @@ public class AlbumManagementService {
         AlbumId albumId = new AlbumId(command.albumId());
         Album album = getAlbum(albumId);
 
+        long orgActualSize = fileRepository.countBySizeBytes();
+        log.info("Aktualny rozmiar bayz danych {}", orgActualSize);
         User user = getUser(currentUser.requireAuthenticated().userId());
 
         if (!album.canAccess(user.getId(), user.getRoles())) {
@@ -129,7 +137,7 @@ public class AlbumManagementService {
 
         createFilesWithUniqueName(command, album, usedNames, files);
 
-        List<FileAddedResult> results = album.addFiles(files);
+        List<FileAddedResult> results = album.addFiles(files,orgMaxSize,orgActualSize);
 
         publishUploadedEventsFiles(results, command, user, album);
 
@@ -240,7 +248,7 @@ public class AlbumManagementService {
 
     @Transactional
     public void swapFile(SwapFileCommand cmd) {
-        FileId fileId = new FileId(cmd.fileId());
+
         AlbumId albumId = new AlbumId(cmd.albumId());
         AlbumId targetAlbumId = new AlbumId(cmd.targetAlbumId());
         User loggedInUser = getUser(currentUser.requireAuthenticated().userId());
@@ -248,8 +256,9 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
         Album targetAlbum = getAlbum(targetAlbumId);
 
+        List<FileId> fileIdList = cmd.fileId().stream().map(FileId::new).toList();
 
-        album.swapFile(targetAlbum.getPhotos(),loggedInUser,targetAlbum.getAlbumPath(),fileId);
+        album.swapFiles(targetAlbum.getPhotos(),loggedInUser,targetAlbum.getAlbumPath(),fileIdList);
 
         albumRepository.save(album);
         albumRepository.save(targetAlbum);
@@ -435,6 +444,7 @@ public class AlbumManagementService {
 
         return urls;
     }
+
 
     private void addLinksToList(GetUrlsCommand cmd, Album album, String encodedFileName, List<String> urls) {
         if (cmd.width() == null && cmd.height() == null) {

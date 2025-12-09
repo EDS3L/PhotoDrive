@@ -10,7 +10,9 @@ import pl.photodrive.core.domain.vo.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 public class Album {
@@ -156,9 +158,11 @@ public class Album {
 
     }
 
-    public List<FileAddedResult> addFiles(List<File> files) {
+    public List<FileAddedResult> addFiles(List<File> files, long maxSize, long actualSize) {
         List<FileAddedResult> results = new ArrayList<>();
+        long totalSize = files.stream().mapToLong(File::getSizeBytes).sum();
 
+        checkStorage(maxSize, actualSize, totalSize);
         for (File file : files) {
             FileAddedResult result = addFile(file);
             results.add(result);
@@ -319,7 +323,13 @@ public class Album {
         return false;
     }
 
-    public void swapFile(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
+    public void swapFiles(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath,List<FileId> fileIdList) {
+        fileIdList.forEach(fileId -> {
+            swapFile(fileIdMap, currentUser, targetAlbumPath, fileId);
+        });
+    }
+
+    private void swapFile(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
         boolean isAdmin =  currentUser.getRoles().contains(Role.ADMIN);
         boolean isPhotograph =  currentUser.getRoles().contains(Role.PHOTOGRAPHER);
 
@@ -376,6 +386,22 @@ public class Album {
                 candidate -> photos.values().stream().anyMatch(f -> f.getFileName().equals(candidate)));
     }
 
+    private void checkStorage(long maxSizeInGb, long actualSize, long fileSize) {
+
+        long maxSize = calcToGB(maxSizeInGb);
+
+        if(actualSize + fileSize > maxSize) {
+            throw new AlbumException("File size too large for ");
+        }
+
+        if(maxSize == 0) return;
+
+        if(actualSize > maxSize) {
+            throw new AlbumException("Server storage is full!");
+        }
+
+    }
+
     private boolean isOwner(User user) {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
@@ -419,6 +445,10 @@ public class Album {
         List<Object> events = new ArrayList<>(this.domainEvents);
         this.domainEvents.clear();
         return Collections.unmodifiableList(events);
+    }
+
+    public long calcToGB(long size) {
+        return size *1024*1024*1024;
     }
 
 

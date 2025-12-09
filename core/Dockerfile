@@ -23,7 +23,7 @@ COPY --from=builder /build/photodrive/target/extracted/snapshot-dependencies/ ./
 COPY --from=builder /build/photodrive/target/extracted/application/ ./
 
 
-RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/WESELE_client@wp.pl_2025-11-10
+RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/wesele_bartek011229@gmail.com_2025-12-09
 RUN mkdir -p /app/photodrive/portfolio
 RUN mkdir -p /app/photodrive/watermark
 

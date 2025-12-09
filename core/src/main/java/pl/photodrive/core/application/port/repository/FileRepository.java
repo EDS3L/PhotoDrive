@@ -6,6 +6,7 @@ import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface FileRepository {
@@ -15,5 +16,7 @@ public interface FileRepository {
     Optional<File> findById(FileId fileId);
 
     File save(File file);
+
+    long countBySizeBytes();
 
 }

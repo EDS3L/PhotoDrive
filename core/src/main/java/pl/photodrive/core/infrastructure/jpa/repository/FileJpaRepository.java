@@ -18,4 +18,9 @@ public interface FileJpaRepository extends JpaRepository<FileEntity, FileIdEmbed
             """)
     boolean existsByAlbumIdAndFileName(@Param("albumId") AlbumIdEmbeddable albumId, @Param("fileName") FileNameEmbeddable fileName);
 
+    @Query("""
+            SELECT SUM(f.sizeBytes) FROM FileEntity f
+            """)
+    long countBySizeBytes();
+
 }

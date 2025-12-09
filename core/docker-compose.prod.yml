@@ -15,6 +15,7 @@ services:
       DIR: ${DIR}
       TEMP: ${TEMP}
       TOKEN_SECRETKEY: ${TOKEN_SECRETKEY}
+      ORG_MAX_SIZE: ${ORG_MAX_SIZE}
       SPRING_PROFILES_ACTIVE: prod
     labels:
       - "traefik.enable=true"

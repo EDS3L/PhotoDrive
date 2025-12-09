@@ -213,9 +213,9 @@ public class AlbumController {
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("{albumId}/album/{targetAlbumId}/swap/{fileId}")
-    public ResponseEntity<Void> swapFile(@PathVariable UUID albumId, @PathVariable UUID targetAlbumId, @PathVariable UUID fileId) {
-        SwapFileCommand cmd = new SwapFileCommand(albumId, targetAlbumId, fileId);
+    @PatchMapping("{albumId}/album/{targetAlbumId}/swap")
+    public ResponseEntity<Void> swapFile(@PathVariable UUID albumId, @PathVariable UUID targetAlbumId, @RequestBody SwapFileRequest request) {
+        SwapFileCommand cmd = new SwapFileCommand(albumId, targetAlbumId, request.fileIdList());
         albumService.swapFile(cmd);
         return ResponseEntity.ok().build();
     }

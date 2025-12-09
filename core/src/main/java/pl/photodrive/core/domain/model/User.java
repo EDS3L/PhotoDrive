@@ -68,12 +68,13 @@ public class User {
 
     public void addRole(Role role) {
         if (this.roles.contains(role)) throw new UserException("User already has role: " + role);
+        if (role.equals(Role.CLIENT) && (this.roles.contains(Role.ADMIN) || this.roles.contains(Role.PHOTOGRAPHER))) { throw new UserException("Admin or Photographer cannot be Client!"); }
         this.roles.add(role);
     }
 
     public void removeRole(Role role) {
         if (role.equals(Role.ADMIN)) throw new SecurityException("Cannot remove admin role");
-        if (!this.roles.contains(role)) throw new UserException("This set role not contains " + role);
+        if (!this.roles.contains(role)) throw new UserException("Cannot remove role which isn't assigned to User: " + role);
         if (this.roles.size() == 1) throw new UserException("You cannot remove all user role");
         this.roles.remove(role);
     }
@@ -121,8 +122,19 @@ public class User {
         this.isActive = active;
     }
 
-    public void assignUsers(List<UserId> assignedUsers) {
+    public void detectiveUser(boolean active, User user) {
+        hasAccessToSetActive(user);
+
+        if (!isActive) {
+            throw new UserException("User is already detective");
+        }
+        this.isActive = active;
+    }
+
+
+    public void assignUsers(List<UserId> assignedUsers, User user) {
         if (!this.roles.contains(Role.PHOTOGRAPHER)) throw new UserException("Users can only assigned to Photograph");
+        if(!user.roles.contains(Role.ADMIN)) throw new UserException("Access denied!");
         this.assignedUsers = assignedUsers;
     }
 
@@ -166,15 +178,6 @@ public class User {
             throw new UserException("Cannot access unassigned customer list!");
 
         return this.assignedUsers;
-    }
-
-    public void detectiveUser(boolean active, User user) {
-        hasAccessToSetActive(user);
-
-        if (!isActive) {
-            throw new UserException("User is already detective");
-        }
-        this.isActive = active;
     }
 
     public void shouldChangePasswordOnNextLogin() {

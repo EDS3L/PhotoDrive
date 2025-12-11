@@ -27,6 +27,8 @@ out/
 !**/src/test/**/out/
 .env
 .env.local
+.idea/
+
 
 ### NetBeans ###
 /nbproject/private/

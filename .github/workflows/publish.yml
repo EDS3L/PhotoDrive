@@ -86,6 +86,10 @@ jobs:
             export DIR="${{ secrets.DIR }}"
             export TEMP="${{ secrets.TEMP }}"
             export TOKEN_SECRETKEY="${{ secrets.TOKEN_SECRETKEY }}"
+            export ORG_MAX_SIZE="${{ secrets.ORG_MAX_SIZE }}"
+
+            if [ -z "$ORG_MAX_SIZE" ]; then echo "BLAD: ORG_MAX_SIZE jest puste!"; else echo "ORG_MAX_SIZE ma wartosc"; fi
+
 
             cd /home/${{ secrets.USERNAME }}/photodrive
             docker pull docker.io/${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive

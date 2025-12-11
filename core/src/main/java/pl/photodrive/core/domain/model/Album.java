@@ -36,7 +36,7 @@ public class Album {
 
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath) {
-        if (name == null) throw new AlbumException("Album name cannot be null!");
+        if (name == null) throw new AlbumException("Album's name cannot be null!");
         if (photographId == null) throw new AlbumException("Photograph name cannot be null!");
         if (albumPath == null) throw new AlbumException("Album to path cannot be null!");
         this.albumId = albumId;

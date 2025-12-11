@@ -19,6 +19,6 @@ services:
       SPRING_PROFILES_ACTIVE: prod
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.photodrive.rule=Host(`20.251.154.210`)"
+      - "traefik.http.routers.photodrive.rule=Host(`photodrive.dev`)"
 #      - "traefik.http.routers.photodrive.entrypoints=websecure"
 #      - "traefik.http.routers.photodrive.tls.certresolver=my-resolver"

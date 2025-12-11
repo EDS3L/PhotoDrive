@@ -22,10 +22,10 @@ COPY --from=builder /build/photodrive/target/extracted/spring-boot-loader/ ./
 COPY --from=builder /build/photodrive/target/extracted/snapshot-dependencies/ ./
 COPY --from=builder /build/photodrive/target/extracted/application/ ./
 
-
-RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/wesele_bartek011229@gmail.com_2025-12-09
-RUN mkdir -p /app/photodrive/portfolio
-RUN mkdir -p /app/photodrive/watermark
+#
+#RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/wesele_bartek011229@gmail.com_2025-12-09
+#RUN mkdir -p /app/photodrive/portfolio
+#RUN mkdir -p /app/photodrive/watermark
 
 RUN chown -R appuser:appuser .
 

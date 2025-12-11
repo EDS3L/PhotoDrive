@@ -13,7 +13,7 @@ import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
+//!
 @Repository
 @RequiredArgsConstructor
 public class AlbumRepositoryAdapter implements AlbumRepository {

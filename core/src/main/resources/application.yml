@@ -43,3 +43,9 @@ storage:
     path: ${TEMP}
 
 ORG_MAX_SIZE: ${ORG_MAX_SIZE}
+
+SWAGGER:
+  IP:
+    ONE: ${FIRST_SWAGGER_IP}
+    TWO: ${SECOND_SWAGGER_IP}
+

@@ -1,8 +1,10 @@
 package pl.photodrive.core.infrastructure.config;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -21,6 +23,10 @@ import java.util.List;
 @EnableWebSecurity
 public class WebConfig {
 
+    @Value("${SWAGGER.IP.ONE}")
+    private String allowedIPOne;
+    @Value("${SWAGGER.IP.TWO}")
+    private String allowedIPTwo;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
@@ -28,7 +34,11 @@ public class WebConfig {
                 auth -> auth.requestMatchers("/api/user/**").hasAnyRole("ADMIN", "PHOTOGRAPHER").requestMatchers(
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
-                        "/swagger-ui.html").permitAll().requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(
+                        "/swagger-ui.html").access((authentication, object) -> {
+                            String ipAddress = object.getRequest().getRemoteAddr();
+                            boolean isAllowed = ipAddress.equals(allowedIPOne) || ipAddress.equals(allowedIPTwo);
+                            return new AuthorizationDecision(isAllowed);
+                }).requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(
                 jwt,
                 UsernamePasswordAuthenticationFilter.class).exceptionHandling(e -> e.authenticationEntryPoint((request, response, authException) -> {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -47,7 +57,7 @@ public class WebConfig {
     @Bean
     public CorsConfigurationSource corsConfig() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost"));
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost", "https://photodrive.dev"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization",
                 "Content-Type",

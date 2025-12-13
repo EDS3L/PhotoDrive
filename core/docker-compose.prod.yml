@@ -16,6 +16,8 @@ services:
       TEMP: ${TEMP}
       TOKEN_SECRETKEY: ${TOKEN_SECRETKEY}
       ORG_MAX_SIZE: ${ORG_MAX_SIZE}
+      SWAGGER_IP_ONE: ${SWAGGER_IP_ONE}
+      SWAGGER_IP_TWO: ${SWAGGER_IP_TWO}
       SPRING_PROFILES_ACTIVE: prod
 
     networks:

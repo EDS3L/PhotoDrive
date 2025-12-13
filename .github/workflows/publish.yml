@@ -87,8 +87,10 @@ jobs:
             export TEMP="${{ secrets.TEMP }}"
             export TOKEN_SECRETKEY="${{ secrets.TOKEN_SECRETKEY }}"
             export ORG_MAX_SIZE="${{ secrets.ORG_MAX_SIZE }}"
+            export SWAGGER_IP_ONE:"${{ secrets.SWAGGER_IP_ONE }}"
+            export SWAGGER_IP_TWO:"${{ secrets.SWAGGER_IP_TWO }}"
 
-            if [ -z "$ORG_MAX_SIZE" ]; then echo "BLAD: ORG_MAX_SIZE jest puste!"; else echo "ORG_MAX_SIZE ma wartosc"; fi
+            if [ -z "SWAGGER_IP_ONE" ]; then echo "BLAD: SWAGGER_IP_ONE jest puste!"; else echo "SWAGGER_IP_ONE ma wartosc"; fi
 
 
             cd /home/${{ secrets.USERNAME }}/photodrive

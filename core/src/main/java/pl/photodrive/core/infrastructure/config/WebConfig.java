@@ -23,9 +23,9 @@ import java.util.List;
 @EnableWebSecurity
 public class WebConfig {
 
-    @Value("${SWAGGER.IP.ONE}")
+    @Value("${FIRST_SWAGGER_IP}")
     private String allowedIPOne;
-    @Value("${SWAGGER.IP.TWO}")
+    @Value("${SECOND_SWAGGER_IP}")
     private String allowedIPTwo;
 
     @Bean
@@ -35,11 +35,10 @@ public class WebConfig {
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html").access((authentication, object) -> {
-                            String ipAddress = object.getRequest().getRemoteAddr();
-                            boolean isAllowed = ipAddress.equals(allowedIPOne) || ipAddress.equals(allowedIPTwo);
-                            return new AuthorizationDecision(isAllowed);
-                }).requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(
-                jwt,
+                    String ipAddress = object.getRequest().getRemoteAddr();
+                    boolean isAllowed = ipAddress.equals(allowedIPOne) || ipAddress.equals(allowedIPTwo);
+                    return new AuthorizationDecision(isAllowed);
+                }).requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(jwt,
                 UsernamePasswordAuthenticationFilter.class).exceptionHandling(e -> e.authenticationEntryPoint((request, response, authException) -> {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
@@ -49,8 +48,6 @@ public class WebConfig {
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"Forbidden\"}");
         })).headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
-
-
         return http.build();
     }
 

@@ -28,7 +28,7 @@ public class TokenManagementService {
     @Transactional
     public void createToken(String email) {
         Instant EXPIRATION_TIME = Instant.now().plusSeconds(900);
-        User user = userRepository.findByEmail(new Email(email)).orElseThrow(() -> new UserException("User not found"));
+        User user = userRepository.findByEmail(new Email(email)).orElseThrow(() -> new UserException("User not found!"));
 
         if (passwordTokenRepository.existsByUserId(user.getId())) {
             PasswordToken passwordToken = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new UserException(

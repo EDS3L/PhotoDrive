@@ -4,12 +4,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -23,31 +27,72 @@ import java.util.List;
 @EnableWebSecurity
 public class WebConfig {
 
-    @Value("${FIRST_SWAGGER_IP}")
-    private String allowedIPOne;
-    @Value("${SECOND_SWAGGER_IP}")
-    private String allowedIPTwo;
+    @Value("${SWAGGER_USER}")
+    private String swaggerUser;
+    @Value("${SWAGGER_PASSWORD}")
+    private String swaggerPassword;
+
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
-        http.cors(cors -> cors.configurationSource(corsConfig())).csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(
-                auth -> auth.requestMatchers("/api/user/**").hasAnyRole("ADMIN", "PHOTOGRAPHER").requestMatchers(
-                        "/v3/api-docs/**",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html").access((authentication, object) -> {
-                    String ipAddress = object.getRequest().getRemoteAddr();
-                    boolean isAllowed = ipAddress.equals(allowedIPOne) || ipAddress.equals(allowedIPTwo);
-                    return new AuthorizationDecision(isAllowed);
-                }).requestMatchers("/api/auth/**").permitAll().anyRequest().authenticated()).addFilterBefore(jwt,
-                UsernamePasswordAuthenticationFilter.class).exceptionHandling(e -> e.authenticationEntryPoint((request, response, authException) -> {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Unauthorized\"}");
-        }).accessDeniedHandler((request, response, accessDeniedException) -> {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Forbidden\"}");
-        })).headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
+    @Order(1)
+    public SecurityFilterChain swaggerFilterChain(HttpSecurity http, BCryptPasswordEncoder passwordEncoder) throws Exception {
+        http
+                .securityMatcher("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/login", "/logout")
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .formLogin(form -> form
+                        .defaultSuccessUrl("/swagger-ui/index.html", true)
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/swagger-ui.html")
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID")
+                        .permitAll()
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .authenticationManager(new ProviderManager(
+                        new DaoAuthenticationProvider() {{
+                            setUserDetailsService(new InMemoryUserDetailsManager(
+                                    User.withUsername(swaggerUser)
+                                            .password(passwordEncoder.encode(swaggerPassword))
+                                            .roles("SWAGGER_USER")
+                                            .build()
+                            ));
+                            setPasswordEncoder(passwordEncoder);
+                        }}
+                ));
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain apiFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
+        http
+                .cors(cors -> cors.configurationSource(corsConfig()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "PHOTOGRAPHER")
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Unauthorized\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Forbidden\"}");
+                        })
+                )
+                .headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
+
         return http.build();
     }
 
@@ -56,12 +101,7 @@ public class WebConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost", "https://photodrive.dev"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("Authorization",
-                "Content-Type",
-                "Accept",
-                "Origin",
-                "X-Requested-With",
-                "content-disposition"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "content-disposition"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 

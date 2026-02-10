@@ -25,7 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final AntPathMatcher PM = new AntPathMatcher();
     private static final String COOKIE_NAME = "pd_at";
-    private static final String[] SKIP_PATHS = {"/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
+    private static final String[] SKIP_PATHS = {"/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html","/favicon.ico"};
     private final TokenDecoder tokenDecoder;
 
     @Override

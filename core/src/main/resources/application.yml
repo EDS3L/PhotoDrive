@@ -21,6 +21,7 @@ spring:
       max-lifetime: 600000
 
   jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
       type:
@@ -45,8 +46,8 @@ storage:
 ORG_MAX_SIZE: ${ORG_MAX_SIZE}
 
 SWAGGER:
-  IP:
-    ONE: ${FIRST_SWAGGER_IP}
-    TWO: ${SECOND_SWAGGER_IP}
+  LOGIN:
+    USER: ${SWAGGER_USER}
+    PASSWORD: ${SWAGGER_PASSWORD}
 
 

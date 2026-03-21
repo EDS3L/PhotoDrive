@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.event.FileStorageRequested;
+import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
 import pl.photodrive.core.infrastructure.storage.LocalStorageAdapter;
@@ -21,7 +22,7 @@ public class FileStorageEventHandler {
     private final LocalStorageAdapter localStorageAdapter;
     private final TemporaryStoragePort temporaryStoragePort;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleFileAddedToAlbum(FileStorageRequested event) {
         try {
 
@@ -40,11 +41,12 @@ public class FileStorageEventHandler {
 
         } catch (IOException e) {
             log.error("[FileStorageEventHandler] Failed to store file: {}", event.fileName(), e);
+            throw new StorageOperationException("Failed to store file in local storage");
         }
 
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleChangeWatermarkStatus(WatermarkAddedToPhoto event) {
         log.info("[FileStorageEventHandler] Change watermark status: {}", event);
         localStorageAdapter.addWatermark(event.path());

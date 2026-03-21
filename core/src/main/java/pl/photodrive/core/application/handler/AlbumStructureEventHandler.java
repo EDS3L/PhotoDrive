@@ -20,7 +20,7 @@ public class AlbumStructureEventHandler {
     private final FileStoragePort fileStoragePort;
     private final MailSenderPort mailSenderPort;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleAdminAlbumCreated(AdminAlbumCreated event) {
         log.info("Handling AdminAlbumCreated event for album: {}", event.albumName());
 
@@ -32,7 +32,7 @@ public class AlbumStructureEventHandler {
         }
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handlePhotographCreateAlbum(PhotographCreateAlbum event) {
         log.info("Handling PhotographCreateAlbum event for album: {} by photographer: {}",
                 event.name(),
@@ -60,7 +60,7 @@ public class AlbumStructureEventHandler {
         }
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleRenameFile(FileRenamedInAlbum event) {
         log.info("File renamed");
 
@@ -113,7 +113,7 @@ public class AlbumStructureEventHandler {
         mailSenderPort.send(event.userEmail().value(), "Twoje pliki są widoczne", filesVisibleTemplate);
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleSwapFile(FileSwaped event) {
         log.info("Swap file event started!");
 

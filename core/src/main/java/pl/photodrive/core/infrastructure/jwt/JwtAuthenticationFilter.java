@@ -23,58 +23,76 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final AntPathMatcher PM = new AntPathMatcher();
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private static final String COOKIE_NAME = "pd_at";
-    private static final String[] SKIP_PATHS = {"/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html","/favicon.ico"};
+    private static final String[] SKIP_PATHS = {
+            "/api/auth/**",
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/favicon.ico",
+            "/error"
+    };
     private final TokenDecoder tokenDecoder;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            filterChain.doFilter(request, response);
-            return;
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            return true;
         }
-        for (String p : SKIP_PATHS) {
-            if (PM.match(p, path)) {
-                filterChain.doFilter(request, response);
-                return;
+
+        for (String skipPath : SKIP_PATHS) {
+            if (PATH_MATCHER.match(skipPath, path)) {
+                return true;
             }
         }
+        return false;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String token = extractToken(request);
 
         if (token == null || token.isBlank()) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("""
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "Brak tokena uwierzytelniającego."
-                    }
-                    """);
+            sendUnauthorized(response, "Brak tokena uwierzytelniającego.");
             return;
         }
 
         try {
             var authentication = tokenDecoder.parse(token);
-            var authorities = authentication.roles().stream().map(r -> new SimpleGrantedAuthority("ROLE_" + r.name())).toList();
+            var authorities = authentication.roles().stream()
+                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r.name()))
+                    .toList();
 
-            var principal = new UsernamePasswordAuthenticationToken(authentication.userId().value().toString(),
+            var principal = new UsernamePasswordAuthenticationToken(
+                    authentication.userId().value().toString(),
                     null,
                     authorities);
 
             SecurityContextHolder.getContext().setAuthentication(principal);
+            filterChain.doFilter(request, response);
 
-        } catch (ExpiredTokenException | InvalidTokenException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
+        } catch (ExpiredTokenException e) {
+            sendUnauthorized(response, "Token wygasł.");
+        } catch (InvalidTokenException e) {
+            sendUnauthorized(response, "Nieprawidłowy token.");
         }
-
-        filterChain.doFilter(request, response);
     }
 
+    private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(String.format("""
+                {
+                  "status": 401,
+                  "error": "UNAUTHORIZED",
+                  "message": "%s"
+                }
+                """, message));
+    }
 
     private String extractToken(HttpServletRequest request) {
         String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);

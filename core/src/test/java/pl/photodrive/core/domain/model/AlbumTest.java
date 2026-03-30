@@ -2,6 +2,7 @@ package pl.photodrive.core.domain.model;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.exception.FileException;
@@ -22,14 +23,15 @@ class AlbumTest {
     private User admin;
     private User photographer;
     private User client;
-    private final Password dummyPassword = new Password("hashed_password");
+
+
+    private final Password dummyPassword = new Password("Test1234!");
 
     @BeforeEach
     void setUp() {
-        admin = User.create("Admin", new Email("admin@photodrive.pl"),dummyPassword,Role.ADMIN,"raw");
-        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"),dummyPassword,Role.PHOTOGRAPHER,"raw");
-        client = User.create("Client", new Email("client@photodrive.pl"),dummyPassword,Role.CLIENT,"raw");
-
+        admin = User.create("Admin", new Email("admin@photodrive.pl"), dummyPassword, Role.ADMIN, "Test1234!");
+        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER, "Test1234!");
+        client = User.create("Client", new Email("client@photodrive.pl"), dummyPassword, Role.CLIENT, "Test1234!");
     }
 
     @Test
@@ -48,13 +50,13 @@ class AlbumTest {
 
     @Test
     void shouldThrowExceptionWhenAddingFilesExceedsStorage() {
-        //Given
+        // Given
         Album album = Album.createForAdmin("StorageTest", admin);
         File file = File.create(new FileName("foto.jpg"), 2L * 1024 * 1024 * 1024, "image/jpeg");
         List<File> filesToAdd = List.of(file);
 
-        //When & Then
-        assertThrows(AlbumException.class, () -> album.addFiles(filesToAdd,1,0));
+        // When & Then
+        assertThrows(AlbumException.class, () -> album.addFiles(filesToAdd, 1, 0));
     }
 
     @Test
@@ -64,21 +66,19 @@ class AlbumTest {
         File file = File.create(new FileName("img.png"), 100L, "image/png");
 
         // When
-        album.addFile(file);
+        List<FileAddedResult> results = album.addFiles(List.of(file), 10, 0);
 
         // Then
-        List<Object> events = album.pullDomainEvents();
-        assertTrue(events.stream().anyMatch(e -> e instanceof FileAddedToAlbum));
+        assertTrue(results.stream()
+                .anyMatch(r -> r.event() instanceof FileAddedToAlbum));
     }
-
 
     @Test
     void shouldGrantAccessToAdminAlways() {
         // Given
         Album album = Album.createForClient("Private", photographer, client);
 
-        // When & Then
-        // Admin powinien mieć dostęp nawet jeśli widoczność (visible) jest na false
+        // When & Then — admin powinien mieć dostęp nawet gdy visible = false
         assertTrue(album.hasAccessToGetFilesFromAlbum(admin, false));
     }
 
@@ -91,22 +91,40 @@ class AlbumTest {
         assertThrows(AlbumException.class, () -> album.hasAccessToGetFilesFromAlbum(client, false));
     }
 
-
     @Test
     void shouldThrowExceptionWhenWatermarkingUnsupportedExtension() {
         // Given
         Album album = Album.createForClient("WatermarkTest", photographer, client);
-        File badFile = File.create(new FileName("virus.exe"), 100L, "application/octet-stream");
-        FileId fileId = badFile.getFileId();
+
+        File videoFile = File.create(new FileName("video.mp4"), 100L, "video/mp4");
+        FileId fileId = videoFile.getFileId();
 
         Map<FileId, File> photos = new HashMap<>();
-        photos.put(fileId, badFile);
+        photos.put(fileId, videoFile);
         album.assignPhotosToAlbum(photos);
 
         // When & Then
         assertThrows(FileException.class, () ->
                 album.changeWatermarkStatus(photographer, true, List.of(fileId))
         );
+    }
+
+    @Test
+    void shouldSetWatermarkSuccessfully() {
+        // Given — happy path dla watermark
+        Album album = Album.createForClient("WatermarkHappy", photographer, client);
+        File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = photo.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, photo);
+        album.assignPhotosToAlbum(photos);
+
+        // When
+        album.changeWatermarkStatus(photographer, true, List.of(fileId));
+
+        // Then
+        assertTrue(album.getPhotos().get(fileId).isHasWatermark());
     }
 
     @Test
@@ -123,22 +141,35 @@ class AlbumTest {
 
     @Test
     void shouldThrowExceptionWhenAdminTriesToSetTTDForOwnAlbum() {
-        //Given
+        // Given
         Album adminAlbum = Album.createForAdmin("SystemAlbum", admin);
         Instant futureDate = Instant.now().plusSeconds(360);
 
-        //When & Then
-        assertThrows(AlbumException.class, () -> adminAlbum.setTTD(futureDate,admin,admin.getEmail().value()));
+        // When & Then
+        assertThrows(AlbumException.class, () -> adminAlbum.setTTD(futureDate, admin, admin.getEmail().value()));
     }
 
     @Test
-    void shouldThrowExceptiuonWhenSettingTTDInThePast() {
-        //Given
-        Album album = Album.createForClient("ClientAlbum", photographer,client);
+    void shouldThrowExceptionWhenSettingTTDInThePast() {
+        // Given
+        Album album = Album.createForClient("ClientAlbum", photographer, client);
         Instant pastDate = Instant.now().minusSeconds(360);
 
-        //When & Then
-        assertThrows(AlbumException.class, ()-> album.setTTD(pastDate,photographer,photographer.getEmail().value()));
+        // When & Then
+        assertThrows(AlbumException.class, () -> album.setTTD(pastDate, photographer, photographer.getEmail().value()));
+    }
+
+    @Test
+    void shouldSetTTDSuccessfully() {
+        // Given — happy path dla TTD
+        Album album = Album.createForClient("ClientAlbumTTD", photographer, client);
+        Instant futureDate = Instant.now().plusSeconds(3600);
+
+        // When
+        album.setTTD(futureDate, photographer, photographer.getEmail().value());
+
+        // Then
+        assertEquals(futureDate, album.getTtd());
     }
 
     @Test
@@ -148,14 +179,13 @@ class AlbumTest {
         File file = File.create(new FileName("pic.jpg"), 100L, "image/jpeg");
         album.addFile(file);
 
-        // Upewniamy się, że plik tam jest
         assertFalse(album.getPhotos().isEmpty());
 
         // When
         album.removeFolder(album, photographer, photographer.getEmail().value());
 
         // Then
-        assertTrue(album.getPhotos().isEmpty()); // Lista zdjęć powinna być pusta
+        assertTrue(album.getPhotos().isEmpty());
     }
 
     @Test
@@ -163,7 +193,7 @@ class AlbumTest {
         // Given
         Album album = Album.createForClient("ClientTryDelete", photographer, client);
 
-        // When & Then: Klient nie może usuwać albumu
+        // When & Then
         assertThrows(AlbumException.class, () ->
                 album.removeFolder(album, client, photographer.getEmail().value())
         );
@@ -174,13 +204,9 @@ class AlbumTest {
         // Given
         Album album = Album.createForClient("ValidAlbum", photographer, client);
         Instant futureDate = Instant.now().plusSeconds(3600);
-
-        // Ustawiamy datę ważności w przyszłości
         album.setTTD(futureDate, photographer, photographer.getEmail().value());
 
         // When & Then
         assertThrows(AlbumException.class, () -> album.removeExpiredAlbum());
     }
-
-
 }

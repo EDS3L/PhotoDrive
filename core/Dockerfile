@@ -6,7 +6,8 @@ COPY gradle/ gradle/
 RUN ./gradlew dependencies --no-daemon
 
 COPY src ./src
-RUN ./gradlew bootJar --no-daemon
+#RUN ./gradlew bootJar --no-daemon
+RUN ./gradlew test bootJar --no-daemon
 
 RUN java -Djarmode=layertools \
     -jar build/libs/*.jar extract --destination target/extracted

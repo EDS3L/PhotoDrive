@@ -14,6 +14,7 @@ on:
       - 'frontend/Dockerfile'
       - 'frontend/package.json'
       - 'frontend/nginx.conf'
+      - '.github/workflows/**'
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -117,6 +118,7 @@ jobs:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         env:
+          VPS_USERNAME: ${{ secrets.USERNAME }}
           DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DATASOURCE_PASSWORD: ${{ secrets.DATASOURCE_PASSWORD }}
@@ -129,11 +131,13 @@ jobs:
           APP_TEMP: ${{ secrets.TEMP }}
           TOKEN_SECRETKEY: ${{ secrets.TOKEN_SECRETKEY }}
           ORG_MAX_SIZE: ${{ secrets.ORG_MAX_SIZE }}
+          SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
+          SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: DOCKER_TOKEN,DOCKER_USERNAME,DATASOURCE_PASSWORD,DATASOURCE_URL,DATASOURCE_USERNAME,MAIL_HOST,MAIL_PASSWORD,MAIL_USERNAME,APP_DIR,APP_TEMP,TOKEN_SECRETKEY,ORG_MAX_SIZE
+          envs: VPS_USERNAME,DOCKER_TOKEN,DOCKER_USERNAME,DATASOURCE_PASSWORD,DATASOURCE_URL,DATASOURCE_USERNAME,MAIL_HOST,MAIL_PASSWORD,MAIL_USERNAME,APP_DIR,APP_TEMP,TOKEN_SECRETKEY,ORG_MAX_SIZE,SWAGGER_USER,SWAGGER_PASSWORD
 
           script: |
             echo "$DOCKER_TOKEN" | docker login docker.io -u "$DOCKER_USERNAME" --password-stdin
@@ -148,8 +152,10 @@ jobs:
             export TEMP="$APP_TEMP"
             export TOKEN_SECRETKEY="$TOKEN_SECRETKEY"
             export ORG_MAX_SIZE="$ORG_MAX_SIZE"
+            export SWAGGER_USER="$SWAGGER_USER"
+            export SWAGGER_PASSWORD="$SWAGGER_PASSWORD"
 
-            cd /home/$USERNAME/photodrive
+            cd /home/$VPS_USERNAME/photodrive
             docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive
             docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive-frontend
 

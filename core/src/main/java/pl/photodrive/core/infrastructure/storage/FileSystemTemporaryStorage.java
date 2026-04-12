@@ -31,21 +31,21 @@ public class FileSystemTemporaryStorage implements TemporaryStoragePort {
 
     @Override
     public boolean exists(String tempId) {
-        Path tempFile = tempDirectory.resolve(tempId);
+        Path tempFile = resolveSafe(tempId);
         return Files.exists(tempFile) && Files.isRegularFile(tempFile);
     }
 
     @Override
     public String saveTemporary(InputStream data) throws IOException {
         String tempId = UUID.randomUUID().toString();
-        Path tempFile = tempDirectory.resolve(tempId);
+        Path tempFile = resolveSafe(tempId);
         Files.copy(data, tempFile, StandardCopyOption.REPLACE_EXISTING);
         return tempId;
     }
 
     @Override
     public InputStream getFile(String fileName) throws IOException {
-        Path tempFile = tempDirectory.resolve(fileName);
+        Path tempFile = resolveSafe(fileName);
         if (!Files.exists(tempFile)) {
             throw new StorageException("Temporary file not found: " + fileName);
         }
@@ -55,10 +55,18 @@ public class FileSystemTemporaryStorage implements TemporaryStoragePort {
     @Override
     public void delete(String tempId) {
         try {
-            Path tempFile = tempDirectory.resolve(tempId);
+            Path tempFile = resolveSafe(tempId);
             Files.deleteIfExists(tempFile);
         } catch (IOException e) {
             log.warn("Failed to delete temporary file: {}", tempId, e);
         }
+    }
+
+    private Path resolveSafe(String id) {
+        Path resolved = tempDirectory.resolve(id).normalize();
+        if (!resolved.startsWith(tempDirectory)) {
+            throw new StorageException("Invalid temp file path");
+        }
+        return resolved;
     }
 }

@@ -33,12 +33,12 @@ spring:
         temp:
           use_jdbc_metadata_defaults: false
     open-in-view: false
-    show-sql: true
+    show-sql: false
 
   servlet:
     multipart:
-      max-file-size: '2GB'
-      max-request-size: '2GB'
+      max-file-size: "2GB"
+      max-request-size: "2GB"
 
 jwt:
   secret: ${TOKEN_SECRETKEY}
@@ -46,7 +46,7 @@ jwt:
 storage:
   dir: ${DIR}
   temp:
-    path: ${TEMP}
+    path: ${STORAGE_TEMP_PATH}
 
 ORG_MAX_SIZE: ${ORG_MAX_SIZE}
 

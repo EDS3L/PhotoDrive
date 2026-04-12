@@ -4,17 +4,17 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'core/src/main/**'
-      - 'core/Dockerfile'
-      - 'core/build.gradle'
-      - 'core/settings.gradle'
-      - 'core/gradle/**'
-      - 'docker-compose.prod.yml'
-      - 'frontend/src/**'
-      - 'frontend/Dockerfile'
-      - 'frontend/package.json'
-      - 'frontend/nginx.conf'
-      - '.github/workflows/**'
+      - "core/src/main/**"
+      - "core/Dockerfile"
+      - "core/build.gradle"
+      - "core/settings.gradle"
+      - "core/gradle/**"
+      - "docker-compose.prod.yml"
+      - "frontend/src/**"
+      - "frontend/Dockerfile"
+      - "frontend/package.json"
+      - "frontend/nginx.conf"
+      - ".github/workflows/**"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -112,8 +112,8 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: 'docker-compose.prod.yml'
-          target: '/home/${{ secrets.USERNAME }}/photodrive'
+          source: "docker-compose.prod.yml"
+          target: "/home/${{ secrets.USERNAME }}/photodrive"
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
@@ -149,7 +149,7 @@ jobs:
             export MAIL_PASSWORD="$MAIL_PASSWORD"
             export MAIL_USERNAME="$MAIL_USERNAME"
             export DIR="$APP_DIR"
-            export TEMP="$APP_TEMP"
+            export STORAGE_TEMP_PATH="$APP_TEMP"
             export TOKEN_SECRETKEY="$TOKEN_SECRETKEY"
             export ORG_MAX_SIZE="$ORG_MAX_SIZE"
             export SWAGGER_USER="$SWAGGER_USER"

@@ -6,7 +6,7 @@ services:
     container_name: photodrive-backend
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "8080:8080"
     environment:
       DATASOURCE_PASSWORD: ${DATASOURCE_PASSWORD}
       DATASOURCE_URL: ${DATASOURCE_URL}
@@ -15,7 +15,7 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_USERNAME: ${MAIL_USERNAME}
       DIR: ${DIR}
-      TEMP: ${TEMP}
+      STORAGE_TEMP_PATH: ${STORAGE_TEMP_PATH}
       TOKEN_SECRETKEY: ${TOKEN_SECRETKEY}
       ORG_MAX_SIZE: ${ORG_MAX_SIZE}
       SWAGGER_USER: ${SWAGGER_USER}
@@ -24,6 +24,7 @@ services:
       SERVER_FORWARD_HEADERS_STRATEGY: framework
     volumes:
       - photodrive-data:/app/photodrive
+      - photodrive-temp:/app/photodrive-temp
     networks:
       - photodrive-internal
 
@@ -34,7 +35,7 @@ services:
     container_name: photodrive-frontend
     restart: unless-stopped
     ports:
-      - '3000:8080'
+      - "3000:8080"
     depends_on:
       - photodrive-backend
     networks:
@@ -42,6 +43,7 @@ services:
 
 volumes:
   photodrive-data:
+  photodrive-temp:
 
 networks:
   photodrive-internal:

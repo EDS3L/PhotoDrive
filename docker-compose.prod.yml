@@ -8,8 +8,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: "1.0"
+          memory: 768M
     environment:
       DATASOURCE_PASSWORD: ${DATASOURCE_PASSWORD}
       DATASOURCE_URL: ${DATASOURCE_URL}
@@ -18,20 +18,21 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_USERNAME: ${MAIL_USERNAME}
       DIR: ${DIR}
-      TEMP: ${TEMP}
+      STORAGE_TEMP_PATH: ${STORAGE_TEMP_PATH}
       TOKEN_SECRETKEY: ${TOKEN_SECRETKEY}
       ORG_MAX_SIZE: ${ORG_MAX_SIZE}
       SWAGGER_USER: ${SWAGGER_USER}
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
-      COOKIE_SECURE: 'true'
+      COOKIE_SECURE: "true"
       SPRING_PROFILES_ACTIVE: prod
     volumes:
       - /home/docker-user/photodrive/data:/app/photodrive
+      - /home/docker-user/photodrive/temp:/app/photodrive-temp
     networks:
       - photodrive-internal
     labels:
-      - 'traefik.enable=false'
+      - "traefik.enable=false"
 
   photodrive-frontend:
     image: docker.io/edsel7/eds3l:photodrive-frontend
@@ -42,7 +43,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 64M
     depends_on:
       - photodrive-backend
@@ -50,18 +51,18 @@ services:
       - web
       - photodrive-internal
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.photodrive.rule=Host(`photodrive.dev`)'
-      - 'traefik.http.routers.photodrive.entrypoints=websecure'
-      - 'traefik.http.routers.photodrive.tls=true'
-      - 'traefik.http.routers.photodrive.tls.certresolver=my-resolver'
+      - "traefik.enable=true"
+      - "traefik.http.routers.photodrive.rule=Host(`photodrive.dev`)"
+      - "traefik.http.routers.photodrive.entrypoints=websecure"
+      - "traefik.http.routers.photodrive.tls=true"
+      - "traefik.http.routers.photodrive.tls.certresolver=my-resolver"
       # HTTP → HTTPS redirect
-      - 'traefik.http.routers.photodrive-http.rule=Host(`photodrive.dev`)'
-      - 'traefik.http.routers.photodrive-http.entrypoints=web'
-      - 'traefik.http.routers.photodrive-http.middlewares=redirect-to-https'
-      - 'traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https'
-      - 'traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true'
-      - 'traefik.http.services.photodrive.loadbalancer.server.port=8080'
+      - "traefik.http.routers.photodrive-http.rule=Host(`photodrive.dev`)"
+      - "traefik.http.routers.photodrive-http.entrypoints=web"
+      - "traefik.http.routers.photodrive-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      - "traefik.http.services.photodrive.loadbalancer.server.port=8080"
 
 networks:
   web:

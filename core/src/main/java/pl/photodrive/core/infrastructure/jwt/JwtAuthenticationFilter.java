@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String COOKIE_NAME = "pd_at";
     private static final String[] SKIP_PATHS = {
             "/api/auth/**",
+            "/api/public/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",

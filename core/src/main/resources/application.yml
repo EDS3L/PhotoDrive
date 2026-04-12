@@ -51,6 +51,7 @@ storage:
 ORG_MAX_SIZE: ${ORG_MAX_SIZE}
 
 app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
   cookie:
     secure: ${COOKIE_SECURE:true}
 

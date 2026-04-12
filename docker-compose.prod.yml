@@ -25,6 +25,7 @@ services:
       SWAGGER_PASSWORD: ${SWAGGER_PASSWORD}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       COOKIE_SECURE: "true"
+      APP_BASE_URL: "https://photodrive.dev"
       SPRING_PROFILES_ACTIVE: prod
     volumes:
       - /home/docker-user/photodrive/data:/app/photodrive

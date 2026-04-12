@@ -9,22 +9,13 @@ COPY src ./src
 #RUN ./gradlew bootJar --no-daemon
 RUN ./gradlew test bootJar --no-daemon
 
-RUN java -Djarmode=tools \
-    -jar build/libs/*.jar extract --destination target/extracted
-
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app/photodrive
 
 RUN adduser -D -H -u 10001 -s /sbin/nologin appuser
 
-COPY --from=builder /build/photodrive/target/extracted/lib/ ./lib/
-COPY --from=builder /build/photodrive/target/extracted/application/ ./
-
-#
-#RUN mkdir -p /app/photodrive/PHOTOGRAPHER@wp.pl/wesele_bartek011229@gmail.com_2025-12-09
-#RUN mkdir -p /app/photodrive/portfolio
-#RUN mkdir -p /app/photodrive/watermark
+COPY --from=builder /build/photodrive/build/libs/*.jar app.jar
 
 RUN chown -R appuser:appuser .
 
@@ -32,4 +23,4 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java","org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

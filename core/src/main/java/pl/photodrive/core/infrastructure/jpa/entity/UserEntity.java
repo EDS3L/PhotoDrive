@@ -27,7 +27,7 @@ public class UserEntity {
     @Embedded
     private PasswordEmbeddable password;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "userId", referencedColumnName = "userId"))
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -37,7 +37,7 @@ public class UserEntity {
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "assigned_users", joinColumns = @JoinColumn(name = "photographer_user_id", referencedColumnName = "userId"))
-    @AttributeOverrides({@AttributeOverride(name = "id", column = @Column(name = "assigned_users")), @AttributeOverride(name = "version", column = @Column(name = "assigned_users_version"))})
+    @AttributeOverrides({@AttributeOverride(name = "id", column = @Column(name = "assigned_users"))})
     private List<UserIdEmbeddable> assignedUsers;
 
 }

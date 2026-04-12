@@ -1,6 +1,7 @@
 package pl.photodrive.core.application.exception;
 
-public class SecurityException extends RuntimeException {
+@Deprecated
+public class SecurityException extends ApplicationSecurityException {
     public SecurityException(String message) {
         super(message);
     }

@@ -51,7 +51,7 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
             return new AuthenticatedUser(userId, roles, experience);
         } catch (JOSEException | ParseException e) {
-            throw new RuntimeException(e);
+            throw new InvalidTokenException("Malformed token");
         }
 
     }

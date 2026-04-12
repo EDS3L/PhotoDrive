@@ -10,6 +10,7 @@ import pl.photodrive.core.infrastructure.jpa.mapper.AlbumEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.AlbumJpaRepository;
 import pl.photodrive.core.infrastructure.jpa.vo.album.AlbumIdEmbeddable;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +33,11 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     }
 
     @Override
+    public Optional<Album> findPublicByAlbumId(AlbumId albumId) {
+        return jpa.findByAlbumIdAndIsPublicTrue(new AlbumIdEmbeddable(albumId.value())).map(AlbumEntityMapper::toDomain);
+    }
+
+    @Override
     public Album findByPhotographId(UUID photographId) {
         var entity = jpa.findByPhotographId(photographId);
         if (entity == null) {
@@ -42,8 +48,7 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
 
     @Override
     public Optional<Album> findByName(String name) {
-        return Optional.of(AlbumEntityMapper.toDomain(jpa.findByName(name).orElseThrow(() -> new AlbumException(
-                "Album not found!"))));
+        return jpa.findByName(name).map(AlbumEntityMapper::toDomain);
     }
 
     @Override
@@ -65,5 +70,30 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     @Override
     public List<Album> findAll() {
         return jpa.findAll().stream().map(AlbumEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Album> findAllByPhotographId(UUID photographId) {
+        return jpa.findAllByPhotographId(photographId).stream().map(AlbumEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Album> findAllByClientId(UUID clientId) {
+        return jpa.findAllByClientId(clientId).stream().map(AlbumEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Album> findByTtdBeforeAndTtdIsNotNull(Instant now) {
+        return jpa.findByTtdBeforeAndTtdIsNotNull(now).stream().map(AlbumEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Album> findAllPublic() {
+        return jpa.findAllByIsPublicTrue().stream().map(AlbumEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public Optional<Album> findPublicByName(String name) {
+        return jpa.findByNameAndIsPublicTrue(name).map(AlbumEntityMapper::toDomain);
     }
 }

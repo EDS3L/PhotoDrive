@@ -6,16 +6,19 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.photodrive.core.application.command.user.*;
-import pl.photodrive.core.application.port.password.PasswordHasher;
+import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.application.port.user.UserUniquenessChecker;
-import pl.photodrive.core.domain.exception.UserException;
+import pl.photodrive.core.application.event.UserCredentialsNotification;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.Email;
+import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
+import pl.photodrive.core.domain.exception.UserException;
 
 import java.util.*;
 
@@ -36,22 +39,40 @@ public class UserManagementService {
     public User addUser(AddUserCommand cmd) {
         Email email = new Email(cmd.email());
         if (userUniquenessChecker.isEmailTaken(email)) {
-            throw new UserException("User already exists with email: " + email);
+            throw new UserException("User with this email already exists");
         }
 
-        var roles = currentUser.requireAuthenticated().roles();
+        var authenticated = currentUser.requireAuthenticated();
+        var roles = authenticated.roles();
         boolean isAdmin = roles.contains(Role.ADMIN);
         boolean isPhotographer = roles.contains(Role.PHOTOGRAPHER);
 
         if (!isAdmin && !isPhotographer) {
             throw new UserException("Only admins or photographer can add user");
         }
-        Password hashedPassword = new Password(passwordHasher.encode(cmd.password()));
-        User user = User.create(cmd.name(), email, hashedPassword, cmd.role(), cmd.password());
+
+        if (isPhotographer && !isAdmin && cmd.role() != Role.CLIENT) {
+            throw new UserException("Photographers can only create clients");
+        }
+
+        new Password(cmd.password()); // walidacja surowego hasła
+        HashedPassword hashedPassword = new HashedPassword(passwordHasher.encode(cmd.password()));
+        User user = User.create(cmd.name(), email, hashedPassword, cmd.role());
 
         var savedUser = userRepository.save(user);
 
+        // Auto-assign client to photographer
+        if (isPhotographer && cmd.role() == Role.CLIENT) {
+            User photographer = getUserForDB(authenticated.userId());
+            List<UserId> currentAssigned = new ArrayList<>(photographer.getAssignedUsers());
+            currentAssigned.add(savedUser.getId());
+            photographer.assignUsersForSelf(currentAssigned);
+            userRepository.save(photographer);
+        }
+
         publishEvents(user);
+
+        eventPublisher.publishEvent(new UserCredentialsNotification(cmd.email(), cmd.password()));
 
         return savedUser;
     }
@@ -59,6 +80,11 @@ public class UserManagementService {
     @Transactional
     public void changePassword(ChangePasswordCommand cmd) {
         UserId userId = new UserId(cmd.userId());
+        var authenticatedUser = currentUser.requireAuthenticated();
+        boolean isAdmin = authenticatedUser.roles().contains(Role.ADMIN);
+        if (!isAdmin && !authenticatedUser.userId().equals(userId)) {
+            throw new DomainSecurityException("Access denied: cannot change another user's password");
+        }
         User user = getUserForDB(userId);
         user.changePassword(cmd.currentPassword(), cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);
@@ -84,6 +110,11 @@ public class UserManagementService {
     @Transactional
     public User changeEmail(ChangeEmailCommand cmd) {
         UserId userId = new UserId(cmd.userId());
+        var authenticatedUser = currentUser.requireAuthenticated();
+        boolean isAdmin = authenticatedUser.roles().contains(Role.ADMIN);
+        if (!isAdmin && !authenticatedUser.userId().equals(userId)) {
+            throw new DomainSecurityException("Access denied: cannot change another user's email");
+        }
         User user = getUserForDB(userId);
         user.changeEmail(cmd.newEmail());
         return userRepository.save(user);
@@ -106,7 +137,7 @@ public class UserManagementService {
         User authorisedUser = getUserForDB(currentUser.requireAuthenticated().userId());
 
         User user = getUserForDB(userId);
-        user.detectiveUser(cmd.active(), authorisedUser);
+        user.deactivateUser(cmd.active(), authorisedUser);
 
         return userRepository.save(user);
     }
@@ -119,13 +150,21 @@ public class UserManagementService {
         List<UserId> userIdList = cmd.assignedUser().stream().map(UserId::new).toList();
         List<Optional<User>> usersToAssign = userIdList.stream().map(userRepository::findById).toList();
 
-        List<UserId> activeUsers = new ArrayList<>();
+        List<UserId> activeClients = new ArrayList<>();
 
         usersToAssign.forEach(user -> {
-            user.ifPresent(value -> activeUsers.add(value.getId()));
+            user.ifPresent(value -> {
+                if (!value.getRoles().contains(Role.CLIENT)) {
+                    throw new UserException("Only clients can be assigned to a photographer");
+                }
+                if (!value.isActive()) {
+                    throw new UserException("Cannot assign inactive user: " + value.getName());
+                }
+                activeClients.add(value.getId());
+            });
         });
 
-        photographer.assignUsers(activeUsers, authorisedUser);
+        photographer.assignUsers(activeClients, authorisedUser);
 
         userRepository.save(photographer);
 
@@ -201,11 +240,37 @@ public class UserManagementService {
         return users;
     }
 
+    @Transactional(readOnly = true)
+    public List<User> getPhotographerUsersForAdmin(UUID photographerId) {
+        User authorisedUser = getAuthorisedUser();
+        if (!authorisedUser.getRoles().contains(Role.ADMIN)) {
+            throw new DomainSecurityException("Only admins can view photographer assignments");
+        }
+
+        User photographer = getUserForDB(new UserId(photographerId));
+        if (!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
+            throw new UserException("User is not a photographer");
+        }
+
+        List<User> users = new ArrayList<>();
+        photographer.getAssignedUsers().forEach(userId -> {
+            User user = getUserForDB(userId);
+            users.add(user);
+        });
+
+        return users;
+    }
+
 
     private User getUserForDB(UserId userid) {
         return userRepository.findById(userid).orElseThrow(() -> new UserException("User not found!"));
     }
 
+
+    @Transactional(readOnly = true)
+    public User getCurrentUser() {
+        return getAuthorisedUser();
+    }
 
     private User getAuthorisedUser() {
         return getUserForDB(currentUser.requireAuthenticated().userId());

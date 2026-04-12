@@ -10,7 +10,6 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
@@ -53,15 +52,7 @@ public class WebConfig {
                 )
                 .csrf(AbstractHttpConfigurer::disable)
                 .authenticationManager(new ProviderManager(
-                        new DaoAuthenticationProvider() {{
-                            setUserDetailsService(new InMemoryUserDetailsManager(
-                                    User.withUsername(swaggerUser)
-                                            .password(passwordEncoder.encode(swaggerPassword))
-                                            .roles("SWAGGER_USER")
-                                            .build()
-                            ));
-                            setPasswordEncoder(passwordEncoder);
-                        }}
+                        createDaoAuthProvider(passwordEncoder)
                 ));
 
         return http.build();
@@ -74,8 +65,21 @@ public class WebConfig {
                 .cors(cors -> cors.configurationSource(corsConfig()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "PHOTOGRAPHER")
-                        .requestMatchers("/api/auth/**", "/favicon.ico", "/error").permitAll()
+                        .requestMatchers("/api/user/add").hasAnyRole("ADMIN", "PHOTOGRAPHER")
+                        .requestMatchers("/api/user/all").hasRole("ADMIN")
+                        .requestMatchers("/api/user/activeUsers").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/addRole").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/removeRole").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/activateUser").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/deactivateUser").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/assignUsers").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/removeUsers").hasRole("ADMIN")
+                        .requestMatchers("/api/album/*/setPublic").hasRole("ADMIN")
+                        .requestMatchers("/api/user/*/changePassword").authenticated()
+                        .requestMatchers("/api/user/*/changeEmail").authenticated()
+                        .requestMatchers("/api/user/me").authenticated()
+                        .requestMatchers("/api/user/getAssignedUsers").hasAnyRole("ADMIN", "PHOTOGRAPHER")
+                        .requestMatchers("/api/auth/**", "/api/public/**", "/favicon.ico", "/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
@@ -91,7 +95,14 @@ public class WebConfig {
                             response.getWriter().write("{\"error\":\"Forbidden\"}");
                         })
                 )
-                .headers(headers -> headers.httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable));
+                .headers(headers -> headers
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000)
+                        )
+                        .contentTypeOptions(contentTypeOptions -> {})
+                        .frameOptions(frameOptions -> frameOptions.deny())
+                );
 
         return http.build();
     }
@@ -99,7 +110,8 @@ public class WebConfig {
     @Bean
     public CorsConfigurationSource corsConfig() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost", "https://photodrive.dev"));
+        configuration.setAllowedOrigins(List.of("https://photodrive.dev"));
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://localhost"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "content-disposition"));
         configuration.setExposedHeaders(List.of("Authorization"));
@@ -112,7 +124,19 @@ public class WebConfig {
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(12);
+    }
+
+    @SuppressWarnings("deprecation")
+    private DaoAuthenticationProvider createDaoAuthProvider(BCryptPasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(passwordEncoder);
+        provider.setUserDetailsService(new InMemoryUserDetailsManager(
+                User.withUsername(swaggerUser)
+                        .password(passwordEncoder.encode(swaggerPassword))
+                        .roles("SWAGGER_USER")
+                        .build()
+        ));
+        return provider;
     }
 
 }

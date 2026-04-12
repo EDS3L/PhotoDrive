@@ -9,7 +9,7 @@ import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
-import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.domain.vo.HashedPassword;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -25,13 +25,13 @@ class AlbumTest {
     private User client;
 
 
-    private final Password dummyPassword = new Password("Test1234!");
+    private final HashedPassword dummyPassword = new HashedPassword("Test1234!");
 
     @BeforeEach
     void setUp() {
-        admin = User.create("Admin", new Email("admin@photodrive.pl"), dummyPassword, Role.ADMIN, "Test1234!");
-        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER, "Test1234!");
-        client = User.create("Client", new Email("client@photodrive.pl"), dummyPassword, Role.CLIENT, "Test1234!");
+        admin = User.create("Admin", new Email("admin@photodrive.pl"), dummyPassword, Role.ADMIN);
+        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER);
+        client = User.create("Client", new Email("client@photodrive.pl"), dummyPassword, Role.CLIENT);
     }
 
     @Test
@@ -208,5 +208,249 @@ class AlbumTest {
 
         // When & Then
         assertThrows(AlbumException.class, () -> album.removeExpiredAlbum());
+    }
+
+    // -----------------------------------------------------------------------
+    // removeFiles
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldRemoveFileFromAlbumSuccessfully() {
+        // Given
+        Album album = Album.createForClient("RemoveTest", photographer, client);
+        File file = File.create(new FileName("remove.jpg"), 100L, "image/jpeg");
+        FileId fileId = file.getFileId();
+        album.addFile(file);
+
+        // When
+        album.removeFiles(fileId, photographer);
+
+        // Then
+        assertFalse(album.getPhotos().containsKey(fileId));
+    }
+
+    @Test
+    void shouldThrowWhenRemovingNonExistentFile() {
+        // Given
+        Album album = Album.createForClient("RemoveTest2", photographer, client);
+        FileId nonExistent = new FileId(java.util.UUID.randomUUID());
+
+        // When & Then
+        assertThrows(AlbumException.class, () -> album.removeFiles(nonExistent, photographer));
+    }
+
+    @Test
+    void shouldAllowClientToRemoveFileFromOwnAlbum() {
+        // Client is the owner of a client album, so they can remove files
+        // Given
+        Album album = Album.createForClient("RemoveTest3", photographer, client);
+        File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = file.getFileId();
+        album.addFile(file);
+
+        // When / Then
+        assertDoesNotThrow(() -> album.removeFiles(fileId, client));
+        assertFalse(album.getPhotos().containsKey(fileId));
+    }
+
+    // -----------------------------------------------------------------------
+    // renameFile
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldRenameFileInAlbumSuccessfully() {
+        // Given
+        Album album = Album.createForClient("RenameTest", photographer, client);
+        File file = File.create(new FileName("old.jpg"), 100L, "image/jpeg");
+        album.addFile(file);
+        FileName newName = new FileName("new.jpg");
+
+        // When
+        album.renameFile(file.getFileId(), newName, photographer);
+
+        // Then
+        assertEquals(newName, album.getPhotos().get(file.getFileId()).getFileName());
+    }
+
+    @Test
+    void shouldThrowWhenRenamingToAlreadyExistingFileName() {
+        // Given
+        Album album = Album.createForClient("RenameConflict", photographer, client);
+        File file1 = File.create(new FileName("first.jpg"), 100L, "image/jpeg");
+        File file2 = File.create(new FileName("second.jpg"), 100L, "image/jpeg");
+        album.addFile(file1);
+        album.addFile(file2);
+
+        // When & Then
+        assertThrows(AlbumException.class,
+                () -> album.renameFile(file1.getFileId(), new FileName("second.jpg"), photographer));
+    }
+
+    @Test
+    void shouldAllowClientToRenameFileInOwnAlbum() {
+        // Client is the owner of a client album
+        // Given
+        Album album = Album.createForClient("RenameDeny", photographer, client);
+        File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        album.addFile(file);
+
+        // When / Then
+        assertDoesNotThrow(() -> album.renameFile(file.getFileId(), new FileName("new.jpg"), client));
+        assertEquals(new FileName("new.jpg"), album.getPhotos().get(file.getFileId()).getFileName());
+    }
+
+    // -----------------------------------------------------------------------
+    // changeFileVisibleStatus
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldMakeFileVisibleSuccessfully() {
+        // Given
+        Album album = Album.createForClient("VisibleTest", photographer, client);
+        File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = file.getFileId();
+        album.addFile(file);
+
+        // When
+        album.changeFileVisibleStatus(List.of(fileId), true, photographer, photographer.getEmail());
+
+        // Then
+        assertTrue(album.getPhotos().get(fileId).isVisible());
+    }
+
+    @Test
+    void shouldAllowClientToChangeVisibilityInOwnAlbum() {
+        // Client is the owner of a client album
+        // Given
+        Album album = Album.createForClient("VisibleDeny", photographer, client);
+        File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        album.addFile(file);
+
+        // When / Then
+        assertDoesNotThrow(() ->
+                album.changeFileVisibleStatus(List.of(file.getFileId()), true, client, client.getEmail()));
+        assertTrue(album.getPhotos().get(file.getFileId()).isVisible());
+    }
+
+    // -----------------------------------------------------------------------
+    // swapFiles
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldSwapFilesToTargetMapSuccessfully() {
+        // Given
+        Album source = Album.createForClient("Source", photographer, client);
+        File file = File.create(new FileName("swap.jpg"), 100L, "image/jpeg");
+        FileId fileId = file.getFileId();
+        source.addFile(file);
+
+        java.util.Map<FileId, File> targetMap = new java.util.HashMap<>();
+        Album target = Album.createForClient("Target", photographer, client);
+
+        // When
+        source.swapFiles(targetMap, photographer, target.getAlbumPath(), List.of(fileId));
+
+        // Then
+        assertFalse(source.getPhotos().containsKey(fileId));
+        assertTrue(targetMap.containsKey(fileId));
+    }
+
+    @Test
+    void shouldThrowWhenClientTriesToSwapFiles() {
+        // Given
+        Album album = Album.createForClient("SwapDeny", photographer, client);
+        File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = file.getFileId();
+        album.addFile(file);
+
+        java.util.Map<FileId, File> targetMap = new java.util.HashMap<>();
+
+        // When & Then
+        assertThrows(AlbumException.class,
+                () -> album.swapFiles(targetMap, client, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(fileId)));
+    }
+
+    // -----------------------------------------------------------------------
+    // getFilePath
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldReturnJustAlbumNameForAdmin() {
+        // Given
+        Album album = Album.createForAdmin("AdminAlbum", admin);
+
+        // When
+        String path = album.getFilePath(admin, admin.getEmail().value());
+
+        // Then
+        assertEquals("AdminAlbum", path);
+    }
+
+    @Test
+    void shouldReturnEmailPrefixedPathForPhotographer() {
+        // Given
+        Album album = Album.createForClient("ClientAlbum", photographer, client);
+        String fullName = album.getName();
+
+        // When
+        String path = album.getFilePath(photographer, photographer.getEmail().value());
+
+        // Then
+        assertEquals(photographer.getEmail().value() + "/" + fullName, path);
+    }
+
+    @Test
+    void shouldReturnPathForClientWithPhotographerEmailPrefix() {
+        // Client is the owner, path includes photographer prefix
+        // Given
+        Album album = Album.createForClient("PathDeny", photographer, client);
+        String fullName = album.getName();
+
+        // When
+        String path = album.getFilePath(client, photographer.getEmail().value());
+
+        // Then
+        assertEquals(photographer.getEmail().value() + "/" + fullName, path);
+    }
+
+    // -----------------------------------------------------------------------
+    // canAccess
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldGrantAccessToAdminAlbum() {
+        // Given
+        Album album = Album.createForClient("CanAccessTest", photographer, client);
+
+        // When / Then — admin always has access
+        assertTrue(album.canAccess(admin.getId(), admin.getRoles()));
+    }
+
+    @Test
+    void shouldGrantAccessToOwnerPhotographer() {
+        // Given
+        Album album = Album.createForClient("OwnerAccess", photographer, client);
+
+        // When / Then
+        assertTrue(album.canAccess(photographer.getId(), photographer.getRoles()));
+    }
+
+    @Test
+    void shouldDenyAccessToOtherPhotographer() {
+        // Given
+        Album album = Album.createForClient("OtherPhotograph", photographer, client);
+        User other = User.create("Other", new Email("other@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER);
+
+        // When / Then
+        assertFalse(album.canAccess(other.getId(), other.getRoles()));
+    }
+
+    @Test
+    void shouldDenyAccessToClient() {
+        // Given
+        Album album = Album.createForClient("ClientNoAccess", photographer, client);
+
+        // When / Then
+        assertFalse(album.canAccess(client.getId(), client.getRoles()));
     }
 }

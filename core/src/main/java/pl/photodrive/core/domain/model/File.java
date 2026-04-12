@@ -13,8 +13,8 @@ public class File {
     private final String contentType;
     private final Instant uploadedAt;
     private FileName fileName;
-    boolean isVisible;
-    boolean hasWatermark;
+    private boolean isVisible;
+    private boolean hasWatermark;
 
 
     public File(FileId fileId, FileName fileName, long sizeBytes, String contentType, Instant uploadedAt, boolean isVisible, boolean hasWatermark) {

@@ -58,7 +58,7 @@ public class PasswordToken {
         if (token == null) {
             throw new PasswordTokenException("Token is null");
         }
-        if (this.token == token) {
+        if (this.token.equals(token)) {
             throw new PasswordTokenException("Token is the same");
         }
 

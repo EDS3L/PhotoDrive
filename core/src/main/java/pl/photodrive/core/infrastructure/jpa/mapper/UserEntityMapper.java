@@ -2,7 +2,7 @@ package pl.photodrive.core.infrastructure.jpa.mapper;
 
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.Email;
-import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.domain.vo.UserId;
 import pl.photodrive.core.infrastructure.jpa.entity.UserEntity;
 import pl.photodrive.core.infrastructure.jpa.vo.user.EmailEmbeddable;
@@ -19,7 +19,7 @@ public class UserEntityMapper {
         return new User(new UserId(entity.getUserId().getValue()),
                 entity.getName(),
                 new Email(entity.getEmail().getValue()),
-                new Password(entity.getPassword().getValue()),
+                new HashedPassword(entity.getPassword().getValue()),
                 entity.getRoles(),
                 entity.isChangePasswordOnNextLogin(),
                 entity.isActive(),

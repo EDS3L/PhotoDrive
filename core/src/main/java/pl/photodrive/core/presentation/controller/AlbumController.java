@@ -1,10 +1,10 @@
 package pl.photodrive.core.presentation.controller;
 
-import jakarta.servlet.ServletContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -28,12 +28,8 @@ import pl.photodrive.core.presentation.dto.file.UploadResponse;
 import pl.photodrive.core.presentation.dto.file.UploadResponseFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -44,9 +40,9 @@ public class AlbumController {
 
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
-    private final ServletContext servletContext;
 
-    private final Path fileStorageLocation = Paths.get("/app/photodrive/").toAbsolutePath().normalize();
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
 
     @GetMapping("/all")
@@ -56,8 +52,9 @@ public class AlbumController {
                 album.getPhotographId(),
                 album.getClientId(),
                 album.getTtd(),
-                album.getPhotos(),
-                album.getAlbumPath())).toList());
+                mapFiles(album),
+                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
+                album.isPublic())).toList());
     }
 
     @GetMapping("/getAllAssignedAlbums")
@@ -67,8 +64,9 @@ public class AlbumController {
                 album.getPhotographId(),
                 album.getClientId(),
                 album.getTtd(),
-                album.getPhotos(),
-                album.getAlbumPath())).toList());
+                mapFiles(album),
+                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
+                album.isPublic())).toList());
     }
 
     @GetMapping("/all/withoutTdd")
@@ -78,8 +76,9 @@ public class AlbumController {
                 album.getPhotographId(),
                 album.getClientId(),
                 album.getTtd(),
-                album.getPhotos(),
-                album.getAlbumPath())).toList());
+                mapFiles(album),
+                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
+                album.isPublic())).toList());
     }
 
     @GetMapping("/allAssignedAlbum/withoutTdd")
@@ -90,13 +89,14 @@ public class AlbumController {
                 album.getPhotographId(),
                 album.getClientId(),
                 album.getTtd(),
-                album.getPhotos(),
-                album.getAlbumPath())).toList());
+                mapFiles(album),
+                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
+                album.isPublic())).toList());
     }
 
     @GetMapping("{albumId}/file/url/all")
     public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height, @RequestParam(required = false) boolean showOnlyVisable) {
-        GetUrlsCommand cmd = new GetUrlsCommand(albumId, "http://localhost:8080", width, height, showOnlyVisable);
+        GetUrlsCommand cmd = new GetUrlsCommand(albumId, baseUrl, width, height, showOnlyVisable);
         return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
     }
 
@@ -159,7 +159,7 @@ public class AlbumController {
     }
 
     @PutMapping("/{albumIdUUID}/rename/{fileIdUUID}")
-    public ResponseEntity<Void> renameFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID, @RequestBody RenameFileRequest request) {
+    public ResponseEntity<Void> renameFile(@PathVariable UUID albumIdUUID, @PathVariable UUID fileIdUUID, @Valid @RequestBody RenameFileRequest request) {
         RenameFileCommand command = new RenameFileCommand(albumIdUUID, fileIdUUID, request.newFileName());
 
         albumService.renameFile(command);
@@ -169,7 +169,7 @@ public class AlbumController {
     }
 
     @PostMapping("/{albumIdUUID}/remove")
-    public ResponseEntity<Void> removeFiles(@PathVariable UUID albumIdUUID, @RequestBody RemoveFilesRequest request) {
+    public ResponseEntity<Void> removeFiles(@PathVariable UUID albumIdUUID, @Valid @RequestBody RemoveFilesRequest request) {
         RemoveFileCommand removeFileCommand = new RemoveFileCommand(request.fileIdList(), albumIdUUID);
 
         albumService.removeFiles(removeFileCommand);
@@ -182,8 +182,6 @@ public class AlbumController {
     public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
         GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID,
                 fileName,
-                fileStorageLocation,
-                servletContext,
                 width,
                 height);
         FileResource fileResponse = albumService.getFilePath(cmd);
@@ -193,28 +191,36 @@ public class AlbumController {
 
 
     @PatchMapping("{albumId}/setTtd")
-    public ResponseEntity<Void> setTtd(@PathVariable UUID albumId, @RequestParam Instant ttd) {
-        SetTTDCommand cmd = new SetTTDCommand(albumId, ttd);
+    public ResponseEntity<Void> setTtd(@PathVariable UUID albumId, @Valid @RequestBody SetTtdRequest request) {
+        Instant ttdInstant = request.ttd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        SetTTDCommand cmd = new SetTTDCommand(albumId, ttdInstant);
         albumService.setTTD(cmd);
         return ResponseEntity.ok().build();
     }
 
+    @PatchMapping("{albumId}/setPublic")
+    public ResponseEntity<Void> setPublic(@PathVariable UUID albumId, @RequestParam boolean isPublic) {
+        SetAlbumVisibilityCommand cmd = new SetAlbumVisibilityCommand(albumId, isPublic);
+        albumService.setAlbumPublic(cmd);
+        return ResponseEntity.ok().build();
+    }
+
     @PatchMapping("{albumId}/files/setVisible")
-    public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @RequestBody ChangeVisibleRequest request) {
+    public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @Valid @RequestBody ChangeVisibleRequest request) {
         ChangeVisibleCommand cmd = new ChangeVisibleCommand(albumId, request.idList(), visible);
         albumService.changeVisibleStatus(cmd);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("{albumId}/files/addWatermark")
-    public ResponseEntity<Void> changeWatermarkState(@PathVariable UUID albumId, @RequestParam boolean hasWatermark, @RequestBody ChangeWatermarkRequest request) {
+    public ResponseEntity<Void> changeWatermarkState(@PathVariable UUID albumId, @RequestParam boolean hasWatermark, @Valid @RequestBody ChangeWatermarkRequest request) {
         ChangeWatermarkCommand cmd = new ChangeWatermarkCommand(albumId, request.filesUUIDList(), hasWatermark);
         albumService.changeWatermarkStatus(cmd);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("{albumId}/album/{targetAlbumId}/swap")
-    public ResponseEntity<Void> swapFile(@PathVariable UUID albumId, @PathVariable UUID targetAlbumId, @RequestBody SwapFileRequest request) {
+    public ResponseEntity<Void> swapFile(@PathVariable UUID albumId, @PathVariable UUID targetAlbumId, @Valid @RequestBody SwapFileRequest request) {
         SwapFileCommand cmd = new SwapFileCommand(albumId, targetAlbumId, request.fileIdList());
         albumService.swapFile(cmd);
         return ResponseEntity.ok().build();
@@ -234,23 +240,34 @@ public class AlbumController {
         }
     }
 
+    private List<FileDto> mapFiles(Album album) {
+        if (album.getPhotos() == null || album.getPhotos().isEmpty()) {
+            return List.of();
+        }
+        return album.getPhotos().values().stream()
+                .map(file -> new FileDto(
+                        file.getFileId().value(),
+                        file.getFileName().value(),
+                        file.getSizeBytes(),
+                        file.getContentType(),
+                        file.getUploadedAt(),
+                        file.isVisible(),
+                        file.isHasWatermark()))
+                .toList();
+    }
     private void uploadFiles(List<MultipartFile> files, List<FileUpload> fileUploads) {
-        for (MultipartFile mpf : files) {
-            try (InputStream is = mpf.getInputStream()) {
-
-                String tempId = temporaryStorageService.saveTemporary(is);
-
-                fileUploads.add(new FileUpload(new FileName(mpf.getOriginalFilename()),
-                        mpf.getSize(),
-                        mpf.getContentType(),
+        for (MultipartFile file : files) {
+            try {
+                String tempId = temporaryStorageService.saveTemporary(file.getInputStream());
+                fileUploads.add(new FileUpload(
+                        new FileName(file.getOriginalFilename()),
+                        file.getSize(),
+                        file.getContentType(),
                         tempId));
             } catch (IOException e) {
-                log.error("Failed to save temporary file", e);
-                throw new AlbumException("Failed to process file: " + mpf.getOriginalFilename());
+                throw new AlbumException("Failed to upload file: " + file.getOriginalFilename());
             }
-
         }
-
     }
 
 }

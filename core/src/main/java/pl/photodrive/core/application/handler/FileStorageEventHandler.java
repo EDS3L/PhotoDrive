@@ -7,9 +7,9 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.StorageOperationException;
+import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
-import pl.photodrive.core.infrastructure.storage.LocalStorageAdapter;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,7 +19,7 @@ import java.io.InputStream;
 @RequiredArgsConstructor
 public class FileStorageEventHandler {
 
-    private final LocalStorageAdapter localStorageAdapter;
+    private final FileStoragePort fileStoragePort;
     private final TemporaryStoragePort temporaryStoragePort;
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -30,12 +30,12 @@ public class FileStorageEventHandler {
 
             if (!temporaryStoragePort.exists(tempId)) {
                 log.error("[FileStorageEventHandler] Temporary file not found: {}", tempId);
-                return;
+                throw new StorageOperationException("Temporary file not found: " + tempId);
             }
 
             InputStream inputStream = temporaryStoragePort.getFile(tempId);
 
-            localStorageAdapter.saveFile(event.albumName(), event.fileName().value(), inputStream);
+            fileStoragePort.saveFile(event.albumName(), event.fileName().value(), inputStream);
 
             temporaryStoragePort.delete(tempId);
 
@@ -49,6 +49,6 @@ public class FileStorageEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleChangeWatermarkStatus(WatermarkAddedToPhoto event) {
         log.info("[FileStorageEventHandler] Change watermark status: {}", event);
-        localStorageAdapter.addWatermark(event.path());
+        fileStoragePort.addWatermark(event.path());
     }
 }

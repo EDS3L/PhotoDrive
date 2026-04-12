@@ -39,4 +39,8 @@ public class AlbumEntity {
     private Instant ttd;
     @Embedded
     private AlbumPathEmbeddable albumPath;
+
+    @Column(name = "is_public", nullable = false)
+    @Builder.Default
+    private boolean isPublic = false;
 }

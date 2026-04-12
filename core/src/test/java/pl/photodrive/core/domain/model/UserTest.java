@@ -2,10 +2,10 @@ package pl.photodrive.core.domain.model;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import pl.photodrive.core.application.port.password.PasswordHasher;
+import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.vo.Email;
-import pl.photodrive.core.domain.vo.Password;
+import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.domain.vo.UserId;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ class UserTest {
     };
 
     private static final String RAW_PASSWORD = "Test1234!";
-    private static final Password HASHED_PASSWORD = new Password("Test1234!");
+    private static final HashedPassword HASHED_PASSWORD = new HashedPassword("Test1234!");
 
     private User admin;
     private User photographer;
@@ -37,15 +37,15 @@ class UserTest {
 
     @BeforeEach
     void setUp() {
-        admin = User.create("Admin", new Email("admin@photodrive.pl"), HASHED_PASSWORD, Role.ADMIN, RAW_PASSWORD);
-        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER, RAW_PASSWORD);
-        client = User.create("Client", new Email("client@photodrive.pl"), HASHED_PASSWORD, Role.CLIENT, RAW_PASSWORD);
+        admin = User.create("Admin", new Email("admin@photodrive.pl"), HASHED_PASSWORD, Role.ADMIN);
+        photographer = User.create("Photographer", new Email("photographer@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
+        client = User.create("Client", new Email("client@photodrive.pl"), HASHED_PASSWORD, Role.CLIENT);
     }
 
     @Test
     void shouldCreateUserWithCorrectData() {
         // When
-        User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER, RAW_PASSWORD);
+        User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
 
         // Then
         assertNotNull(user.getId());
@@ -59,7 +59,7 @@ class UserTest {
     @Test
     void shouldRegisterUserCreatedEvent() {
         // When
-        User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER, RAW_PASSWORD);
+        User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
 
         // Then
         assertFalse(user.pullDomainEvents().isEmpty());
@@ -68,7 +68,7 @@ class UserTest {
     @Test
     void shouldThrowWhenInactiveUserTriesToLogin() {
         // Given — tworzymy nieaktywnego użytkownika przez deaktywację
-        photographer.detectiveUser(false, admin);
+        photographer.deactivateUser(false, admin);
 
         // When & Then
         assertThrows(UserException.class, () -> photographer.login());
@@ -153,8 +153,8 @@ class UserTest {
         // Given
         String currentRaw = RAW_PASSWORD;
         String newRaw = "NewPass9!";
-        Password hashedCurrent = new Password(passwordHasher.encode(currentRaw));
-        User user = User.create("X", new Email("x@photodrive.pl"), hashedCurrent, Role.PHOTOGRAPHER, currentRaw);
+        HashedPassword hashedCurrent = new HashedPassword(passwordHasher.encode(currentRaw));
+        User user = User.create("X", new Email("x@photodrive.pl"), hashedCurrent, Role.PHOTOGRAPHER);
 
         // When
         user.changePassword(currentRaw, newRaw, passwordHasher);
@@ -175,8 +175,8 @@ class UserTest {
     void shouldThrowWhenNewPasswordSameAsCurrent() {
         // Given
         String current = RAW_PASSWORD;
-        Password hashed = new Password(passwordHasher.encode(current));
-        User user = User.create("X", new Email("x2@photodrive.pl"), hashed, Role.PHOTOGRAPHER, current);
+        HashedPassword hashed = new HashedPassword(passwordHasher.encode(current));
+        User user = User.create("X", new Email("x2@photodrive.pl"), hashed, Role.PHOTOGRAPHER);
 
         // When & Then
         assertThrows(UserException.class, () ->
@@ -213,8 +213,8 @@ class UserTest {
     void shouldThrowWhenNewPasswordSameAsCurrentWithToken() {
         // Given
         String currentRaw = RAW_PASSWORD;
-        Password hashed = new Password(passwordHasher.encode(currentRaw));
-        User user = User.create("X", new Email("x3@photodrive.pl"), hashed, Role.PHOTOGRAPHER, currentRaw);
+        HashedPassword hashed = new HashedPassword(passwordHasher.encode(currentRaw));
+        User user = User.create("X", new Email("x3@photodrive.pl"), hashed, Role.PHOTOGRAPHER);
 
         // When & Then
         assertThrows(UserException.class, () ->
@@ -237,7 +237,7 @@ class UserTest {
     @Test
     void shouldActivateUserSuccessfully() {
         // Given — deaktywujemy najpierw
-        photographer.detectiveUser(false, admin);
+        photographer.deactivateUser(false, admin);
 
         // When
         photographer.activeUser(true, admin);
@@ -255,7 +255,7 @@ class UserTest {
     @Test
     void shouldDeactivateUserSuccessfully() {
         // When
-        photographer.detectiveUser(false, admin);
+        photographer.deactivateUser(false, admin);
 
         // Then
         assertFalse(photographer.isActive());
@@ -264,10 +264,10 @@ class UserTest {
     @Test
     void shouldThrowWhenDeactivatingAlreadyInactiveUser() {
         // Given
-        photographer.detectiveUser(false, admin);
+        photographer.deactivateUser(false, admin);
 
         // When & Then
-        assertThrows(UserException.class, () -> photographer.detectiveUser(false, admin));
+        assertThrows(UserException.class, () -> photographer.deactivateUser(false, admin));
     }
 
     @Test
@@ -329,5 +329,116 @@ class UserTest {
     void shouldDoNothingWhenDisconnectingEmptyList() {
         // When & Then
         assertDoesNotThrow(() -> photographer.disconnectUsers(List.of()));
+    }
+
+    // -------------------------------------------------------------------------
+    // changeEmail
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldChangeEmailSuccessfully() {
+        // When
+        photographer.changeEmail("new@photodrive.pl");
+
+        // Then
+        assertEquals("new@photodrive.pl", photographer.getEmail().value());
+    }
+
+    @Test
+    void shouldThrowWhenNewEmailSameAsCurrent() {
+        assertThrows(UserException.class, () ->
+                photographer.changeEmail("photographer@photodrive.pl")
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // verifyPassword
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldPassVerifyPasswordWhenCorrect() {
+        // Given
+        String currentRaw = RAW_PASSWORD;
+        HashedPassword hashed = new HashedPassword(passwordHasher.encode(currentRaw));
+        User user = User.create("V", new Email("v@photodrive.pl"), hashed, Role.PHOTOGRAPHER);
+
+        // When/Then
+        assertDoesNotThrow(() -> user.verifyPassword(currentRaw, passwordHasher));
+    }
+
+    @Test
+    void shouldThrowWhenVerifyPasswordWithWrongPassword() {
+        assertThrows(UserException.class, () ->
+                photographer.verifyPassword("WrongPass1!", passwordHasher)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // shouldChangePasswordOnNextLogin
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldThrowWhenChangePasswordFlagIsSet() {
+        // Given — flag is true by default after create()
+        assertThrows(UserException.class, () -> photographer.shouldChangePasswordOnNextLogin());
+    }
+
+    @Test
+    void shouldPassWhenChangePasswordFlagIsCleared() {
+        // Given
+        photographer.setChangePasswordOnNextLogin(false);
+
+        // When/Then
+        assertDoesNotThrow(() -> photographer.shouldChangePasswordOnNextLogin());
+    }
+
+    // -------------------------------------------------------------------------
+    // hasAccessToReadAllUsers
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldReturnTrueForAdminHasAccessToReadAllUsers() {
+        assertTrue(photographer.hasAccessToReadAllUsers(admin));
+    }
+
+    @Test
+    void shouldThrowForNonAdminHasAccessToReadAllUsers() {
+        assertThrows(UserException.class, () ->
+                photographer.hasAccessToReadAllUsers(photographer)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // getPhotographUsers
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldReturnAssignedUsersForPhotographer() {
+        // Given
+        photographer.assignUsers(new ArrayList<>(List.of(client.getId())), admin);
+
+        // When
+        List<UserId> users = photographer.getPhotographUsers(photographer);
+
+        // Then
+        assertTrue(users.contains(client.getId()));
+    }
+
+    @Test
+    void shouldThrowWhenNonPhotographerCallsGetPhotographUsers() {
+        assertThrows(UserException.class, () ->
+                photographer.getPhotographUsers(admin)
+        );
+    }
+
+    @Test
+    void shouldThrowWhenPhotographerAccessesAnotherPhotographersUsers() {
+        // Given
+        User anotherPhotographer = User.create("Other", new Email("other@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
+
+        // When/Then — anotherPhotographer tries to read photographer's list
+        assertThrows(UserException.class, () ->
+                photographer.getPhotographUsers(anotherPhotographer)
+        );
     }
 }

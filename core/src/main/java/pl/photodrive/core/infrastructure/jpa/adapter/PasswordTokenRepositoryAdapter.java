@@ -9,6 +9,7 @@ import pl.photodrive.core.infrastructure.jpa.entity.PasswordTokenEntity;
 import pl.photodrive.core.infrastructure.jpa.mapper.PasswordTokenEntityMapper;
 import pl.photodrive.core.infrastructure.jpa.repository.PasswordTokenJpaRepository;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
+import pl.photodrive.core.infrastructure.jpa.vo.passwordToken.PasswordTokenIdEmbeddable;
 
 import java.util.Optional;
 
@@ -32,5 +33,9 @@ public class PasswordTokenRepositoryAdapter implements PasswordTokenRepository {
     public Optional<PasswordToken> findByUserId(UserId userId) {
         PasswordTokenEntity entity = jpa.findByUserId(new UserIdEmbeddable(userId.value()));
         return Optional.ofNullable(entity).map(PasswordTokenEntityMapper::toDomain);
+    }
+    @Override
+    public void delete(PasswordToken passwordToken) {
+        jpa.deleteById(new PasswordTokenIdEmbeddable(passwordToken.getId().value()));
     }
 }

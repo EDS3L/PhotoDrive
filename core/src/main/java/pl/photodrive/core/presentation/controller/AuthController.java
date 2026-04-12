@@ -38,7 +38,7 @@ public class AuthController {
     }
 
     @PostMapping("/remindPassword")
-    public ResponseEntity<Void> responseEntity(RemindPasswordRequest request) {
+    public ResponseEntity<Void> responseEntity(@Valid @RequestBody RemindPasswordRequest request) {
         RemindPasswordCommand remindPasswordCommand = new RemindPasswordCommand(request.email(),
                 request.token(),
                 request.newPassword());

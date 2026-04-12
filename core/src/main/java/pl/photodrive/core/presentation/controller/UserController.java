@@ -14,6 +14,7 @@ import pl.photodrive.core.presentation.mapper.ApiMappers;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -22,6 +23,20 @@ import java.util.UUID;
 public class UserController {
 
     private final UserManagementService userService;
+
+    @GetMapping("/me")
+    public ResponseEntity<CurrentUserResponse> getCurrentUser() {
+        var user = userService.getCurrentUser();
+        var roles = user.getRoles().stream()
+                .map(Enum::name)
+                .collect(Collectors.toSet());
+        return ResponseEntity.ok(new CurrentUserResponse(
+                user.getId().value().toString(),
+                user.getName(),
+                user.getEmail().value(),
+                roles
+        ));
+    }
 
     @GetMapping("/all")
     public List<UserDto> getAll() {
@@ -38,13 +53,18 @@ public class UserController {
         return userService.getPhotographUsers().stream().map(ApiMappers::toDto).toList();
     }
 
+    @GetMapping("/{id}/assignedUsers")
+    public List<UserDto> getPhotographerAssignedUsers(@PathVariable UUID id) {
+        return userService.getPhotographerUsersForAdmin(id).stream().map(ApiMappers::toDto).toList();
+    }
+
 
     @PostMapping("/add")
     public ResponseEntity<UserDto> add(@Valid @RequestBody CreateUserRequest request) {
-        Password password = new Password(request.password());
+        new Password(request.password()); // walidacja surowego hasła
         var created = userService.addUser(new AddUserCommand(request.name(),
                 request.email(),
-                password.value(),
+                request.password(),
                 request.role()));
         return ResponseEntity.created(URI.create("/api/users/add" + created.getId().value())).body(ApiMappers.toDto(
                 created));
@@ -62,7 +82,7 @@ public class UserController {
         return ResponseEntity.ok().body(ApiMappers.toDto(updated));
     }
 
-    @PatchMapping("/{id}/changPassword")
+    @PatchMapping("/{id}/changePassword")
     public ResponseEntity<UserDto> changePassword(@Valid @RequestBody PasswordRequest request, @PathVariable UUID id) {
         userService.changePassword(new ChangePasswordCommand(id, request.currentPassword(), request.newPassword()));
         return ResponseEntity.noContent().build();
@@ -87,14 +107,14 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/removeUsers")
-    public ResponseEntity<Void> removeUsers(@PathVariable UUID id, @RequestBody AssignUserRequest request) {
+    public ResponseEntity<Void> removeUsers(@PathVariable UUID id, @Valid @RequestBody AssignUserRequest request) {
         userService.disconnectUsersFromPhotographer(new AssignUserCommand(request.userIdList(), id));
         return ResponseEntity.ok().build();
     }
 
 
     @PatchMapping("/{id}/assignUsers")
-    public ResponseEntity<Void> assignUsers(@PathVariable UUID id, @RequestBody AssignUserRequest request) {
+    public ResponseEntity<Void> assignUsers(@PathVariable UUID id, @Valid @RequestBody AssignUserRequest request) {
         userService.assignUsersToPhotograph(new AssignUserCommand(request.userIdList(), id));
         return ResponseEntity.ok().build();
     }

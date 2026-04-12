@@ -36,12 +36,12 @@ public class AlbumStructureEventHandler {
     public void handlePhotographCreateAlbum(PhotographCreateAlbum event) {
         log.info("Handling PhotographCreateAlbum event for album: {} by photographer: {}",
                 event.name(),
-                event.photograph().getEmail().value());
+                event.photographerEmail());
 
         try {
-            fileStoragePort.createClientAlbum(event.name(), event.photograph().getEmail().value());
+            fileStoragePort.createClientAlbum(event.name(), event.photographerEmail());
             log.info("Successfully created client album folder: {}/{}",
-                    event.photograph().getEmail().value(),
+                    event.photographerEmail(),
                     event.name());
         } catch (Exception e) {
             throw new StorageOperationException("Failed to create client album");

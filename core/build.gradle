@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '3.5.7'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -29,7 +30,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'com.mysql:mysql-connector-j:8.0.33'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
@@ -42,4 +43,96 @@ dependencies {
 }
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+jacoco {
+	toolVersion = '0.8.12'
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+	}
+	// Exclude infrastructure implementations and boilerplate classes
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it, exclude: [
+					// Spring Boot entry point
+					'**/CoreApplication.class',
+					// Infrastructure adapters — hard to unit test without a container
+					'**/infrastructure/config/**',
+					'**/infrastructure/jpa/**',
+					'**/infrastructure/jwt/**',
+					'**/infrastructure/mail/**',
+					'**/infrastructure/security/**',
+					'**/infrastructure/storage/**',
+					'**/infrastructure/domain/**',
+					'**/infrastructure/exception/**',
+					// CQRS handlers — wiring only, tested via service tests
+					'**/application/handler/**',
+					// Scheduler — tested at integration level
+					'**/application/scheduler/**',
+					// Command/Event records — pure data containers, no logic
+					'**/application/command/**',
+					'**/application/event/**',
+					// Port interfaces — no implementation logic
+					'**/application/port/**',
+					// Application exception classes — no business logic
+					'**/application/exception/**',
+					// AlbumController — file I/O methods require integration tests
+					'**/presentation/controller/AlbumController.class',
+					// DTO records — no business logic
+					'**/presentation/dto/album/**',
+					'**/presentation/dto/file/**',
+					'**/presentation/web/**',
+					// Utility classes
+					'**/domain/util/**'
+			])
+		}))
+	}
+}
+
+jacocoTestCoverageVerification {
+	dependsOn jacocoTestReport
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.70
+			}
+		}
+	}
+	// Apply same exclusions as the report
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it, exclude: [
+					'**/CoreApplication.class',
+					'**/infrastructure/config/**',
+					'**/infrastructure/jpa/**',
+					'**/infrastructure/jwt/**',
+					'**/infrastructure/mail/**',
+					'**/infrastructure/security/**',
+					'**/infrastructure/storage/**',
+					'**/infrastructure/domain/**',
+					'**/infrastructure/exception/**',
+					'**/application/handler/**',
+					'**/application/scheduler/**',
+					'**/application/command/**',
+					'**/application/event/**',
+					// Port interfaces — no implementation logic
+					'**/application/port/**',
+					// Application exception classes — no business logic
+					'**/application/exception/**',
+					'**/presentation/controller/AlbumController.class',
+					'**/presentation/dto/album/**',
+					'**/presentation/dto/file/**',
+					'**/presentation/web/**',
+					'**/domain/util/**'
+			])
+		}))
+	}
 }

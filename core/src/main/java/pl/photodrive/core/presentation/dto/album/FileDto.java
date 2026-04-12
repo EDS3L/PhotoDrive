@@ -1,6 +1,7 @@
 package pl.photodrive.core.presentation.dto.album;
 
+import java.time.Instant;
 import java.util.UUID;
 
-public record FileDto(UUID fileID, String fileName, long sizeBytes, String contentType) {
+public record FileDto(UUID fileID, String fileName, long sizeBytes, String contentType, Instant uploadedAt, boolean visible, boolean hasWatermark) {
 }

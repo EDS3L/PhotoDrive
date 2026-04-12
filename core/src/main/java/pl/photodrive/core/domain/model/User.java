@@ -1,12 +1,13 @@
 package pl.photodrive.core.domain.model;
 
 import lombok.extern.slf4j.Slf4j;
-import pl.photodrive.core.application.exception.SecurityException;
-import pl.photodrive.core.application.port.password.PasswordHasher;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
+import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.vo.Email;
+import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.domain.vo.UserId;
 
@@ -18,7 +19,7 @@ public class User {
     private final UserId id;
     private final String name;
     private Email email;
-    private Password password;
+    private HashedPassword password;
     private final Set<Role> roles;
     private boolean changePasswordOnNextLogin;
     private boolean isActive;
@@ -27,7 +28,7 @@ public class User {
 
     private transient final List<Object> domainEvents = new ArrayList<>();
 
-    public User(UserId id, String name, Email email, Password password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive, List<UserId> assignedUsers) {
+    public User(UserId id, String name, Email email, HashedPassword password, Set<Role> roles, boolean changePasswordOnNextLogin, boolean isActive, List<UserId> assignedUsers) {
         if (name == null) throw new UserException("Name cannot be null");
         if (email == null) throw new UserException("Email cannot be null");
         if (password == null) throw new UserException("Password cannot be null");
@@ -42,16 +43,15 @@ public class User {
         this.assignedUsers = assignedUsers;
     }
 
-    public static User create(String name, Email email, Password password, Role role, String rawPassword) {
+    public static User create(String name, Email email, HashedPassword password, Role role) {
         Set<Role> roles = new HashSet<>();
         roles.add(role);
 
-        User user = new User(UserId.newId(), name, email, password, roles, true, true, null);
+        User user = new User(UserId.newId(), name, email, password, roles, true, true, new ArrayList<>());
 
         user.registerEvent(new UserCreated(user.getId().value(),
                 user.getEmail().value(),
-                user.getRoles(),
-                rawPassword));
+                user.getRoles()));
 
         return user;
     }
@@ -73,7 +73,7 @@ public class User {
     }
 
     public void removeRole(Role role) {
-        if (role.equals(Role.ADMIN)) throw new SecurityException("Cannot remove admin role");
+        if (role.equals(Role.ADMIN)) throw new DomainSecurityException("Cannot remove admin role");
         if (!this.roles.contains(role)) throw new UserException("Cannot remove role which isn't assigned to User: " + role);
         if (this.roles.size() == 1) throw new UserException("You cannot remove all user role");
         this.roles.remove(role);
@@ -88,8 +88,8 @@ public class User {
             throw new UserException("New password cannot be the same as the current password");
         }
 
-        Password password = new Password(newPassword);
-        this.password = new Password(passwordHasher.encode(password.value()));
+        new Password(newPassword); // walidacja surowego hasła
+        this.password = new HashedPassword(passwordHasher.encode(newPassword));
     }
 
     public void changePasswordWithToken(UUID token, String newPassword, PasswordHasher passwordHasher) {
@@ -99,10 +99,10 @@ public class User {
             throw new UserException("New password cannot be the same as the current password");
         }
 
-        Password password = new Password(newPassword);
+        new Password(newPassword); // walidacja surowego hasła
         this.registerEvent(new UserRemindedPassword(this.getEmail().value()));
 
-        this.password = new Password(passwordHasher.encode(password.value()));
+        this.password = new HashedPassword(passwordHasher.encode(newPassword));
     }
 
     public void changeEmail(String newEmail) {
@@ -122,11 +122,11 @@ public class User {
         this.isActive = active;
     }
 
-    public void detectiveUser(boolean active, User user) {
+    public void deactivateUser(boolean active, User user) {
         hasAccessToSetActive(user);
 
         if (!isActive) {
-            throw new UserException("User is already detective");
+            throw new UserException("User is already inactive");
         }
         this.isActive = active;
     }
@@ -135,6 +135,11 @@ public class User {
     public void assignUsers(List<UserId> assignedUsers, User user) {
         if (!this.roles.contains(Role.PHOTOGRAPHER)) throw new UserException("Users can only assigned to Photograph");
         if(!user.roles.contains(Role.ADMIN)) throw new UserException("Access denied!");
+        this.assignedUsers = assignedUsers;
+    }
+
+    public void assignUsersForSelf(List<UserId> assignedUsers) {
+        if (!this.roles.contains(Role.PHOTOGRAPHER)) throw new UserException("Users can only assigned to Photograph");
         this.assignedUsers = assignedUsers;
     }
 
@@ -248,7 +253,7 @@ public class User {
         return email;
     }
 
-    public Password getPassword() {
+    public HashedPassword getPassword() {
         return password;
     }
 

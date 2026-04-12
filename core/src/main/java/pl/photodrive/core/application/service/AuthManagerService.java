@@ -9,7 +9,7 @@ import pl.photodrive.core.application.command.auth.LoginCommand;
 import pl.photodrive.core.application.command.auth.RemindPasswordCommand;
 import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
-import pl.photodrive.core.application.port.password.PasswordHasher;
+import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.application.port.repository.PasswordTokenRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.token.TokenEncoder;
@@ -39,7 +39,9 @@ public class AuthManagerService {
         Email email = new Email(cmd.email());
         User user = getUserByEmail(email);
 
-        user.login();
+        if (!user.isActive()) {
+            throw new LoginFailedException("Invalid credentials!");
+        }
 
         try {
             user.verifyPassword(cmd.rawPassword(), passwordHasher);
@@ -47,13 +49,15 @@ public class AuthManagerService {
             throw new LoginFailedException("Invalid credentials!");
         }
 
-        user.shouldChangePasswordOnNextLogin();
-        user.setChangePasswordOnNextLogin(false);
+        if (user.isChangePasswordOnNextLogin()) {
+            throw new LoginFailedException("You must change your password before logging in!");
+        }
+
         Duration ttl = Duration.ofMinutes(15);
         String jwt = tokenEncoder.createAccessToken(user.getId(),
                 user.getRoles(),
                 clock.instant(),
-                Duration.ofMinutes(15));
+                ttl);
         return new AccessToken(jwt, ttl);
     }
 
@@ -69,6 +73,9 @@ public class AuthManagerService {
         if (!token.getToken().equals(cmd.token())) throw new PasswordTokenException("Invalid token!");
 
         user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
+        user.setChangePasswordOnNextLogin(false);
+
+        passwordTokenRepository.delete(token);
 
         publishEvents(user);
 

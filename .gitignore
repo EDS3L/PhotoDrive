@@ -1,0 +1,14 @@
+.env
+.env.*
+stitch/
+stitchMd/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/dataSources.local.xml
+.idea/dataSources.xml
+.idea/dataSources/

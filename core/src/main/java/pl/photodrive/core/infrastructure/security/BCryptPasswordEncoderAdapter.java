@@ -3,7 +3,7 @@ package pl.photodrive.core.infrastructure.security;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
-import pl.photodrive.core.application.port.password.PasswordHasher;
+import pl.photodrive.core.domain.service.PasswordHasher;
 
 
 @Component

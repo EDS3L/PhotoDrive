@@ -1,4 +1,6 @@
 package pl.photodrive.core.presentation.dto.user;
 
-public record PasswordRequest(String currentPassword, String newPassword) {
+import jakarta.validation.constraints.NotBlank;
+
+public record PasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
 }

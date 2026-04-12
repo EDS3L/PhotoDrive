@@ -134,6 +134,9 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             Path targetPath = filePath.resolveSibling(newName);
+            if (!targetPath.normalize().startsWith(baseDirectory)) {
+                throw new SecurityException("Path traversal attempt in rename: " + newName);
+            }
 
             Files.move(filePath, targetPath);
         } catch (IOException e) {
@@ -183,6 +186,9 @@ public class LocalStorageAdapter implements FileStoragePort {
     @Override
     public void deleteFolder(String albumPath) {
         Path folderPath = baseDirectory.resolve(albumPath).normalize();
+        if (!folderPath.startsWith(baseDirectory)) {
+            throw new SecurityException("Path traversal attempt detected: " + albumPath);
+        }
         if (!Files.exists(folderPath)) {
             log.warn("Folder not found, cannot delete: {}", folderPath);
             return;
@@ -208,7 +214,8 @@ public class LocalStorageAdapter implements FileStoragePort {
     public void addWatermark(String path) {
         String WATERMARK_PATH = baseDirectory + "/" + "watermark" + "/" + "watermark.png";
 
-        File sourceFile = new File(baseDirectory + "/" + path);
+        Path sourcePath = resolveAndValidate(path);
+        File sourceFile = sourcePath.toFile();
         log.info("Adding source: {}", sourceFile.getPath());
         File watermarkFile = new File(WATERMARK_PATH);
         log.info("Adding watermark: {}", watermarkFile.getPath());
@@ -248,7 +255,7 @@ public class LocalStorageAdapter implements FileStoragePort {
             g2d.drawImage(watermarkImage, x, y, watermarkWidth, watermarkHeight, null);
             g2d.dispose();
 
-            File outputFile = new File(baseDirectory + "/" + path);
+            File outputFile = resolveAndValidate(path).toFile();
 
             if ("jpg".equalsIgnoreCase(originalFormat) || "jpeg".equalsIgnoreCase(originalFormat)) {
                 saveAsJPEG(image, outputFile, 0.9f);

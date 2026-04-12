@@ -1,3 +1,9 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+
+# Sensitive — DB credentials & local cache
+dataSources.local.xml
+dataSources.xml
+dataSources/
+dbnavigator.xml

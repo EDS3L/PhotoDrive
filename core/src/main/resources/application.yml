@@ -24,16 +24,21 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
-      type:
-        preferred_uuid_jdbc_type: VARCHAR
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        type:
+          preferred_uuid_jdbc_type: VARCHAR
+        temp:
+          use_jdbc_metadata_defaults: false
     open-in-view: false
+    show-sql: true
 
   servlet:
     multipart:
-      max-file-size: "2GB"
-      max-request-size: "2GB"
+      max-file-size: '2GB'
+      max-request-size: '2GB'
 
 jwt:
   secret: ${TOKEN_SECRETKEY}
@@ -44,6 +49,10 @@ storage:
     path: ${TEMP}
 
 ORG_MAX_SIZE: ${ORG_MAX_SIZE}
+
+app:
+  cookie:
+    secure: ${COOKIE_SECURE:true}
 
 SWAGGER:
   LOGIN:

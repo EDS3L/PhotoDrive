@@ -3,12 +3,16 @@ package pl.photodrive.core.presentation.advice;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
-import pl.photodrive.core.application.exception.SecurityException;
+import pl.photodrive.core.application.exception.ApplicationSecurityException;
+import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.domain.exception.*;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.infrastructure.exception.ExpiredTokenException;
 import pl.photodrive.core.infrastructure.exception.InvalidTokenException;
 import pl.photodrive.core.presentation.dto.ApiException;
@@ -16,6 +20,7 @@ import pl.photodrive.core.presentation.dto.ApiException;
 import java.time.Instant;
 
 @RestControllerAdvice
+@lombok.extern.slf4j.Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(UserException.class)
@@ -24,7 +29,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(EmailException.class)
@@ -33,7 +38,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(AlbumException.class)
@@ -42,17 +47,17 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
 
-    @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<ApiException> securityException(SecurityException ex, HttpServletRequest request) {
+    @ExceptionHandler(ApplicationSecurityException.class)
+    public ResponseEntity<ApiException> securityException(ApplicationSecurityException ex, HttpServletRequest request) {
         ApiException error = new ApiException("SECURITY_EXCEPTION",
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(LoginFailedException.class)
@@ -61,7 +66,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(AuthenticatedUserException.class)
@@ -70,7 +75,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
 
@@ -80,7 +85,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ExpiredTokenException.class)
@@ -89,7 +94,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(InvalidTokenException.class)
@@ -98,7 +103,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(PasswordTokenException.class)
@@ -108,6 +113,66 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+    }
+
+    @ExceptionHandler(DomainSecurityException.class)
+    public ResponseEntity<ApiException> domainSecurityException(DomainSecurityException ex, HttpServletRequest request) {
+        ApiException error = new ApiException("SECURITY_EXCEPTION",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiException> validationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed");
+        ApiException error = new ApiException("VALIDATION_EXCEPTION",
+                message,
+                java.time.Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiException> illegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+        ApiException error = new ApiException("BAD_REQUEST",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(StorageOperationException.class)
+    public ResponseEntity<ApiException> storageOperationException(StorageOperationException ex, HttpServletRequest request) {
+        log.error("Storage operation failed on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        ApiException error = new ApiException("STORAGE_ERROR",
+                "Storage operation failed",
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiException> missingRequestPartException(MissingServletRequestPartException ex, HttpServletRequest request) {
+        ApiException error = new ApiException("MISSING_REQUEST_PART",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiException> handleUnexpectedException(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        ApiException error = new ApiException("INTERNAL_ERROR",
+                "An unexpected error occurred",
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
 }

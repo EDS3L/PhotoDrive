@@ -2,33 +2,51 @@ name: Build, Publish and Deploy Docker Image
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
-      - '**/src/main/**'
-      - 'Dockerfile'
-      - 'build.gradle'
-      - '../../core/docker-compose.prod.yml'
+      - 'core/src/main/**'
+      - 'core/Dockerfile'
+      - 'core/build.gradle'
+      - 'core/settings.gradle'
+      - 'core/gradle/**'
+      - 'docker-compose.prod.yml'
+      - 'frontend/src/**'
+      - 'frontend/Dockerfile'
+      - 'frontend/package.json'
+      - 'frontend/nginx.conf'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-
   changes:
     runs-on: ubuntu-latest
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            relevant:
+            backend:
               - 'core/src/main/**'
-              - 'Dockerfile'
-              - 'pom.xml'
+              - 'core/Dockerfile'
+              - 'core/build.gradle'
+              - 'core/settings.gradle'
+              - 'core/gradle/**'
+              - 'docker-compose.prod.yml'
+            frontend:
+              - 'frontend/src/**'
+              - 'frontend/Dockerfile'
+              - 'frontend/package.json'
+              - 'frontend/nginx.conf'
 
-  build-and-push:
+  build-backend:
     needs: changes
-    if: needs.changes.outputs.relevant == 'true'
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,12 +66,41 @@ jobs:
           file: ./core/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  build-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend/
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive-frontend
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
   deploy:
-    needs: build-and-push
-    if: always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
+    needs: [build-backend, build-frontend]
+    if: |
+      always() &&
+      needs.build-backend.result  != 'failure' &&
+      needs.build-frontend.result != 'failure' &&
+      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,36 +111,46 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "core/docker-compose.prod.yml"
-          target: "/home/${{ secrets.USERNAME }}/photodrive"
+          source: 'docker-compose.prod.yml'
+          target: '/home/${{ secrets.USERNAME }}/photodrive'
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
+        env:
+          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DATASOURCE_PASSWORD: ${{ secrets.DATASOURCE_PASSWORD }}
+          DATASOURCE_URL: ${{ secrets.DATASOURCE_URL }}
+          DATASOURCE_USERNAME: ${{ secrets.DATASOURCE_USERNAME }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          APP_DIR: ${{ secrets.DIR }}
+          APP_TEMP: ${{ secrets.TEMP }}
+          TOKEN_SECRETKEY: ${{ secrets.TOKEN_SECRETKEY }}
+          ORG_MAX_SIZE: ${{ secrets.ORG_MAX_SIZE }}
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOCKER_TOKEN,DOCKER_USERNAME,DATASOURCE_PASSWORD,DATASOURCE_URL,DATASOURCE_USERNAME,MAIL_HOST,MAIL_PASSWORD,MAIL_USERNAME,APP_DIR,APP_TEMP,TOKEN_SECRETKEY,ORG_MAX_SIZE
 
           script: |
-            echo "${{ secrets.DOCKER_TOKEN }}" | docker login docker.io -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-            
-            export DATASOURCE_PASSWORD="${{ secrets.DATASOURCE_PASSWORD }}"
-            export DATASOURCE_URL="${{ secrets.DATASOURCE_URL }}"
-            export DATASOURCE_USERNAME="${{ secrets.DATASOURCE_USERNAME }}"
-            export MAIL_HOST="${{ secrets.MAIL_HOST }}"
-            export MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
-            export MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
-            export DIR="${{ secrets.DIR }}"
-            export TEMP="${{ secrets.TEMP }}"
-            export TOKEN_SECRETKEY="${{ secrets.TOKEN_SECRETKEY }}"
-            export ORG_MAX_SIZE="${{ secrets.ORG_MAX_SIZE }}"
-            export FIRST_SWAGGER_IP="${{ secrets.FIRST_SWAGGER_IP }}"
-            export SECOND_SWAGGER_IP="${{ secrets.SECOND_SWAGGER_IP }}"
+            echo "$DOCKER_TOKEN" | docker login docker.io -u "$DOCKER_USERNAME" --password-stdin
 
-            if [ -z "FIRST_SWAGGER_IP" ]; then echo "BLAD: FIRST_SWAGGER_IP jest puste!"; else echo "FIRST_SWAGGER_IP ma wartosc"; fi
+            export DATASOURCE_PASSWORD="$DATASOURCE_PASSWORD"
+            export DATASOURCE_URL="$DATASOURCE_URL"
+            export DATASOURCE_USERNAME="$DATASOURCE_USERNAME"
+            export MAIL_HOST="$MAIL_HOST"
+            export MAIL_PASSWORD="$MAIL_PASSWORD"
+            export MAIL_USERNAME="$MAIL_USERNAME"
+            export DIR="$APP_DIR"
+            export TEMP="$APP_TEMP"
+            export TOKEN_SECRETKEY="$TOKEN_SECRETKEY"
+            export ORG_MAX_SIZE="$ORG_MAX_SIZE"
 
+            cd /home/$USERNAME/photodrive
+            docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive
+            docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive-frontend
 
-            cd /home/${{ secrets.USERNAME }}/photodrive
-            docker pull docker.io/${{ secrets.DOCKER_USERNAME }}/eds3l:photodrive
-            
-            docker compose -f core/docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans --pull never

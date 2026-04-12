@@ -11,4 +11,6 @@ public interface PasswordTokenRepository {
     boolean existsByUserId(UserId userId);
 
     Optional<PasswordToken> findByUserId(UserId userId);
+
+    void delete(PasswordToken passwordToken);
 }

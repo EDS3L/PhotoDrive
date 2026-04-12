@@ -10,9 +10,7 @@ import pl.photodrive.core.domain.vo.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Slf4j
 public class Album {
@@ -21,6 +19,7 @@ public class Album {
     private final String name;
     private final UUID photographId;
     private Instant ttd;
+    private boolean isPublic;
     private transient final List<Object> domainEvents = new ArrayList<>();
     private final UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
@@ -35,7 +34,7 @@ public class Album {
             ".heic");
 
 
-    public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath) {
+    public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath, boolean isPublic) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
         if (photographId == null) throw new AlbumException("Photograph name cannot be null!");
         if (albumPath == null) throw new AlbumException("Album to path cannot be null!");
@@ -45,6 +44,7 @@ public class Album {
         this.clientId = clientId;
         this.ttd = ttd;
         this.albumPath = albumPath;
+        this.isPublic = isPublic;
     }
 
     public void setTTD(Instant ttd, User user, String email) {
@@ -54,7 +54,7 @@ public class Album {
 
         if (isAdmin) {
             if (photographId.equals(user.getId().value()) && clientId.equals(user.getId().value())) {
-                throw new AlbumException("Cannot plant C4 for admin album");
+                throw new AlbumException("Cannot set TTD for admin album");
             }
         }
 
@@ -62,7 +62,11 @@ public class Album {
             throw new AlbumException("Cannot set TTD before now!");
         }
 
-        if (isPhotograph) {
+        if (isPhotograph && !photographId.equals(user.getId().value())) {
+            throw new AlbumException("Photographer can only set TTD on own albums");
+        }
+
+        if (isAdmin || isPhotograph) {
             this.ttd = ttd;
             this.registerEvent(new TtdSet(ttd, email));
         } else {
@@ -81,8 +85,9 @@ public class Album {
                 admin.getId().value(),
                 admin.getId().value(),
                 null,
-                new AlbumPath(albumName));
-        album.registerEvent(new AdminAlbumCreated(albumName, admin));
+                new AlbumPath(albumName),
+                false);
+        album.registerEvent(new AdminAlbumCreated(albumName, admin.getEmail().value()));
         return album;
     }
 
@@ -102,9 +107,10 @@ public class Album {
                 photographer.getId().value(),
                 client.getId().value(),
                 null,
-                new AlbumPath(photographer.getEmail().value() + "/" + fullAlbumName));
+                new AlbumPath(photographer.getEmail().value() + "/" + fullAlbumName),
+                false);
 
-        album.registerEvent(new PhotographCreateAlbum(photographer, fullAlbumName));
+        album.registerEvent(new PhotographCreateAlbum(photographer.getEmail().value(), fullAlbumName));
         return album;
     }
 
@@ -137,12 +143,11 @@ public class Album {
 
     public void removeFiles(FileId fileId, User user) {
 
+        if (!isOwner(user)) {
+            throw new AlbumException("Only admin or album owner can remove the file");
+        }
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
-
-        if (!(isAdmin || isPhotograph)) {
-            throw new AlbumException("Only admin or album owner can rename the file");
-        }
 
         File removedFile = photos.remove(fileId);
         if (removedFile == null) {
@@ -217,12 +222,11 @@ public class Album {
             throw new AlbumException("File with name '" + newFileName.value() + "' already exists in this album.");
         }
 
-        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
-        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
-
-        if (!(isAdmin || isPhotograph)) {
+        if (!isOwner(user)) {
             throw new AlbumException("Only admin or album owner can rename the file");
         }
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
 
         FileName oldFileName = file.getFileName();
         file.rename(newFileName);
@@ -349,22 +353,50 @@ public class Album {
     }
 
 
+    public void makePublic(User admin) {
+        if (!admin.getRoles().contains(Role.ADMIN)) {
+            throw new AlbumException("Only administrators can change album visibility");
+        }
+        if (!isAdminAlbum()) {
+            throw new AlbumException("Only admin albums can be made public");
+        }
+        if (this.isPublic) return;
+        this.isPublic = true;
+        registerEvent(new AlbumVisibilityChanged(albumId.value(), true));
+    }
+
+    public void makePrivate(User admin) {
+        if (!admin.getRoles().contains(Role.ADMIN)) {
+            throw new AlbumException("Only administrators can change album visibility");
+        }
+        if (!isAdminAlbum()) {
+            throw new AlbumException("Only admin albums can be made private");
+        }
+        if (!this.isPublic) return;
+        this.isPublic = false;
+        registerEvent(new AlbumVisibilityChanged(albumId.value(), false));
+    }
+
+    public boolean isPublic() {
+        return isPublic;
+    }
+
     public String getFilePath(User user, String photographEmail) {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
         boolean isClient = user.getRoles().contains(Role.CLIENT);
 
-
-        if (isAdmin && isOwner(user)) {
+        if (isAdmin && isAdminAlbum() && photographId.equals(user.getId().value())) {
             return this.name;
-        } else if (isPhotograph && isOwner(user)) {
+        } else if (isAdmin && !isAdminAlbum()) {
+            return photographEmail + "/" + this.name;
+        } else if (isPhotograph && photographId.equals(user.getId().value())) {
             return user.getEmail().value() + "/" + this.name;
-        } else if (isClient && isOwner(user)) {
+        } else if (isClient && clientId.equals(user.getId().value())) {
             return photographEmail + "/" + this.name;
         } else {
-            throw new AlbumException("Access decided!");
+            throw new AlbumException("Access denied!");
         }
-
     }
 
     public boolean canAccess(UserId userId, Set<Role> userRoles) {
@@ -373,6 +405,14 @@ public class Album {
         }
 
         return userRoles.contains(Role.PHOTOGRAPHER) && photographId.equals(userId.value());
+    }
+
+    public boolean canRead(UserId userId, Set<Role> userRoles) {
+        if (canAccess(userId, userRoles)) {
+            return true;
+        }
+
+        return userRoles.contains(Role.CLIENT) && clientId.equals(userId.value());
     }
 
     public void assignPhotosToAlbum(Map<FileId, File> photos) {
@@ -390,14 +430,14 @@ public class Album {
 
         long maxSize = calcToGB(maxSizeInGb);
 
-        if(actualSize + fileSize > maxSize) {
-            throw new AlbumException("File size too large for ");
+        if (maxSize == 0) return;
+
+        if (actualSize > maxSize) {
+            throw new AlbumException("Server storage is full!");
         }
 
-        if(maxSize == 0) return;
-
-        if(actualSize > maxSize) {
-            throw new AlbumException("Server storage is full!");
+        if (actualSize + fileSize > maxSize) {
+            throw new AlbumException("File size too large");
         }
 
     }
@@ -408,15 +448,11 @@ public class Album {
         boolean isClient = user.getRoles().contains(Role.CLIENT);
 
         if (isAdmin) {
-            if (photographId.equals(user.getId().value()) && clientId.equals(user.getId().value())) {
-                return true;
-            }
+            return true;
         }
 
         if (isPhotograph) {
-            if (photographId.equals(user.getId().value())) {
-                return true;
-            }
+            return photographId.equals(user.getId().value());
         }
 
         if (isClient) {
@@ -473,7 +509,7 @@ public class Album {
     }
 
     public Map<FileId, File> getPhotos() {
-        return photos;
+        return Collections.unmodifiableMap(photos);
     }
 
     public Instant getTtd() {

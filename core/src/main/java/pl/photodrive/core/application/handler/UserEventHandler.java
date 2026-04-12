@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import pl.photodrive.core.application.event.UserCredentialsNotification;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.mail.MailSenderPort;
 import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
@@ -21,16 +22,7 @@ public class UserEventHandler {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePhotographCreated(UserCreated userCreated) {
-        log.info("User created: {}", userCreated);
-        String safeEmail = mailSenderPort.escapeHtml(userCreated.email());
-        String safePassword = mailSenderPort.escapeHtml(userCreated.password());
-
-        String accountCreatedTemplate = mailSenderPort.loadResourceAsString(
-                "templates/email/account-created-credentials.html").replace("{{email}}", safeEmail).replace(
-                "{{password}}",
-                safePassword);
-
-        mailSenderPort.send(userCreated.email(), "Twoje konto zostało założone!", accountCreatedTemplate);
+        log.info("User created with id: {}", userCreated.userId());
 
         if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
             fileStoragePort.createPhotographerFolder(userCreated.email());
@@ -38,25 +30,48 @@ public class UserEventHandler {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleCredentialsNotification(UserCredentialsNotification event) {
+        try {
+            String safeEmail = mailSenderPort.escapeHtml(event.email());
+            String safePassword = mailSenderPort.escapeHtml(event.rawPassword());
+
+            String accountCreatedTemplate = mailSenderPort.loadResourceAsString(
+                    "templates/email/account-created-credentials.html")
+                    .replace("{{email}}", safeEmail)
+                    .replace("{{password}}", safePassword);
+
+            mailSenderPort.send(event.email(), "Twoje konto zostało założone!", accountCreatedTemplate);
+        } catch (Exception e) {
+            log.error("Failed to send credentials notification to {}: {}", event.email(), e.getMessage(), e);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTokenCreated(PasswordTokenCreated passwordTokenCreated) {
-        log.info("User token created: {}", passwordTokenCreated);
-        String safeToken = mailSenderPort.escapeHtml(String.valueOf(passwordTokenCreated.token()));
+        try {
+            log.info("User token created: {}", passwordTokenCreated);
+            String safeToken = mailSenderPort.escapeHtml(String.valueOf(passwordTokenCreated.token()));
 
-        String tokenCreatedTemplate = mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html").replace(
-                "{{token}}",
-                safeToken);
+            String tokenCreatedTemplate = mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html").replace(
+                    "{{token}}",
+                    safeToken);
 
-        mailSenderPort.send(passwordTokenCreated.email(), "Zrestartuj swoje hasło", tokenCreatedTemplate);
-
+            mailSenderPort.send(passwordTokenCreated.email(), "Zrestartuj swoje hasło", tokenCreatedTemplate);
+        } catch (Exception e) {
+            log.error("Failed to send password reset token to {}: {}", passwordTokenCreated.email(), e.getMessage(), e);
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleUserRemindPassword(UserRemindedPassword userRemindedPassword) {
-        log.info("User reminded password: {}", userRemindedPassword);
+        try {
+            log.info("User reminded password: {}", userRemindedPassword);
 
-        String remindPasswordTemplate = mailSenderPort.loadResourceAsString("templates/email/password_changed.html");
+            String remindPasswordTemplate = mailSenderPort.loadResourceAsString("templates/email/password_changed.html");
 
-        mailSenderPort.send(userRemindedPassword.email(), "Twoje hasło zostało zmienione", remindPasswordTemplate);
-
+            mailSenderPort.send(userRemindedPassword.email(), "Twoje hasło zostało zmienione", remindPasswordTemplate);
+        } catch (Exception e) {
+            log.error("Failed to send password change notification to {}: {}", userRemindedPassword.email(), e.getMessage(), e);
+        }
     }
 }

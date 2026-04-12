@@ -9,7 +9,7 @@ COPY src ./src
 #RUN ./gradlew bootJar --no-daemon
 RUN ./gradlew test bootJar --no-daemon
 
-RUN java -Djarmode=layertools \
+RUN java -Djarmode=tools \
     -jar build/libs/*.jar extract --destination target/extracted
 
 
@@ -18,9 +18,7 @@ WORKDIR /app/photodrive
 
 RUN adduser -D -H -u 10001 -s /sbin/nologin appuser
 
-COPY --from=builder /build/photodrive/target/extracted/dependencies/ ./
-COPY --from=builder /build/photodrive/target/extracted/spring-boot-loader/ ./
-COPY --from=builder /build/photodrive/target/extracted/snapshot-dependencies/ ./
+COPY --from=builder /build/photodrive/target/extracted/lib/ ./lib/
 COPY --from=builder /build/photodrive/target/extracted/application/ ./
 
 #

@@ -11,8 +11,10 @@ import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.exception.StorageOperationException;
+import pl.photodrive.core.infrastructure.exception.StorageException;
 import pl.photodrive.core.domain.exception.*;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
+import pl.photodrive.core.domain.exception.AlbumNotFoundException;
 import pl.photodrive.core.infrastructure.exception.ExpiredTokenException;
 import pl.photodrive.core.infrastructure.exception.InvalidTokenException;
 import pl.photodrive.core.presentation.dto.ApiException;
@@ -39,6 +41,15 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(AlbumNotFoundException.class)
+    public ResponseEntity<ApiException> albumNotFoundException(AlbumNotFoundException ex, HttpServletRequest request) {
+        ApiException error = new ApiException("ALBUM_NOT_FOUND",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(AlbumException.class)
@@ -149,6 +160,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(StorageOperationException.class)
     public ResponseEntity<ApiException> storageOperationException(StorageOperationException ex, HttpServletRequest request) {
         log.error("Storage operation failed on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        ApiException error = new ApiException("STORAGE_ERROR",
+                "Storage operation failed",
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ApiException> storageException(StorageException ex, HttpServletRequest request) {
+        log.error("Storage error on {} {}", request.getMethod(), request.getRequestURI(), ex);
         ApiException error = new ApiException("STORAGE_ERROR",
                 "Storage operation failed",
                 Instant.now(),

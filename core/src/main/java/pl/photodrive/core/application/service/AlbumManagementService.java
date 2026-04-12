@@ -26,6 +26,7 @@ import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.AlbumNotFoundException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
@@ -48,7 +49,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -256,7 +259,13 @@ public class AlbumManagementService {
 
         List<FileId> fileIdList = cmd.fileId().stream().map(FileId::new).toList();
 
-        album.swapFiles(targetAlbum.getPhotos(),loggedInUser,targetAlbum.getAlbumPath(),fileIdList);
+        List<File> removedFiles = album.swapFiles(loggedInUser, targetAlbum.getAlbumPath(), fileIdList);
+
+        Map<FileId, File> incomingFiles = new LinkedHashMap<>();
+        for (File file : removedFiles) {
+            incomingFiles.put(file.getFileId(), file);
+        }
+        targetAlbum.receiveFiles(incomingFiles);
 
         albumRepository.save(album);
         albumRepository.save(targetAlbum);
@@ -419,7 +428,7 @@ public class AlbumManagementService {
     @Transactional(readOnly = true)
     public Album getPublicAlbum(AlbumId albumId) {
         return albumRepository.findPublicByAlbumId(albumId)
-                .orElseThrow(() -> new AlbumException("Public album not found"));
+                .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
     @Transactional(readOnly = true)
@@ -430,14 +439,14 @@ public class AlbumManagementService {
     @Transactional(readOnly = true)
     public Album getPublicAlbumByName(String name) {
         return albumRepository.findPublicByName(name)
-                .orElseThrow(() -> new AlbumException("Public album not found"));
+                .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
     @Transactional(readOnly = true)
     public FileResource getPublicPhoto(UUID albumIdValue, String fileName) {
         AlbumId albumId = new AlbumId(albumIdValue);
         Album album = albumRepository.findPublicByAlbumId(albumId)
-                .orElseThrow(() -> new AlbumException("Public album not found"));
+                .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
 
         boolean fileExistsInAlbum = album.getPhotos().values().stream()
                 .anyMatch(f -> f.getFileName().value().equals(fileName));

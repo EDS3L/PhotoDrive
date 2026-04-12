@@ -344,15 +344,19 @@ class AlbumTest {
         FileId fileId = file.getFileId();
         source.addFile(file);
 
-        java.util.Map<FileId, File> targetMap = new java.util.HashMap<>();
         Album target = Album.createForClient("Target", photographer, client);
 
         // When
-        source.swapFiles(targetMap, photographer, target.getAlbumPath(), List.of(fileId));
+        List<File> removedFiles = source.swapFiles(photographer, target.getAlbumPath(), List.of(fileId));
+        java.util.Map<FileId, File> incomingFiles = new java.util.LinkedHashMap<>();
+        for (File f : removedFiles) {
+            incomingFiles.put(f.getFileId(), f);
+        }
+        target.receiveFiles(incomingFiles);
 
         // Then
         assertFalse(source.getPhotos().containsKey(fileId));
-        assertTrue(targetMap.containsKey(fileId));
+        assertTrue(target.getPhotos().containsKey(fileId));
     }
 
     @Test
@@ -363,11 +367,9 @@ class AlbumTest {
         FileId fileId = file.getFileId();
         album.addFile(file);
 
-        java.util.Map<FileId, File> targetMap = new java.util.HashMap<>();
-
         // When & Then
         assertThrows(AlbumException.class,
-                () -> album.swapFiles(targetMap, client, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(fileId)));
+                () -> album.swapFiles(client, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(fileId)));
     }
 
     // -----------------------------------------------------------------------

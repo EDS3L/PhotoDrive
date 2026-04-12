@@ -327,13 +327,15 @@ public class Album {
         return false;
     }
 
-    public void swapFiles(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath,List<FileId> fileIdList) {
+    public List<File> swapFiles(User currentUser, AlbumPath targetAlbumPath, List<FileId> fileIdList) {
+        List<File> removedFiles = new ArrayList<>();
         fileIdList.forEach(fileId -> {
-            swapFile(fileIdMap, currentUser, targetAlbumPath, fileId);
+            removedFiles.add(removeFileForSwap(currentUser, targetAlbumPath, fileId));
         });
+        return removedFiles;
     }
 
-    private void swapFile(Map<FileId, File> fileIdMap, User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
+    private File removeFileForSwap(User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
         boolean isAdmin =  currentUser.getRoles().contains(Role.ADMIN);
         boolean isPhotograph =  currentUser.getRoles().contains(Role.PHOTOGRAPHER);
 
@@ -345,11 +347,15 @@ public class Album {
             throw new AlbumException("File not found: " + targetFileId.value());
         }
 
-        File file = photos.get(targetFileId);
-        fileIdMap.put(targetFileId,file);
-        photos.remove(targetFileId);
+        File file = photos.remove(targetFileId);
 
-        this.registerEvent(new FileSwaped(albumPath,targetAlbumPath,file.getFileName()));
+        this.registerEvent(new FileSwaped(albumPath, targetAlbumPath, file.getFileName()));
+
+        return file;
+    }
+
+    public void receiveFiles(Map<FileId, File> incomingFiles) {
+        photos.putAll(incomingFiles);
     }
 
 

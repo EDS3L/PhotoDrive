@@ -49,9 +49,10 @@ services:
       - photodrive-backend
     networks:
       - web
-      - photodrive-internal
+      - traefik_proxy_network
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy_network"
       - "traefik.http.routers.photodrive.rule=Host(`photodrive.dev`)"
       - "traefik.http.routers.photodrive.entrypoints=websecure"
       - "traefik.http.routers.photodrive.tls=true"

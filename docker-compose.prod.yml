@@ -49,7 +49,7 @@ services:
       - photodrive-backend
     networks:
       - web
-      - traefik_proxy_network
+      - photodrive-internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy_network"

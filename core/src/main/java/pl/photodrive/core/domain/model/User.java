@@ -159,7 +159,10 @@ public class User {
             throw new UserException("Some of the users listed are not assigned to a photographer!");
         }
 
-        this.assignedUsers.removeAll(disconnectedUsers);
+        // Defensive copy: assignedUsers may come from Stream.toList() (immutable).
+        List<UserId> remaining = new ArrayList<>(this.assignedUsers);
+        remaining.removeAll(disconnectedUsers);
+        this.assignedUsers = remaining;
 
     }
 

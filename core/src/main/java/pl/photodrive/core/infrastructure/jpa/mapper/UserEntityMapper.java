@@ -14,7 +14,9 @@ import java.util.List;
 
 public class UserEntityMapper {
     public static User toDomain(UserEntity entity) {
-        List<UserId> assignedUserIds = entity.getAssignedUsers().stream().map(embeddable -> new UserId(embeddable.getValue())).toList();
+        List<UserId> assignedUserIds = entity.getAssignedUsers().stream()
+                .map(embeddable -> new UserId(embeddable.getValue()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
 
         return new User(new UserId(entity.getUserId().getValue()),
                 entity.getName(),

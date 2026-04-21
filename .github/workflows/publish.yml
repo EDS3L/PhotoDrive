@@ -158,5 +158,6 @@ jobs:
             cd /home/$VPS_USERNAME/photodrive
             docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive
             docker pull docker.io/$DOCKER_USERNAME/eds3l:photodrive-frontend
+            docker pull busybox:1.36
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans --pull never

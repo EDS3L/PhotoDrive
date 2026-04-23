@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -72,9 +72,6 @@ export default function PanelLoginPage() {
 					<span className='text-[10px] uppercase tracking-[0.3em] px-2 py-1 border border-accent/40 text-accent'>
 						Panel zarządzania
 					</span>
-					<h1 className='font-serif text-4xl md:text-5xl font-light mt-4 mb-2'>
-						Zaloguj się
-					</h1>
 					<p className='text-muted mb-10'>
 						Panel dostępny dla administratorów i fotografów.
 					</p>
@@ -126,6 +123,15 @@ export default function PanelLoginPage() {
 								'Zaloguj się'
 							)}
 						</Button>
+						<Link to='/' className='block mt-3'>
+							<Button
+								variant='ghost'
+								size='lg'
+								className='w-full hover:cursor-pointer'
+							>
+								Powrót do strony głównej
+							</Button>
+						</Link>
 					</form>
 				</div>
 			</div>

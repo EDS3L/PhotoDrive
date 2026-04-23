@@ -44,6 +44,9 @@ public class AlbumController {
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
+    @Value("${app.upload.max-total-size-bytes:2097152000}")
+    private long maxTotalSizeBytes;
+
 
     @GetMapping("/all")
     public ResponseEntity<List<AlbumDto>> getAllAlbums() {
@@ -234,9 +237,8 @@ public class AlbumController {
 
         long totalSize = files.stream().mapToLong(MultipartFile::getSize).sum();
 
-        long maxTotalSize = 100L * 1024 * 1024;
-        if (totalSize > maxTotalSize) {
-            throw new IllegalArgumentException("Total file size exceeds limit: " + maxTotalSize + " bytes");
+        if (totalSize > maxTotalSizeBytes) {
+            throw new IllegalArgumentException("Total file size exceeds limit: " + maxTotalSizeBytes + " bytes");
         }
     }
 

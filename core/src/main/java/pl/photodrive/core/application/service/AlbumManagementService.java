@@ -39,21 +39,21 @@ import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.UserId;
 
 import javax.imageio.ImageIO;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 
 
 @Slf4j
@@ -285,7 +285,6 @@ public class AlbumManagementService {
 
             Resource resource = new UrlResource(targetPath.toUri());
 
-
             if (resource.exists() && resource.isReadable()) {
 
                 String contentType = servletContext.getMimeType(resource.getFile().getAbsolutePath());
@@ -308,7 +307,11 @@ public class AlbumManagementService {
                     height = 0;
                 }
 
-                if (width > 0 && height > 0) {
+                if (width > 0 || height > 0) {
+                    Path thumbPath = fileStorageLocation.resolve(filePath).resolve(".thumbnails").resolve(fileName).normalize();
+                    if (Files.exists(thumbPath)) {
+                        return new FileResource(new UrlResource(thumbPath.toUri()), contentType);
+                    }
                     Resource resizedResource = resizeFile(resource, width, height);
                     return new FileResource(resizedResource, contentType);
                 }
@@ -326,19 +329,55 @@ public class AlbumManagementService {
 
     private Resource resizeFile(Resource originalResource, Integer width, Integer height) throws IOException {
         BufferedImage image = ImageIO.read(originalResource.getInputStream());
-        BufferedImage resizedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        
+        int originalWidth = image.getWidth();
+        int originalHeight = image.getHeight();
+        
+        int finalWidth = width;
+        int finalHeight = height;
+        
+        if (finalWidth > 0 && finalHeight <= 0) {
+            finalHeight = (int) (((double) finalWidth / originalWidth) * originalHeight);
+        } else if (finalHeight > 0 && finalWidth <= 0) {
+            finalWidth = (int) (((double) finalHeight / originalHeight) * originalWidth);
+        }
+        
+        BufferedImage resizedImage = new BufferedImage(finalWidth, finalHeight, BufferedImage.TYPE_INT_RGB);
 
         Graphics2D g2d = resizedImage.createGraphics();
 
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g2d.drawImage(image, 0, 0, width, height, null);
+        g2d.drawImage(image, 0, 0, finalWidth, finalHeight, null);
         g2d.dispose();
 
         String filename = originalResource.getFilename();
-        String format = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+        String format = filename != null && filename.contains(".")
+                ? filename.substring(filename.lastIndexOf('.') + 1).toLowerCase()
+                : "jpg";
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(resizedImage, format, baos);
+
+        if (format.equals("jpg") || format.equals("jpeg")) {
+            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+            if (writers.hasNext()) {
+                ImageWriter writer = writers.next();
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                if (param.canWriteCompressed()) {
+                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                    param.setCompressionQuality(0.7f); // 70% quality to significantly reduce file size
+                }
+                try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                    writer.setOutput(ios);
+                    writer.write(null, new IIOImage(resizedImage, null, null), param);
+                }
+                writer.dispose();
+            } else {
+                ImageIO.write(resizedImage, format, baos);
+            }
+        } else {
+            ImageIO.write(resizedImage, format, baos);
+        }
+
         byte[] imageBytes = baos.toByteArray();
 
         return new ByteArrayResource(imageBytes);

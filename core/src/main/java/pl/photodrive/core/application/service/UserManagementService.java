@@ -150,7 +150,7 @@ public class UserManagementService {
         List<UserId> userIdList = cmd.assignedUser().stream().map(UserId::new).toList();
         List<Optional<User>> usersToAssign = userIdList.stream().map(userRepository::findById).toList();
 
-        List<UserId> activeClients = new ArrayList<>();
+        List<UserId> activeClients = new ArrayList<>(photographer.getAssignedUsers());
 
         usersToAssign.forEach(user -> {
             user.ifPresent(value -> {
@@ -160,7 +160,9 @@ public class UserManagementService {
                 if (!value.isActive()) {
                     throw new UserException("Cannot assign inactive user: " + value.getName());
                 }
-                activeClients.add(value.getId());
+                if (!activeClients.contains(value.getId())) {
+                    activeClients.add(value.getId());
+                }
             });
         });
 

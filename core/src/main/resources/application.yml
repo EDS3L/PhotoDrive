@@ -34,11 +34,18 @@ spring:
           use_jdbc_metadata_defaults: false
     open-in-view: false
     show-sql: false
-
   servlet:
     multipart:
-      max-file-size: "2GB"
-      max-request-size: "2GB"
+      max-file-size: -1
+      max-request-size: -1
+
+server:
+  tomcat:
+    max-swallow-size: -1
+    max-http-form-post-size: -1
+    max-save-post-size: -1
+
+
 
 jwt:
   secret: ${TOKEN_SECRETKEY}

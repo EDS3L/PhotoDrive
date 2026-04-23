@@ -13,6 +13,7 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,7 +37,6 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     @Value("${storage.dir}")
     private Path baseDirectory;
-
 
     @Override
     public void createPhotographerFolder(String photographerEmail) {
@@ -99,13 +99,68 @@ public class LocalStorageAdapter implements FileStoragePort {
 
             log.info("Saved file: {}/{}", path, fileName);
 
+            createThumbnail(targetDir, fileName, targetFile);
+
         } catch (IOException e) {
             if (tempFile != null) {
-
-                Files.deleteIfExists(tempFile);
-
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException ignored) {}
             }
             throw new StorageException("Failed to save file: " + fileName, e);
+        }
+    }
+
+    private void createThumbnail(Path targetDir, String fileName, Path targetFile) {
+        String lowerName = fileName.toLowerCase();
+        if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png")) {
+            try {
+                Path thumbDir = targetDir.resolve(".thumbnails");
+                Files.createDirectories(thumbDir);
+                Path thumbFile = thumbDir.resolve(fileName);
+
+                BufferedImage image = ImageIO.read(targetFile.toFile());
+                if (image == null) return;
+
+                int originalWidth = image.getWidth();
+                int originalHeight = image.getHeight();
+                int finalWidth = 600;
+                int finalHeight = (int) (((double) finalWidth / originalWidth) * originalHeight);
+
+                BufferedImage resizedImage = new BufferedImage(finalWidth, finalHeight, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2d = resizedImage.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.drawImage(image, 0, 0, finalWidth, finalHeight, null);
+                g2d.dispose();
+
+                String format = lowerName.endsWith(".png") ? "png" : "jpg";
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                if ("jpg".equals(format)) {
+                    Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+                    if (writers.hasNext()) {
+                        ImageWriter writer = writers.next();
+                        ImageWriteParam param = writer.getDefaultWriteParam();
+                        if (param.canWriteCompressed()) {
+                            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                            param.setCompressionQuality(0.7f);
+                        }
+                        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                            writer.setOutput(ios);
+                            writer.write(null, new IIOImage(resizedImage, null, null), param);
+                        }
+                        writer.dispose();
+                    } else {
+                        ImageIO.write(resizedImage, format, baos);
+                    }
+                } else {
+                    ImageIO.write(resizedImage, format, baos);
+                }
+                Files.write(thumbFile, baos.toByteArray());
+                log.info("Created thumbnail for {}", fileName);
+            } catch (Exception e) {
+                log.error("Failed to create thumbnail for {}", fileName, e);
+            }
         }
     }
 
@@ -119,6 +174,10 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             Files.delete(filePath);
+            Path thumbPath = filePath.getParent().resolve(".thumbnails").resolve(fileName);
+            if (Files.exists(thumbPath)) {
+                Files.delete(thumbPath);
+            }
         } catch (IOException e) {
             throw new StorageException("Failed to delete file: " + fileName, e);
         }
@@ -139,6 +198,12 @@ public class LocalStorageAdapter implements FileStoragePort {
             }
 
             Files.move(filePath, targetPath);
+
+            Path oldThumbPath = filePath.getParent().resolve(".thumbnails").resolve(oldName);
+            if (Files.exists(oldThumbPath)) {
+                Path newThumbPath = targetPath.getParent().resolve(".thumbnails").resolve(newName);
+                Files.move(oldThumbPath, newThumbPath);
+            }
         } catch (IOException e) {
             throw new StorageException("Failed to rename file: " + path, e);
         }

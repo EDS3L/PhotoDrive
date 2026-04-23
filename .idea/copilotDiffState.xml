@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="/application (snapshot).yml">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="/application (snapshot).yml" />
+              <option name="originalContent" value="spring:&#10;  mail:&#10;    host: ${MAIL_HOST}&#10;    port: 587&#10;    username: ${MAIL_USERNAME}&#10;    password: ${MAIL_PASSWORD}&#10;    protocol: smtp&#10;    properties:&#10;      mail:&#10;        smtp:&#10;          auth: true&#10;          starttls:&#10;            enable: true&#10;&#10;  datasource:&#10;    url: ${DATASOURCE_URL}&#10;    username: ${DATASOURCE_USERNAME}&#10;    password: ${DATASOURCE_PASSWORD}&#10;    driver-class-name: com.mysql.cj.jdbc.Driver&#10;    hikari:&#10;      max-lifetime: 600000&#10;&#10;  jpa:&#10;    database-platform: org.hibernate.dialect.MySQL8Dialect&#10;    hibernate:&#10;      ddl-auto: update&#10;      naming:&#10;        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl&#10;    properties:&#10;      hibernate:&#10;        type:&#10;          preferred_uuid_jdbc_type: VARCHAR&#10;        temp:&#10;          use_jdbc_metadata_defaults: false&#10;    open-in-view: false&#10;    show-sql: false&#10;&#10;  servlet:&#10;    multipart:&#10;      max-file-size: &quot;2GB&quot;&#10;      max-request-size: &quot;2GB&quot;&#10;&#10;jwt:&#10;  secret: ${TOKEN_SECRETKEY}&#10;&#10;storage:&#10;  dir: ${DIR}&#10;  temp:&#10;    path: ${STORAGE_TEMP_PATH}&#10;&#10;ORG_MAX_SIZE: ${ORG_MAX_SIZE}&#10;&#10;app:&#10;  base-url: ${APP_BASE_URL:http://localhost:8080}&#10;  cookie:&#10;    secure: ${COOKIE_SECURE:true}&#10;&#10;SWAGGER:&#10;  LOGIN:&#10;    USER: ${SWAGGER_USER}&#10;    PASSWORD: ${SWAGGER_PASSWORD}&#10;" />
+              <option name="updatedContent" value="spring:&#10;  mail:&#10;    host: ${MAIL_HOST}&#10;    port: 587&#10;    username: ${MAIL_USERNAME}&#10;    password: ${MAIL_PASSWORD}&#10;    protocol: smtp&#10;    properties:&#10;      mail:&#10;        smtp:&#10;          auth: true&#10;          starttls:&#10;            enable: true&#10;&#10;  datasource:&#10;    url: ${DATASOURCE_URL}&#10;    username: ${DATASOURCE_USERNAME}&#10;    password: ${DATASOURCE_PASSWORD}&#10;    driver-class-name: com.mysql.cj.jdbc.Driver&#10;    hikari:&#10;      max-lifetime: 600000&#10;&#10;  jpa:&#10;    database-platform: org.hibernate.dialect.MySQL8Dialect&#10;    hibernate:&#10;      ddl-auto: update&#10;      naming:&#10;        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl&#10;    properties:&#10;      hibernate:&#10;        type:&#10;          preferred_uuid_jdbc_type: VARCHAR&#10;        temp:&#10;          use_jdbc_metadata_defaults: false&#10;    open-in-view: false&#10;    show-sql: false&#10;&#10;  servlet:&#10;    multipart:&#10;      max-file-size: -1&#10;      max-request-size: -1&#10;&#10;jwt:&#10;  secret: ${TOKEN_SECRETKEY}&#10;&#10;storage:&#10;  dir: ${DIR}&#10;  temp:&#10;    path: ${STORAGE_TEMP_PATH}&#10;&#10;ORG_MAX_SIZE: ${ORG_MAX_SIZE}&#10;&#10;app:&#10;  base-url: ${APP_BASE_URL:http://localhost:8080}&#10;  cookie:&#10;    secure: ${COOKIE_SECURE:true}&#10;&#10;SWAGGER:&#10;  LOGIN:&#10;    USER: ${SWAGGER_USER}&#10;    PASSWORD: ${SWAGGER_PASSWORD}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

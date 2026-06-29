@@ -1,79 +1,99 @@
-# PhotoDrive Core
+# PhotoDrive
 
-PhotoDrive to profesjonalna platforma typu open-source dedykowana studiom fotograficznym i dużym firmom. System umożliwia bezpieczne zarządzanie sesjami zdjęciowymi, ich dystrybucję do klientów oraz integrację z zewnętrznymi systemami poprzez API.
+PhotoDrive to platforma do bezpiecznego zarządzania i dystrybucji sesji fotograficznych. Fotograf zakłada klientom albumy, wgrywa zdjęcia oraz steruje ich widocznością, znakiem wodnym i czasem życia; klient loguje się i pobiera swoje zdjęcia; administrator zarządza użytkownikami i publicznym portfolio.
 
-Projekt został zbudowany w oparciu o **Architekturę Heksagonalną (Ports & Adapters)** oraz zasady **Domain-Driven Design (DDD)**, co zapewnia wysoką skalowalność i łatwość utrzymania.
+Backend zbudowano w oparciu o **Architekturę Heksagonalną (Ports & Adapters)** oraz zasady **Domain-Driven Design (DDD)**.
+
+## 🧱 Monorepo
+- `core/` — backend: Spring Boot, REST API, logika domenowa, magazyn plików, baza danych
+- `frontend/` — frontend: React + Vite (SPA: strona publiczna + panel admin/fotograf + strefa klienta)
+- `docker-compose.yml` / `docker-compose.prod.yml` — uruchomienie lokalne / produkcyjne
 
 ## 🚀 Kluczowe Funkcjonalności
 
-System obsługuje trzy główne role użytkowników, z dedykowanymi zestawami funkcji:
+System obsługuje trzy główne role użytkowników:
 
-### 📸 Dla Fotografa (Photographer)
-*   **Zarządzanie Sesjami (Albumy):** Pełny cykl życia sesji zdjęciowej (tworzenie, edycja, usuwanie albumów).
-*   **Upload Plików:** Wydajny mechanizm przesyłania zdjęć do dedykowanych folderów/galerii.
-*   **Organizacja:** Strukturyzowanie plików wewnątrz albumów.
+### 📸 Fotograf (PHOTOGRAPHER)
+- Zarządzanie albumami klientów (tworzenie, edycja, usuwanie).
+- Upload zdjęć, sterowanie widocznością, znak wodny, czas wygaśnięcia (TTD).
+- Przenoszenie plików między albumami, pobieranie ZIP.
 
-### 👤 Dla Klienta (Client)
-*   **Dostęp do Zdjęć:** Bezpieczne pobieranie zdjęć z wykupionych sesji po autoryzacji.
-*   **Integracja API:** Możliwość podłączenia galerii do własnej strony internetowej za pomocą tokenów dostępowych.
+### 👤 Klient (CLIENT)
+- Bezpieczny dostęp do **tylko udostępnionych** zdjęć ze swoich albumów po zalogowaniu.
+- Pobieranie zdjęć (pojedynczo / jako archiwum ZIP).
 
-### 🛡️ Dla Administratora (Admin)
-*   **Zarządzanie Użytkownikami:** Tworzenie i edycja kont Fotografów oraz Klientów.
-*   **Bezpieczeństwo:** Nadawanie uprawnień i ról systemowych.
-*   **Powiadomienia:** Automatyczna wysyłka danych dostępowych do nowych użytkowników (szablony e-mail).
+### 🛡️ Administrator (ADMIN)
+- Zarządzanie kontami i rolami użytkowników.
+- Tworzenie albumów administracyjnych i **publikacja portfolio** (albumy publiczne).
+- Automatyczna wysyłka danych dostępowych do nowych użytkowników (szablony e-mail).
 
 ## 🏗️ Architektura i Technologie
 
-Projekt wykorzystuje nowoczesny stos technologiczny Java:
+### Backend (`core/`)
+- **Język:** Java 21
+- **Framework:** Spring Boot 3.5.7
+- **Baza danych:** MySQL 8 (Spring Data JPA / Hibernate)
+- **Bezpieczeństwo:** Spring Security + JWT (HS256) w **cookie HttpOnly `pd_at`** + filtr walidacji Origin (ochrona anty-CSRF); hasła BCrypt
+- **Zdarzenia domenowe:** obsługa operacji na plikach i wysyłki maili (np. `FileAddedToClientAlbum`)
+- **Szablony e-mail:** HTML
+- **Build:** Gradle (`./gradlew`)
 
-*   **Język:** Java 17+
-*   **Framework:** Spring Boot 3.x
-*   **Baza Danych:** Relacyjna (JPA/Hibernate) - konfiguracja w `application.yml`.
-*   **Bezpieczeństwo:** Spring Security + JWT (JSON Web Tokens) do bezstanowej autoryzacji.
-*   **Przetwarzanie Asynchroniczne:** System zdarzeń (Events) do obsługi operacji na plikach (np. `FileAddedToClientAlbum`).
-*   **Szablony:** Thymeleaf (do generowania wiadomości e-mail).
+### Frontend (`frontend/`)
+- **React 19 + TypeScript + Vite**, Tailwind CSS, TanStack React Query, Zustand, axios
+- Serwowany przez **nginx** (proxy `/api` → backend)
 
-### Struktura Katalogów (DDD)
-*   `domain` - Czysta logika biznesowa, wolna od frameworków.
-*   `application` - Serwisy aplikacyjne i obsługa komend (CQRS).
-*   `infrastructure` - Implementacje techniczne (baza danych, pliki, maile, JWT).
-*   `presentation` - Kontrolery REST API.
+### Struktura katalogów backendu (DDD)
+- `domain` — czysta logika biznesowa, wolna od frameworków
+- `application` — serwisy aplikacyjne, komendy (CQRS), porty, handlery zdarzeń
+- `infrastructure` — implementacje techniczne (JPA/MySQL, magazyn plików, mail, JWT)
+- `presentation` — kontrolery REST API
 
-## ⚙️ Instalacja i Uruchomienie
+## ⚙️ Uruchomienie
 
 ### Wymagania wstępne
-*   JDK 17 lub nowsze
-*   Maven lub Gradle
-*   Baza danych (np. PostgreSQL lub H2 dla testów)
+- JDK 21
+- MySQL 8
+- Node.js 22 (frontend)
+- (opcjonalnie) Docker + Docker Compose
 
-### Konfiguracja
-Przed uruchomieniem należy skonfigurować plik `src/main/resources/application.yml`.
+### Najszybciej: Docker Compose
+```bash
+docker compose up --build
+```
+- Frontend: http://localhost:3000
+- Backend:  http://localhost:8080
 
-#### 1. Baza Danych
-Ustaw parametry połączenia do bazy danych:
-```yaml
-spring:
-  datasource:
-    url:
-    username: twoj_user
-    password: twoje_haslo
+### Konfiguracja (zmienne środowiskowe)
+Backend czyta konfigurację z `core/src/main/resources/application.yml`, które oczekuje zmiennych środowiskowych (np. z pliku `.env` w katalogu głównym):
+
+| Zmienna | Opis |
+|---|---|
+| `DATASOURCE_URL`, `DATASOURCE_USERNAME`, `DATASOURCE_PASSWORD` | połączenie do MySQL |
+| `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD` | serwer SMTP (port 587, STARTTLS) |
+| `DIR` | katalog magazynu plików (zdjęcia) |
+| `STORAGE_TEMP_PATH` | katalog tymczasowy uploadu |
+| `TOKEN_SECRETKEY` | sekret JWT — **Base64, min. 256 bitów (32 bajty)** |
+| `ORG_MAX_SIZE` | limit pojemności magazynu (GB) |
+| `APP_BASE_URL` | bazowy URL aplikacji (np. `https://photodrive.dev`) |
+| `CSRF_ALLOWED_ORIGINS` | dozwolone originy dla żądań mutujących (anty-CSRF) |
+| `COOKIE_SECURE` | flaga `Secure` na cookie sesji (`true` na produkcji) |
+| `SWAGGER_USER`, `SWAGGER_PASSWORD` | logowanie do Swagger UI |
+
+> Sesja przechowywana jest w **HttpOnly cookie `pd_at`** (token JWT podpisany HS256). Czas życia tokenu jest krótki i odnawiany przy aktywności — konfigurowany po stronie backendu, nie ma osobnej właściwości `expiration-ms`.
+
+### Uruchomienie ręczne
+Backend:
+```bash
+cd core
+./gradlew bootRun     # wymaga ustawionych zmiennych środowiskowych
+./gradlew test        # testy + raport pokrycia JaCoCo
+```
+Frontend:
+```bash
+cd frontend
+npm install
+npm run dev           # Vite, proxy /api → http://localhost:8080
+npm run build         # produkcyjny build do dist/
 ```
 
-#### 2. Konfiguracja JWT (Klucze API)
-Aby API działało poprawnie i generowało bezpieczne tokeny dla klientów, należy wygenerować silny klucz sekretny (HMAC-SHA) i umieścić go w konfiguracji:
-
-```yaml
-jwt:
-  secret: "BARDZO_DLUGI_I_SKOMPLIKOWANY_CIAG_ZNAKOW_DLA_BEZPIECZENSTWA"
-  expiration-ms: 86400000 # Czas życia tokena (np. 24h)
-```
-*Jest to kluczowe dla modułu `infrastructure/jwt`, który odpowiada za autoryzację zapytań API.*
-
-#### 3. Magazyn Plików
-Skonfiguruj ścieżkę, gdzie fizycznie będą zapisywane zdjęcia:
-```yaml
-storage:
-  location: "/var/photodrive/data"
-```
-
-Aplikacja domyślnie wystartuje na porcie `8080`.
+Dokumentacja API: **Swagger UI** pod `/swagger-ui` (chronione osobnym logowaniem — `SWAGGER_USER` / `SWAGGER_PASSWORD`).

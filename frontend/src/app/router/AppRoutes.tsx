@@ -86,6 +86,9 @@ export function AppRoutes() {
 					/>
 					<Route path='/photographer/account' element={<AccountPage />} />
 				</Route>
+
+				{/*Error route*/}
+				<Route path='*' element={<div>Page not found</div>} />
 			</Routes>
 		</Suspense>
 	);

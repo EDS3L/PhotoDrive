@@ -38,7 +38,10 @@ class PasswordTokenTest {
 
         // Then
         assertThat(passwordToken).isNotNull();
-        assertThat(passwordToken.getToken()).isEqualTo(token);
+        assertThat(passwordToken.matches(token)).isTrue();
+        assertThat(passwordToken.matches(UUID.randomUUID())).isFalse();
+        assertThat(passwordToken.getTokenHash()).hasSize(64);
+        assertThat(passwordToken.getTokenHash()).isNotEqualTo(token.toString());
         assertThat(passwordToken.getUserId()).isEqualTo(user.getId());
     }
 
@@ -92,12 +95,15 @@ class PasswordTokenTest {
         passwordToken.pullDomainEvents(); // clear initial event
 
         UUID newToken = UUID.randomUUID();
+        String originalHash = passwordToken.getTokenHash();
 
         // When
         passwordToken.updateToken(newToken, user.getEmail().value());
 
         // Then
-        assertThat(passwordToken.getToken()).isEqualTo(newToken);
+        assertThat(passwordToken.matches(newToken)).isTrue();
+        assertThat(passwordToken.matches(original)).isFalse();
+        assertThat(passwordToken.getTokenHash()).isNotEqualTo(originalHash);
         List<Object> events = passwordToken.pullDomainEvents();
         assertThat(events).hasSize(1);
         assertThat(events.get(0)).isInstanceOf(PasswordTokenCreated.class);

@@ -174,6 +174,11 @@ public class AlbumManagementService {
         if (files.isEmpty()) {
             throw new AlbumException("No files found for download");
         }
+
+        if (isClient(user) && files.stream().anyMatch(file -> !file.isVisible())) {
+            throw new SecurityException("User has no access to hidden files");
+        }
+
         List<String> existingFileNames = files.stream().map(f -> f.getFileName().value()).toList();
 
         String storagePath = resolveAlbumStoragePath(album);
@@ -237,6 +242,10 @@ public class AlbumManagementService {
 
         if (!album.canRead(user.getId(), user.getRoles())) {
             throw new SecurityException("User has no access to this album");
+        }
+
+        if (!album.canReadFile(user, cmd.fileName())) {
+            throw new SecurityException("User has no access to this file");
         }
 
         User photographer = getUser(new UserId(album.getPhotographId()));
@@ -487,13 +496,16 @@ public class AlbumManagementService {
         Album album = albumRepository.findPublicByAlbumId(albumId)
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
 
-        boolean fileExistsInAlbum = album.getPhotos().values().stream()
-                .anyMatch(f -> f.getFileName().value().equals(fileName));
-        if (!fileExistsInAlbum) {
+        if (!album.hasVisibleFile(fileName)) {
             throw new AlbumException("File not found");
         }
 
         return getFileResource(fileName, resolveAlbumStoragePath(album), null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isCurrentUserClient() {
+        return currentUser.requireAuthenticated().roles().contains(Role.CLIENT);
     }
 
     @Transactional
@@ -582,6 +594,10 @@ public class AlbumManagementService {
         if (!album.canRead(user.getId(), user.getRoles())) {
             throw new SecurityException("User has no access to this album");
         }
+    }
+
+    private boolean isClient(User user) {
+        return user.getRoles().contains(Role.CLIENT);
     }
 
     private User getUser(UserId userId) {

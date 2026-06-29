@@ -143,7 +143,7 @@ public class Album {
 
     public void removeFiles(FileId fileId, User user) {
 
-        if (!isOwner(user)) {
+        if (!canManageFiles(user)) {
             throw new AlbumException("Only admin or album owner can remove the file");
         }
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
@@ -222,7 +222,7 @@ public class Album {
             throw new AlbumException("File with name '" + newFileName.value() + "' already exists in this album.");
         }
 
-        if (!isOwner(user)) {
+        if (!canManageFiles(user)) {
             throw new AlbumException("Only admin or album owner can rename the file");
         }
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
@@ -250,7 +250,7 @@ public class Album {
 
 
     public void changeFileVisibleStatus(List<FileId> fileIdList, boolean isVisible, User user, Email userEmail) {
-        if (!isOwner(user)) {
+        if (!canManageFiles(user)) {
             throw new AlbumException("User is not allowed to change file visibility");
         }
 
@@ -277,7 +277,7 @@ public class Album {
     }
 
     public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList) {
-        if (!isOwner(user)) {
+        if (!canManageFiles(user)) {
             throw new AlbumException("User is not allowed to change file visibility");
         }
 
@@ -421,6 +421,24 @@ public class Album {
         return userRoles.contains(Role.CLIENT) && clientId.equals(userId.value());
     }
 
+    public boolean canReadFile(User user, String fileName) {
+        if (canAccess(user.getId(), user.getRoles())) {
+            return true;
+        }
+
+        if (!user.getRoles().contains(Role.CLIENT) || !clientId.equals(user.getId().value())) {
+            return false;
+        }
+
+        return photos.values().stream()
+                .anyMatch(file -> file.isVisible() && file.getFileName().value().equals(fileName));
+    }
+
+    public boolean hasVisibleFile(String fileName) {
+        return photos.values().stream()
+                .anyMatch(file -> file.isVisible() && file.getFileName().value().equals(fileName));
+    }
+
     public void assignPhotosToAlbum(Map<FileId, File> photos) {
         this.photos = photos;
     }
@@ -448,24 +466,15 @@ public class Album {
 
     }
 
-    private boolean isOwner(User user) {
+    private boolean canManageFiles(User user) {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
-        boolean isClient = user.getRoles().contains(Role.CLIENT);
 
         if (isAdmin) {
             return true;
         }
 
-        if (isPhotograph) {
-            return photographId.equals(user.getId().value());
-        }
-
-        if (isClient) {
-            return clientId.equals(user.getId().value());
-        }
-
-        return false;
+        return isPhotograph && photographId.equals(user.getId().value());
     }
 
     public List<File> getFilesByNames(List<FileName> fileNames) {

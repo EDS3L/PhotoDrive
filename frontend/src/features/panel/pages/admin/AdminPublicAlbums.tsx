@@ -19,6 +19,7 @@ interface SectionGroup {
 	albums: AlbumDto[];
 }
 
+//tagi dla nazw albumów odpowiadających sekcjom strony, do szybkiego tworzenia nowych albumów z odpowiednimi nazwami - WAZNE
 const SECTION_TAGS = [
 	'home-hero',
 	'home-intro',

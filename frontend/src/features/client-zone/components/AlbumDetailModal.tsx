@@ -12,9 +12,9 @@ interface AlbumDetailModalProps {
 
 export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 	const [downloading, setDownloading] = useState(false);
+	const visibleFiles = album.files.filter((file) => file.visible);
 
 	const handleDownload = async () => {
-		const visibleFiles = album.files.filter((f) => f.visible);
 		if (visibleFiles.length === 0) return;
 		setDownloading(true);
 		try {
@@ -38,7 +38,7 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 						</p>
 						<h2 className='font-serif text-2xl'>{album.name}</h2>
 						<p className='text-xs text-muted'>
-							{album.files.length} photographs
+							{visibleFiles.length} zdjęć
 							{album.ttd && (
 								<>
 									{' '}
@@ -64,15 +64,13 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 			{/* Photo grid */}
 			<div className='max-w-7xl mx-auto px-6 py-8'>
 				<PhotoGrid columns={4}>
-					{album.files
-						.filter((f) => f.visible)
-						.map((file) => (
-							<PhotoGridItem
-								key={file.fileID}
-								src={getPhotoUrl(album.albumId, file.fileName, 600)}
-								alt={file.fileName}
-							/>
-						))}
+					{visibleFiles.map((file) => (
+						<PhotoGridItem
+							key={file.fileID}
+							src={getPhotoUrl(album.albumId, file.fileName, 600)}
+							alt={file.fileName}
+						/>
+					))}
 				</PhotoGrid>
 
 				{/* Download all */}
@@ -81,7 +79,7 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 						variant='outline'
 						size='lg'
 						onClick={handleDownload}
-						disabled={downloading}
+						disabled={downloading || visibleFiles.length === 0}
 					>
 						{downloading ? (
 							<Loader2 className='w-4 h-4 mr-2 animate-spin' />

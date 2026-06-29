@@ -16,7 +16,8 @@ function isExpired(ttd: string | null): boolean {
 
 export function AlbumCard({ album, onOpen }: AlbumCardProps) {
 	const expired = isExpired(album.ttd);
-	const coverFile = album.files[0];
+	const visibleFiles = album.files.filter((file) => file.visible);
+	const coverFile = visibleFiles[0];
 	const coverSrc = coverFile
 		? getPhotoUrl(album.albumId, coverFile.fileName, 400)
 		: placeholder(400, 300, album.name);
@@ -44,7 +45,7 @@ export function AlbumCard({ album, onOpen }: AlbumCardProps) {
 			<div className='p-5'>
 				<h3 className='font-serif text-lg mb-1'>{album.name}</h3>
 				<p className='text-xs text-muted mb-4'>
-					{album.files.length} zdjęć
+					{visibleFiles.length} zdjęć
 					{album.ttd && (
 						<>
 							{' '}

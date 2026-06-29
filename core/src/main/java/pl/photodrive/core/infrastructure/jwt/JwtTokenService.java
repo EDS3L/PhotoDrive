@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
+    private static final String ISSUER = "CeVeMe";
+    private static final String KEY_ID = "key-2025-11";
+
     private final JWSSigner signer;
     private final JWSVerifierProvider verifiers;
 
@@ -34,35 +37,67 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
     public AuthenticatedUser parse(String rawJwt) {
         try {
             var signed = SignedJWT.parse(rawJwt);
-            var kid = signed.getHeader().getKeyID();
+            var header = signed.getHeader();
+            if (!JWSAlgorithm.HS256.equals(header.getAlgorithm())) {
+                throw new InvalidTokenException("Unsupported algorithm");
+            }
+
+            var kid = header.getKeyID();
+            if (!KEY_ID.equals(kid)) {
+                throw new InvalidTokenException("Unknown key");
+            }
+
             var verifier = verifiers.forKid(kid);
             if (!signed.verify(verifier)) throw new InvalidTokenException("Signature");
 
             var claims = signed.getJWTClaimsSet();
             var now = Instant.now();
+            if (!ISSUER.equals(claims.getIssuer())) {
+                throw new InvalidTokenException("Invalid issuer");
+            }
+
+            if (claims.getExpirationTime() == null) {
+                throw new InvalidTokenException("Missing expiration");
+            }
+
+            if (claims.getIssueTime() == null || claims.getIssueTime().toInstant().isAfter(now.plusSeconds(60))) {
+                throw new InvalidTokenException("Invalid issue time");
+            }
+
             var experience = claims.getExpirationTime().toInstant();
 
             if (now.isAfter(experience)) throw new ExpiredTokenException("Token is expired!");
 
+            if (claims.getSubject() == null || claims.getSubject().isBlank()) {
+                throw new InvalidTokenException("Missing subject");
+            }
+
             var userId = new UserId(UUID.fromString(claims.getSubject()));
 
-            Set<Role> roles = ((List<?>) claims.getClaim("roles")).stream().map(Object::toString).map(Role::valueOf).collect(
-                    Collectors.toSet());
+            Object rawRoles = claims.getClaim("roles");
+            if (!(rawRoles instanceof List<?> rolesClaim) || rolesClaim.isEmpty()) {
+                throw new InvalidTokenException("Missing roles");
+            }
+
+            Set<Role> roles = rolesClaim.stream().map(Object::toString).map(Role::valueOf).collect(Collectors.toSet());
 
             return new AuthenticatedUser(userId, roles, experience);
+        } catch (ExpiredTokenException | InvalidTokenException e) {
+            throw e;
         } catch (JOSEException | ParseException e) {
             throw new InvalidTokenException("Malformed token");
+        } catch (RuntimeException e) {
+            throw new InvalidTokenException("Invalid token claims");
         }
 
     }
 
     @Override
     public String createAccessToken(UserId userId, Set<Role> roles, Instant now, Duration ttl) {
-        String issuer = "CeVeMe";
-        var claims = new JWTClaimsSet.Builder().issuer(issuer).subject(userId.value().toString()).claim("roles",
+        var claims = new JWTClaimsSet.Builder().issuer(ISSUER).subject(userId.value().toString()).claim("roles",
                 roles.stream().map(Enum::name).toList()).issueTime(Date.from(now)).expirationTime(Date.from(now.plus(ttl))).build();
 
-        var jwsHeader = new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).keyID("key-2025-11").build();
+        var jwsHeader = new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).keyID(KEY_ID).build();
 
         var signed = new SignedJWT(jwsHeader, claims);
 

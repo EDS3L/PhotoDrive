@@ -49,7 +49,7 @@ public class UserEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTokenCreated(PasswordTokenCreated passwordTokenCreated) {
         try {
-            log.info("User token created: {}", passwordTokenCreated);
+            log.info("Password reset token created for {}", passwordTokenCreated.email());
             String safeToken = mailSenderPort.escapeHtml(String.valueOf(passwordTokenCreated.token()));
 
             String tokenCreatedTemplate = mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html").replace(

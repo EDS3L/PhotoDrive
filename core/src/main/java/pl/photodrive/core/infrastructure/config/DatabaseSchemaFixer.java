@@ -35,6 +35,7 @@ public class DatabaseSchemaFixer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         dropLegacyColumnIfPresent("albums", "isPublic");
+        widenVarcharColumnIfNeeded("passwordTokens", "token", 64);
     }
 
     private void dropLegacyColumnIfPresent(String table, String column) {
@@ -49,6 +50,21 @@ public class DatabaseSchemaFixer implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.error("Failed to drop legacy column {}.{}: {}", table, column, e.getMessage());
+        }
+    }
+
+    private void widenVarcharColumnIfNeeded(String table, String column, int minLength) {
+        try {
+            Integer currentLength = jdbcTemplate.queryForObject(
+                    "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS " +
+                            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                    Integer.class, table, column);
+            if (currentLength != null && currentLength < minLength) {
+                log.warn("Widening column {}.{} to VARCHAR({})", table, column, minLength);
+                jdbcTemplate.execute("ALTER TABLE `" + table + "` MODIFY COLUMN `" + column + "` VARCHAR(" + minLength + ") NOT NULL");
+            }
+        } catch (Exception e) {
+            log.error("Failed to widen column {}.{}: {}", table, column, e.getMessage());
         }
     }
 }

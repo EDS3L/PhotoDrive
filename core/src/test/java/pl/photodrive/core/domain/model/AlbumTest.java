@@ -240,8 +240,7 @@ class AlbumTest {
     }
 
     @Test
-    void shouldAllowClientToRemoveFileFromOwnAlbum() {
-        // Client is the owner of a client album, so they can remove files
+    void shouldDenyClientRemovingFileFromOwnAlbum() {
         // Given
         Album album = Album.createForClient("RemoveTest3", photographer, client);
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
@@ -249,8 +248,8 @@ class AlbumTest {
         album.addFile(file);
 
         // When / Then
-        assertDoesNotThrow(() -> album.removeFiles(fileId, client));
-        assertFalse(album.getPhotos().containsKey(fileId));
+        assertThrows(AlbumException.class, () -> album.removeFiles(fileId, client));
+        assertTrue(album.getPhotos().containsKey(fileId));
     }
 
     // -----------------------------------------------------------------------
@@ -287,16 +286,15 @@ class AlbumTest {
     }
 
     @Test
-    void shouldAllowClientToRenameFileInOwnAlbum() {
-        // Client is the owner of a client album
+    void shouldDenyClientRenamingFileInOwnAlbum() {
         // Given
         Album album = Album.createForClient("RenameDeny", photographer, client);
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
         album.addFile(file);
 
         // When / Then
-        assertDoesNotThrow(() -> album.renameFile(file.getFileId(), new FileName("new.jpg"), client));
-        assertEquals(new FileName("new.jpg"), album.getPhotos().get(file.getFileId()).getFileName());
+        assertThrows(AlbumException.class, () -> album.renameFile(file.getFileId(), new FileName("new.jpg"), client));
+        assertEquals(new FileName("photo.jpg"), album.getPhotos().get(file.getFileId()).getFileName());
     }
 
     // -----------------------------------------------------------------------
@@ -319,17 +317,16 @@ class AlbumTest {
     }
 
     @Test
-    void shouldAllowClientToChangeVisibilityInOwnAlbum() {
-        // Client is the owner of a client album
+    void shouldDenyClientChangingVisibilityInOwnAlbum() {
         // Given
         Album album = Album.createForClient("VisibleDeny", photographer, client);
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
         album.addFile(file);
 
         // When / Then
-        assertDoesNotThrow(() ->
+        assertThrows(AlbumException.class, () ->
                 album.changeFileVisibleStatus(List.of(file.getFileId()), true, client, client.getEmail()));
-        assertTrue(album.getPhotos().get(file.getFileId()).isVisible());
+        assertFalse(album.getPhotos().get(file.getFileId()).isVisible());
     }
 
     // -----------------------------------------------------------------------
@@ -454,5 +451,37 @@ class AlbumTest {
 
         // When / Then
         assertFalse(album.canAccess(client.getId(), client.getRoles()));
+    }
+
+    @Test
+    void shouldAllowClientToReadOnlyVisibleFileInOwnAlbum() {
+        // Given
+        Album album = Album.createForClient("ClientVisibleRead", photographer, client);
+        File visibleFile = File.create(new FileName("visible.jpg"), 100L, "image/jpeg");
+        File hiddenFile = File.create(new FileName("hidden.jpg"), 100L, "image/jpeg");
+        album.addFile(visibleFile);
+        album.addFile(hiddenFile);
+        album.changeFileVisibleStatus(List.of(visibleFile.getFileId()), true, photographer, photographer.getEmail());
+
+        // When / Then
+        assertTrue(album.canReadFile(client, "visible.jpg"));
+        assertFalse(album.canReadFile(client, "hidden.jpg"));
+        assertFalse(album.canReadFile(client, "missing.jpg"));
+    }
+
+    @Test
+    void shouldExposeOnlyVisibleFilesAsPublicFiles() {
+        // Given
+        Album album = Album.createForClient("PublicVisibleRead", photographer, client);
+        File visibleFile = File.create(new FileName("visible.jpg"), 100L, "image/jpeg");
+        File hiddenFile = File.create(new FileName("hidden.jpg"), 100L, "image/jpeg");
+        album.addFile(visibleFile);
+        album.addFile(hiddenFile);
+        album.changeFileVisibleStatus(List.of(visibleFile.getFileId()), true, photographer, photographer.getEmail());
+
+        // When / Then
+        assertTrue(album.hasVisibleFile("visible.jpg"));
+        assertFalse(album.hasVisibleFile("hidden.jpg"));
+        assertFalse(album.hasVisibleFile("missing.jpg"));
     }
 }

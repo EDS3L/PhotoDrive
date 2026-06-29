@@ -1,7 +1,6 @@
 package pl.photodrive.core.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -17,7 +16,6 @@ import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
 import pl.photodrive.core.application.service.AuthManagerService;
 import pl.photodrive.core.application.service.TokenManagementService;
-import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.infrastructure.jwt.JwtAuthenticationFilter;
 import pl.photodrive.core.presentation.dto.user.LoginRequest;
 import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
@@ -27,7 +25,7 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -125,13 +123,10 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturn400WhenUserNotFoundForPasswordToken() throws Exception {
-        // Given
-        doThrow(new UserException("User not found!"))
-                .when(tokenManagementService).createToken("unknown@example.com");
-
-        // When / Then
+    void shouldReturn200WhenUserNotFoundForPasswordTokenToAvoidEnumeration() throws Exception {
         mockMvc.perform(post("/api/auth/create/passwordToken/unknown@example.com"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
+
+        verify(tokenManagementService).createToken("unknown@example.com");
     }
 }

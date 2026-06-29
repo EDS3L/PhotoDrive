@@ -18,8 +18,6 @@ export function GlassNavbar() {
 		return () => window.removeEventListener('scroll', onScroll);
 	}, []);
 
-	useEffect(() => setMobileOpen(false), [location.pathname]);
-
 	return (
 		<>
 			<nav
@@ -80,6 +78,7 @@ export function GlassNavbar() {
 						<Link
 							key={link.to}
 							to={link.to}
+							onClick={() => setMobileOpen(false)}
 							className='font-display text-4xl text-on-surface hover:text-primary transition-colors'
 						>
 							{link.label.charAt(0) + link.label.slice(1).toLowerCase()}
@@ -87,6 +86,7 @@ export function GlassNavbar() {
 					))}
 					<Link
 						to='/strefa-klienta/login'
+						onClick={() => setMobileOpen(false)}
 						className='mt-4 px-6 py-3 bg-primary text-on-primary label text-[11px]'
 					>
 						STREFA KLIENTA

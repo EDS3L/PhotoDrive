@@ -13,6 +13,7 @@ import {
 } from '../../hooks/usePhotographerClients';
 import { usePhotographerAlbums } from '../../hooks/usePhotographerAlbums';
 import type { UserInfo } from '../../types/panel';
+import type { AlbumDto } from '@/shared/types/api';
 
 export default function PhotographerClients() {
 	const { data: clients, isLoading: clientsLoading } = usePhotographerClients();
@@ -37,9 +38,10 @@ export default function PhotographerClients() {
 	}, [clients, search]);
 
 	const albumsByClient = useMemo(() => {
-		if (!albums) return new Map<string, typeof albums>();
-		const map = new Map<string, typeof albums>();
+		if (!albums) return new Map<string, AlbumDto[]>();
+		const map = new Map<string, AlbumDto[]>();
 		for (const album of albums) {
+			if (!album.clientId) continue;
 			const existing = map.get(album.clientId) ?? [];
 			existing.push(album);
 			map.set(album.clientId, existing);
@@ -190,7 +192,7 @@ function ClientCard({
 	albums,
 }: {
 	client: UserInfo;
-	albums: import('@/shared/types/api').AlbumDto[];
+	albums: AlbumDto[];
 }) {
 	const totalPhotos = albums.reduce((s, a) => s + a.files.length, 0);
 	const initials = client.name

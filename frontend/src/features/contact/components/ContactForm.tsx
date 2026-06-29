@@ -48,7 +48,9 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
 		const body = encodeURIComponent(
 			`Imię: ${data.name}\nEmail: ${data.email}\nTelefon: ${data.phone ?? 'brak'}\nRodzaj: ${data.sessionType}\n\n${data.message}`,
 		);
-		window.location.href = `mailto:kontakt@photodrive.dev?subject=${subject}&body=${body}`;
+		window.location.assign(
+			`mailto:kontakt@photodrive.dev?subject=${subject}&body=${body}`,
+		);
 		setTimeout(() => {
 			setIsSubmitting(false);
 			onSuccess();

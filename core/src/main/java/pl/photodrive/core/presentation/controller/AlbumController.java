@@ -50,51 +50,28 @@ public class AlbumController {
 
     @GetMapping("/all")
     public ResponseEntity<List<AlbumDto>> getAllAlbums() {
-        return ResponseEntity.ok().body(albumService.getAllAlbums().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
-                album.getName(),
-                album.getPhotographId(),
-                album.getClientId(),
-                album.getTtd(),
-                mapFiles(album),
-                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
-                album.isPublic())).toList());
+        return ResponseEntity.ok().body(albumService.getAllAlbums().stream().map(album -> mapAlbum(album,
+                false)).toList());
     }
 
     @GetMapping("/getAllAssignedAlbums")
     public ResponseEntity<List<AlbumDto>> getAllAssignedAlbums() {
-        return ResponseEntity.ok().body(albumService.getAssignedAlbums().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
-                album.getName(),
-                album.getPhotographId(),
-                album.getClientId(),
-                album.getTtd(),
-                mapFiles(album),
-                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
-                album.isPublic())).toList());
+        boolean clientView = albumService.isCurrentUserClient();
+        return ResponseEntity.ok().body(albumService.getAssignedAlbums().stream().map(album -> mapAlbum(album,
+                clientView)).toList());
     }
 
     @GetMapping("/all/withoutTdd")
     public ResponseEntity<List<AlbumDto>> getAllAlbumsWithoutTTD() {
-        return ResponseEntity.ok().body(albumService.getAllAlbumsWithoutTTD().stream().map(album -> new AlbumDto(album.getAlbumId().value(),
-                album.getName(),
-                album.getPhotographId(),
-                album.getClientId(),
-                album.getTtd(),
-                mapFiles(album),
-                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
-                album.isPublic())).toList());
+        return ResponseEntity.ok().body(albumService.getAllAlbumsWithoutTTD().stream().map(album -> mapAlbum(album,
+                false)).toList());
     }
 
     @GetMapping("/allAssignedAlbum/withoutTdd")
     public ResponseEntity<List<AlbumDto>> getAllAssignedAlbumsWithoutTTD() {
-        return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> new AlbumDto(
-                album.getAlbumId().value(),
-                album.getName(),
-                album.getPhotographId(),
-                album.getClientId(),
-                album.getTtd(),
-                mapFiles(album),
-                album.getAlbumPath() != null ? album.getAlbumPath().value() : null,
-                album.isPublic())).toList());
+        boolean clientView = albumService.isCurrentUserClient();
+        return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> mapAlbum(album,
+                clientView)).toList());
     }
 
     @GetMapping("{albumId}/file/url/all")
@@ -242,11 +219,23 @@ public class AlbumController {
         }
     }
 
-    private List<FileDto> mapFiles(Album album) {
+    private AlbumDto mapAlbum(Album album, boolean clientView) {
+        return new AlbumDto(album.getAlbumId().value(),
+                album.getName(),
+                clientView ? null : album.getPhotographId(),
+                clientView ? null : album.getClientId(),
+                album.getTtd(),
+                mapFiles(album, clientView),
+                clientView || album.getAlbumPath() == null ? null : album.getAlbumPath().value(),
+                album.isPublic());
+    }
+
+    private List<FileDto> mapFiles(Album album, boolean visibleOnly) {
         if (album.getPhotos() == null || album.getPhotos().isEmpty()) {
             return List.of();
         }
         return album.getPhotos().values().stream()
+                .filter(file -> !visibleOnly || file.isVisible())
                 .map(file -> new FileDto(
                         file.getFileId().value(),
                         file.getFileName().value(),

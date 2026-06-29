@@ -70,7 +70,7 @@ public class AuthManagerService {
                 "Token not found!"));
 
         if (token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException("Token is expired!");
-        if (!token.getToken().equals(cmd.token())) throw new PasswordTokenException("Invalid token!");
+        if (!token.matches(cmd.token())) throw new PasswordTokenException("Invalid token!");
 
         user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);

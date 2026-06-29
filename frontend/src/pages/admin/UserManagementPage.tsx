@@ -177,7 +177,11 @@ function UserRow({
 				<button
 					onClick={(e) => {
 						e.stopPropagation();
-						user.isActive ? onDeactivate() : onActivate();
+						if (user.isActive) {
+							onDeactivate();
+						} else {
+							onActivate();
+						}
 					}}
 					className='text-on-surface-variant hover:text-on-surface transition-colors p-1'
 					title={user.isActive ? 'Dezaktywuj' : 'Aktywuj'}

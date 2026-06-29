@@ -19,7 +19,7 @@ public class PasswordTokenEntityMapper {
 
     public static PasswordTokenEntity toEntity(PasswordToken passwordToken) {
         return PasswordTokenEntity.builder().passwordTokenId(new PasswordTokenIdEmbeddable(passwordToken.getId().value())).token(
-                passwordToken.getToken()).expiration(passwordToken.getExpiration()).created(passwordToken.getCreated()).userId(
+                passwordToken.getTokenHash()).expiration(passwordToken.getExpiration()).created(passwordToken.getCreated()).userId(
                 new UserIdEmbeddable(passwordToken.getUserId().value())).build();
     }
 

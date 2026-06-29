@@ -5,16 +5,20 @@ import pl.photodrive.core.domain.exception.PasswordTokenException;
 import pl.photodrive.core.domain.vo.PasswordTokenId;
 import pl.photodrive.core.domain.vo.UserId;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
 public class PasswordToken {
 
     private final PasswordTokenId id;
-    private UUID token;
+    private String tokenHash;
     private Instant expiration;
     private final Instant created;
     private final UserId userId;
@@ -22,9 +26,9 @@ public class PasswordToken {
     private transient final List<Object> domainEvents = new ArrayList<>();
 
 
-    public PasswordToken(PasswordTokenId id, UUID token, Instant expiration, Instant created, UserId userId) {
-        if (token == null) {
-            throw new PasswordTokenException("Token is null");
+    public PasswordToken(PasswordTokenId id, String tokenHash, Instant expiration, Instant created, UserId userId) {
+        if (tokenHash == null || tokenHash.isBlank()) {
+            throw new PasswordTokenException("Token hash is null or blank");
         }
         if (expiration == null) {
             throw new PasswordTokenException("Expiration is null");
@@ -36,7 +40,7 @@ public class PasswordToken {
             throw new PasswordTokenException("UserId is null");
         }
         this.id = id;
-        this.token = token;
+        this.tokenHash = tokenHash;
         this.expiration = expiration;
         this.created = created;
         this.userId = userId;
@@ -44,7 +48,7 @@ public class PasswordToken {
 
     public static PasswordToken create(UUID token, Instant expiration, Instant created, User user) {
         PasswordToken passwordToken = new PasswordToken(new PasswordTokenId(UUID.randomUUID()),
-                token,
+                hash(token),
                 expiration,
                 created,
                 user.getId());
@@ -58,13 +62,34 @@ public class PasswordToken {
         if (token == null) {
             throw new PasswordTokenException("Token is null");
         }
-        if (this.token.equals(token)) {
+        String newTokenHash = hash(token);
+        if (this.tokenHash.equals(newTokenHash)) {
             throw new PasswordTokenException("Token is the same");
         }
 
         this.registerEvent(new PasswordTokenCreated(email, token));
         this.expiration = Instant.now().plusSeconds(900);
-        this.token = token;
+        this.tokenHash = newTokenHash;
+    }
+
+    public boolean matches(UUID rawToken) {
+        if (rawToken == null) {
+            return false;
+        }
+        return tokenHash.equals(hash(rawToken));
+    }
+
+    private static String hash(UUID token) {
+        if (token == null) {
+            throw new PasswordTokenException("Token is null");
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.toString().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
     }
 
     private void registerEvent(Object event) {
@@ -86,8 +111,8 @@ public class PasswordToken {
         return id;
     }
 
-    public UUID getToken() {
-        return token;
+    public String getTokenHash() {
+        return tokenHash;
     }
 
     public Instant getExpiration() {

@@ -2,13 +2,10 @@ package pl.photodrive.core.infrastructure.jpa.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import pl.photodrive.core.infrastructure.jpa.vo.passwordToken.PasswordTokenIdEmbeddable;
 import pl.photodrive.core.infrastructure.jpa.vo.user.UserIdEmbeddable;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "passwordTokens")
@@ -21,9 +18,8 @@ public class PasswordTokenEntity {
 
     @EmbeddedId
     private PasswordTokenIdEmbeddable passwordTokenId;
-    @Column(columnDefinition = "VARCHAR(36)", name = "token")
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    private UUID token;
+    @Column(name = "token", length = 64, nullable = false)
+    private String token;
     private Instant expiration;
     private Instant created;
     @Embedded

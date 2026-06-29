@@ -11,11 +11,11 @@ export interface FileDto {
 export interface AlbumDto {
 	albumId: string;
 	name: string;
-	photographId: string;
-	clientId: string;
+	photographId: string | null;
+	clientId: string | null;
 	ttd: string | null;
 	files: FileDto[];
-	albumPath: string;
+	albumPath: string | null;
 	isPublic: boolean;
 }
 

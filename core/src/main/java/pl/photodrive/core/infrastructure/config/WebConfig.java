@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import pl.photodrive.core.infrastructure.jwt.JwtAuthenticationFilter;
+import pl.photodrive.core.infrastructure.security.OriginValidationFilter;
 
 import java.util.List;
 
@@ -60,7 +61,9 @@ public class WebConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain apiFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
+    public SecurityFilterChain apiFilterChain(HttpSecurity http,
+                                              JwtAuthenticationFilter jwt,
+                                              OriginValidationFilter originValidationFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfig()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -83,6 +86,7 @@ public class WebConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(originValidationFilter, JwtAuthenticationFilter.class)
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

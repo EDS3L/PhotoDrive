@@ -145,7 +145,7 @@ export default function PhotographerAlbums() {
 						<AlbumCard
 							key={album.albumId}
 							album={album}
-							clientName={clientMap.get(album.clientId)}
+							clientName={album.clientId ? clientMap.get(album.clientId) : undefined}
 						/>
 					))}
 				</div>

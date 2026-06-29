@@ -59,6 +59,8 @@ ORG_MAX_SIZE: ${ORG_MAX_SIZE}
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  csrf:
+    allowed-origins: ${CSRF_ALLOWED_ORIGINS:https://photodrive.dev}
   cookie:
     secure: ${COOKIE_SECURE:true}
 

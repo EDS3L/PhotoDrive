@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { PanelLayout } from '@/features/panel/components/layout/PanelLayout';
+import { NotFoundPage } from '@/shared/components/NotFoundPage';
 
 const HomePage = lazy(() => import('@/features/home/index'));
 const PortfolioPage = lazy(() => import('@/features/portfolio/index'));
@@ -88,7 +89,7 @@ export function AppRoutes() {
 				</Route>
 
 				{/*Error route*/}
-				<Route path='*' element={<div>Page not found</div>} />
+				<Route path='*' element={<NotFoundPage />} />
 			</Routes>
 		</Suspense>
 	);

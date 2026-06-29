@@ -1,1 +1,0 @@
-import org.apache.catalina.connector.Connector; public class Test { public static void main(String[] args) { for (java.lang.reflect.Method m : Connector.class.getMethods()) { if (m.getName().toLowerCase().contains("file")) { System.out.println(m.getName()); } } } }

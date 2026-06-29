@@ -2,6 +2,7 @@ package pl.photodrive.core.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,9 @@ public class AuthManagerService {
     private final PasswordTokenRepository passwordTokenRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Value("${app.jwt.access-ttl-minutes:60}")
+    private long accessTtlMinutes;
+
     @Transactional
     public AccessToken login(LoginCommand cmd) {
         Email email = new Email(cmd.email());
@@ -53,7 +57,7 @@ public class AuthManagerService {
             throw new LoginFailedException("You must change your password before logging in!");
         }
 
-        Duration ttl = Duration.ofMinutes(15);
+        Duration ttl = Duration.ofMinutes(accessTtlMinutes);
         String jwt = tokenEncoder.createAccessToken(user.getId(),
                 user.getRoles(),
                 clock.instant(),

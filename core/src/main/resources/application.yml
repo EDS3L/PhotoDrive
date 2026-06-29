@@ -45,8 +45,6 @@ server:
     max-http-form-post-size: -1
     max-save-post-size: -1
 
-
-
 jwt:
   secret: ${TOKEN_SECRETKEY}
 
@@ -59,6 +57,8 @@ ORG_MAX_SIZE: ${ORG_MAX_SIZE}
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  jwt:
+    access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:60}
   csrf:
     allowed-origins: ${CSRF_ALLOWED_ORIGINS:https://photodrive.dev}
   cookie:

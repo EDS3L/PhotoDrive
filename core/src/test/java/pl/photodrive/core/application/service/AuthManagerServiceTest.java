@@ -64,6 +64,10 @@ class AuthManagerServiceTest {
         field.setAccessible(true);
         field.set(service, fixedClock);
 
+        var ttlField = AuthManagerService.class.getDeclaredField("accessTtlMinutes");
+        ttlField.setAccessible(true);
+        ttlField.setLong(service, 60L);
+
         photographer = User.create("Photo", new Email("photo@photodrive.pl"),
                 new HashedPassword("hashed_Pass1!"), Role.PHOTOGRAPHER);
         photographer.setChangePasswordOnNextLogin(false);

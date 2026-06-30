@@ -19,6 +19,7 @@ import {
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Modal } from '../../components/shared/Modal';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import {
@@ -78,6 +79,12 @@ export default function AdminAlbumDetail() {
 	const [swapTarget, setSwapTarget] = useState<string | null>(null);
 	const [ttdModal, setTtdModal] = useState(false);
 	const [ttdValue, setTtdValue] = useState('');
+	const [confirm, setConfirm] = useState<{
+		title: string;
+		message: string;
+		confirmLabel: string;
+		action: () => void;
+	} | null>(null);
 
 	const filteredFiles = useMemo(() => {
 		if (!album) return [];
@@ -137,15 +144,23 @@ export default function AdminAlbumDetail() {
 
 	const handleBatchDelete = () => {
 		if (!albumId || selected.size === 0) return;
-		removeMutation.mutate(
-			{ albumId, fileIds: [...selected] },
-			{
-				onSuccess: () => {
-					setSelected(new Set());
-					setBatchMode(false);
-				},
-			},
-		);
+		const count = selected.size;
+		const ids = [...selected];
+		setConfirm({
+			title: `Usunąć ${count} zdjęć?`,
+			message: `Zaznaczone pliki (${count}) zostaną trwale usunięte. Tej operacji nie można cofnąć.`,
+			confirmLabel: `Usuń (${count})`,
+			action: () =>
+				removeMutation.mutate(
+					{ albumId, fileIds: ids },
+					{
+						onSuccess: () => {
+							setSelected(new Set());
+							setBatchMode(false);
+						},
+					},
+				),
+		});
 	};
 
 	const handleSwap = () => {
@@ -183,9 +198,15 @@ export default function AdminAlbumDetail() {
 	};
 
 	const handleDeleteAlbum = () => {
-		if (!albumId) return;
-		deleteMutation.mutate(albumId, {
-			onSuccess: () => navigate('/admin/albums'),
+		if (!albumId || !album) return;
+		setConfirm({
+			title: 'Usunąć album?',
+			message: `Album „${album.name}" wraz z ${album.files.length} zdjęciami zostanie trwale usunięty. Tej operacji nie można cofnąć.`,
+			confirmLabel: 'Usuń album',
+			action: () =>
+				deleteMutation.mutate(albumId, {
+					onSuccess: () => navigate('/admin/albums'),
+				}),
 		});
 	};
 
@@ -626,11 +647,18 @@ export default function AdminAlbumDetail() {
 							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2 text-red-400'
 							onClick={() => {
 								if (!albumId) return;
-								removeMutation.mutate({
-									albumId,
-									fileIds: [contextMenu.file.fileID],
-								});
+								const file = contextMenu.file;
 								setContextMenu(null);
+								setConfirm({
+									title: 'Usunąć zdjęcie?',
+									message: `Plik „${file.fileName}" zostanie trwale usunięty. Tej operacji nie można cofnąć.`,
+									confirmLabel: 'Usuń',
+									action: () =>
+										removeMutation.mutate({
+											albumId,
+											fileIds: [file.fileID],
+										}),
+								});
 							}}
 						>
 							<Trash2 className='w-3.5 h-3.5' />
@@ -768,6 +796,19 @@ export default function AdminAlbumDetail() {
 					Usuń album
 				</Button>
 			</div>
+
+			{/* Potwierdzenie akcji destrukcyjnych */}
+			<ConfirmDialog
+				open={!!confirm}
+				title={confirm?.title ?? ''}
+				message={confirm?.message ?? ''}
+				confirmLabel={confirm?.confirmLabel}
+				onClose={() => setConfirm(null)}
+				onConfirm={() => {
+					confirm?.action();
+					setConfirm(null);
+				}}
+			/>
 		</div>
 	);
 }

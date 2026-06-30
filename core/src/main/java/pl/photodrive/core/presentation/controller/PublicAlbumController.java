@@ -35,7 +35,7 @@ public class PublicAlbumController {
                         (int) album.getPhotos().values().stream().filter(f -> f.isVisible()).count()))
                 .toList();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300, must-revalidate")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=30, must-revalidate")
                 .body(albums);
     }
 
@@ -49,7 +49,7 @@ public class PublicAlbumController {
         PublicAlbumPhotosResponse response = new PublicAlbumPhotosResponse(
                 album.getAlbumId().value(), album.getName(), photos);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300, must-revalidate")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=30, must-revalidate")
                 .body(response);
     }
 
@@ -61,7 +61,7 @@ public class PublicAlbumController {
                 .map(file -> new PublicPhotoDto(file.getFileId().value(), file.getFileName().value()))
                 .toList();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300, must-revalidate")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=30, must-revalidate")
                 .body(photos);
     }
 

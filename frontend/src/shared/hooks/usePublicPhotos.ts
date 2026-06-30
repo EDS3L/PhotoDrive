@@ -22,6 +22,8 @@ export function usePublicAlbumPhotos(albumName: string) {
 			}));
 		},
 		enabled: albumName.length > 0,
-		staleTime: 5 * 60 * 1000,
+		// Krótki cache, żeby zmiany w panelu (dodanie/usunięcie zdjęcia) pojawiały
+		// się na stronie publicznej w ~pół minuty, nie po 5 min.
+		staleTime: 30 * 1000,
 	});
 }

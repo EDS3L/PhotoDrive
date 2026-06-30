@@ -8,6 +8,8 @@ export function useLogin() {
 	const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
 
 	return useMutation<void, AxiosError, LoginRequest>({
+		// formularz logowania pokazuje błąd inline — pomijamy globalny toast
+		meta: { skipGlobalError: true },
 		mutationFn: login,
 		onSuccess: (_data, variables) => {
 			setAuthenticated(true, variables.email);

@@ -10,6 +10,8 @@ export function usePanelLogin() {
 	const setUser = usePanelAuthStore((s) => s.setUser);
 
 	return useMutation<void, AxiosError, LoginRequest>({
+		// formularz logowania pokazuje błąd inline — pomijamy globalny toast
+		meta: { skipGlobalError: true },
 		mutationFn: async (data) => {
 			await panelLogin(data);
 			const user = await getMe();

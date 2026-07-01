@@ -20,6 +20,7 @@ import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
+import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.presentation.dto.album.*;
@@ -72,6 +73,12 @@ public class AlbumController {
         boolean clientView = albumService.isCurrentUserClient();
         return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> mapAlbum(album,
                 clientView)).toList());
+    }
+
+    // Lekkie query — same nazwy plików (bez pełnych metadanych) do wykrywania kolizji przy swapie.
+    @GetMapping("/{albumId}/file-names")
+    public ResponseEntity<List<String>> getFileNames(@PathVariable UUID albumId) {
+        return ResponseEntity.ok(albumService.getAlbumFileNames(new AlbumId(albumId)));
     }
 
     @GetMapping("{albumId}/file/url/all")

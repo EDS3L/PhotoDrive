@@ -20,6 +20,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Modal } from '../../components/shared/Modal';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { SwapRenameDialog } from '../../components/shared/SwapRenameDialog';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner';
 import {
 	usePhotographerAlbums,
@@ -33,7 +34,8 @@ import {
 	useSetAlbumTtd,
 	useDownloadAlbum,
 } from '../../hooks/usePhotographerAlbums';
-import { getPhotoUrl } from '../../api/photographerApi';
+import { getPhotoUrl, getAlbumFileNames } from '../../api/photographerApi';
+import { useSwapWithRename } from '../../hooks/useSwapWithRename';
 import type { FileDto } from '@/shared/types/api';
 
 type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
@@ -77,6 +79,13 @@ export default function PhotographerAlbumDetail() {
 		confirmLabel: string;
 		action: () => void;
 	} | null>(null);
+
+	const swapFlow = useSwapWithRename({
+		getFileNames: getAlbumFileNames,
+		rename: (v) => renameMutation.mutateAsync(v),
+		swap: (v) => swapMutation.mutateAsync(v),
+		onDone: () => setSelected(new Set()),
+	});
 
 	const filteredFiles = useMemo(() => {
 		if (!album) return [];
@@ -153,21 +162,14 @@ export default function PhotographerAlbumDetail() {
 	};
 
 	const handleSwap = () => {
-		if (!albumId || !swapTarget || selected.size === 0) return;
-		swapMutation.mutate(
-			{
-				sourceAlbumId: albumId,
-				targetAlbumId: swapTarget,
-				fileIds: [...selected],
-			},
-			{
-				onSuccess: () => {
-					setSelected(new Set());
-					setSwapModal(false);
-					setSwapTarget(null);
-				},
-			},
-		);
+		if (!albumId || !swapTarget || selected.size === 0 || !album) return;
+		const files = album.files
+			.filter((f) => selected.has(f.fileID))
+			.map((f) => ({ fileID: f.fileID, fileName: f.fileName }));
+		const targetId = swapTarget;
+		setSwapModal(false);
+		setSwapTarget(null);
+		swapFlow.start({ sourceAlbumId: albumId, targetAlbumId: targetId, files });
 	};
 
 	const handleRename = () => {
@@ -696,7 +698,7 @@ export default function PhotographerAlbumDetail() {
 					</Button>
 					<Button
 						onClick={handleSwap}
-						disabled={!swapTarget || swapMutation.isPending}
+						disabled={!swapTarget || swapFlow.isChecking}
 					>
 						Przenieś ({selected.size})
 					</Button>
@@ -762,6 +764,16 @@ export default function PhotographerAlbumDetail() {
 					confirm?.action();
 					setConfirm(null);
 				}}
+			/>
+
+			{/* Kolizja nazw przy przenoszeniu — zmiana nazw przed swapem */}
+			<SwapRenameDialog
+				open={!!swapFlow.renames}
+				renames={swapFlow.renames ?? []}
+				onChange={swapFlow.setNewName}
+				onConfirm={swapFlow.confirm}
+				onCancel={swapFlow.cancel}
+				isPending={swapFlow.isSubmitting}
 			/>
 		</div>
 	);

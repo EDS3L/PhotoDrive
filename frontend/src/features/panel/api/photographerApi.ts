@@ -26,6 +26,11 @@ export async function getAssignedAlbums(): Promise<AlbumDto[]> {
 	return response.data;
 }
 
+export async function getAlbumFileNames(albumId: string): Promise<string[]> {
+	const response = await apiClient.get<string[]>(`/album/${albumId}/file-names`);
+	return response.data;
+}
+
 export async function getAssignedAlbumsWithoutTtd(): Promise<AlbumDto[]> {
 	const response = await apiClient.get<AlbumDto[]>(
 		'/album/allAssignedAlbum/withoutTdd',

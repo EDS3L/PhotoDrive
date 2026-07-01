@@ -479,6 +479,16 @@ public class AlbumManagementService {
     }
 
     @Transactional(readOnly = true)
+    public List<String> getAlbumFileNames(AlbumId albumId) {
+        User user = getUser(currentUser.requireAuthenticated().userId());
+        Album album = getAlbum(albumId);
+        validateAccess(album, user);
+        return album.getPhotos().values().stream()
+                .map(file -> file.getFileName().value())
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public Album getPublicAlbum(AlbumId albumId) {
         return albumRepository.findPublicByAlbumId(albumId)
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));

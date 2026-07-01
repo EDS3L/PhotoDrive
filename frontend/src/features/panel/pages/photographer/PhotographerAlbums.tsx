@@ -58,7 +58,7 @@ export default function PhotographerAlbums() {
 
 	const clientMap = useMemo(() => {
 		const map = new Map<string, string>();
-		clients?.forEach((c) => map.set(c.id.value, c.name));
+		clients?.forEach((c) => map.set(c.id, c.name));
 		return map;
 	}, [clients]);
 
@@ -116,7 +116,7 @@ export default function PhotographerAlbums() {
 				>
 					<option value='ALL'>Wszyscy klienci</option>
 					{clients?.map((c) => (
-						<option key={c.id.value} value={c.id.value}>
+						<option key={c.id} value={c.id}>
 							{c.name}
 						</option>
 					))}
@@ -177,8 +177,8 @@ export default function PhotographerAlbums() {
 						>
 							<option value=''>Wybierz klienta</option>
 							{clients?.map((c) => (
-								<option key={c.id.value} value={c.id.value}>
-									{c.name} ({c.email.value})
+								<option key={c.id} value={c.id}>
+									{c.name} ({c.email})
 								</option>
 							))}
 						</Select>

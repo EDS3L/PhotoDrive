@@ -61,17 +61,17 @@ export default function AdminUsers() {
 	const isPhotographer = detailUser?.roles.includes('PHOTOGRAPHER') ?? false;
 
 	const { data: assignedClients } = usePhotographerAssignedUsers(
-		isPhotographer ? (detailUser?.id.value ?? null) : null,
+		isPhotographer ? (detailUser?.id ?? null) : null,
 	);
 
 	const availableClients = useMemo(() => {
 		if (!users || !assignedClients) return [];
-		const assignedIds = new Set(assignedClients.map((c) => c.id.value));
+		const assignedIds = new Set(assignedClients.map((c) => c.id));
 		return users.filter(
 			(u) =>
 				u.roles.includes('CLIENT') &&
 				u.isActive &&
-				!assignedIds.has(u.id.value),
+				!assignedIds.has(u.id),
 		);
 	}, [users, assignedClients]);
 
@@ -88,7 +88,7 @@ export default function AdminUsers() {
 			const matchSearch =
 				!q ||
 				u.name.toLowerCase().includes(q) ||
-				u.email.value.toLowerCase().includes(q);
+				u.email.toLowerCase().includes(q);
 			const matchRole = roleFilter === 'ALL' || u.roles.includes(roleFilter);
 			const matchStatus =
 				statusFilter === 'ALL' ||
@@ -113,7 +113,7 @@ export default function AdminUsers() {
 	};
 
 	const handleToggleActive = (user: UserInfo) => {
-		const id = user.id.value;
+		const id = user.id;
 		if (user.isActive) {
 			deactivateMutation.mutate({ id, active: false });
 		} else {
@@ -217,7 +217,7 @@ export default function AdminUsers() {
 						<tbody>
 							{filtered.map((user) => (
 								<tr
-									key={user.id.value}
+									key={user.id}
 									className='border-b border-border hover:bg-surface-light/50 transition-colors cursor-pointer'
 									onClick={() => setDetailUser(user)}
 								>
@@ -236,7 +236,7 @@ export default function AdminUsers() {
 											<span className='text-foreground'>{user.name}</span>
 										</div>
 									</td>
-									<td className='py-3 px-4 text-muted'>{user.email.value}</td>
+									<td className='py-3 px-4 text-muted'>{user.email}</td>
 									<td className='py-3 px-4'>
 										<div className='flex gap-1'>
 											{user.roles.map((r) => (
@@ -381,7 +381,7 @@ export default function AdminUsers() {
 									<p className='text-xs uppercase tracking-widest text-muted mb-1'>
 										Email
 									</p>
-									<p className='text-sm'>{detailUser.email.value}</p>
+									<p className='text-sm'>{detailUser.email}</p>
 								</div>
 								<div>
 									<p className='text-xs uppercase tracking-widest text-muted mb-1'>
@@ -441,20 +441,20 @@ export default function AdminUsers() {
 										<div className='space-y-2'>
 											{assignedClients.map((client) => (
 												<div
-													key={client.id.value}
+													key={client.id}
 													className='flex items-center justify-between border border-border p-2'
 												>
 													<div>
 														<p className='text-sm'>{client.name}</p>
 														<p className='text-xs text-muted'>
-															{client.email.value}
+															{client.email}
 														</p>
 													</div>
 													<button
 														onClick={() =>
 															removeMutation.mutate({
-																photographerId: detailUser.id.value,
-																userIds: [client.id.value],
+																photographerId: detailUser.id,
+																userIds: [client.id],
 															})
 														}
 														className='text-xs text-muted hover:text-red-500 transition-colors'
@@ -511,10 +511,10 @@ export default function AdminUsers() {
 					) : (
 						<div className='space-y-2 max-h-64 overflow-y-auto'>
 							{availableClients.map((client) => {
-								const selected = selectedClientIds.includes(client.id.value);
+								const selected = selectedClientIds.includes(client.id);
 								return (
 									<label
-										key={client.id.value}
+										key={client.id}
 										className={`flex items-center gap-3 p-2 border cursor-pointer transition-colors ${
 											selected
 												? 'border-accent bg-accent/5'
@@ -527,15 +527,15 @@ export default function AdminUsers() {
 											onChange={() =>
 												setSelectedClientIds((prev) =>
 													selected
-														? prev.filter((id) => id !== client.id.value)
-														: [...prev, client.id.value],
+														? prev.filter((id) => id !== client.id)
+														: [...prev, client.id],
 												)
 											}
 											className='accent-accent'
 										/>
 										<div>
 											<p className='text-sm'>{client.name}</p>
-											<p className='text-xs text-muted'>{client.email.value}</p>
+											<p className='text-xs text-muted'>{client.email}</p>
 										</div>
 									</label>
 								);
@@ -555,7 +555,7 @@ export default function AdminUsers() {
 							if (!detailUser) return;
 							assignMutation.mutate(
 								{
-									photographerId: detailUser.id.value,
+									photographerId: detailUser.id,
 									userIds: selectedClientIds,
 								},
 								{

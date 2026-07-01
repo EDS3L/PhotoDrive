@@ -33,7 +33,7 @@ export default function PhotographerClients() {
 		return clients.filter(
 			(c) =>
 				c.name.toLowerCase().includes(q) ||
-				c.email.value.toLowerCase().includes(q),
+				c.email.toLowerCase().includes(q),
 		);
 	}, [clients, search]);
 
@@ -108,9 +108,9 @@ export default function PhotographerClients() {
 				<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
 					{filtered.map((client) => (
 						<ClientCard
-							key={client.id.value}
+							key={client.id}
 							client={client}
-							albums={albumsByClient.get(client.id.value) ?? []}
+							albums={albumsByClient.get(client.id) ?? []}
 						/>
 					))}
 					{/* Add card */}
@@ -211,7 +211,7 @@ function ClientCard({
 				</div>
 				<div className='min-w-0'>
 					<p className='font-medium truncate'>{client.name}</p>
-					<p className='text-xs text-muted truncate'>{client.email.value}</p>
+					<p className='text-xs text-muted truncate'>{client.email}</p>
 				</div>
 				<div className='ml-auto'>
 					<span

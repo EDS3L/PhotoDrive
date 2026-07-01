@@ -5,13 +5,15 @@ import pl.photodrive.core.presentation.dto.user.UserDto;
 
 public class ApiMappers {
     public static UserDto toDto(User user) {
-        return new UserDto(user.getId(),
+        return new UserDto(user.getId().value().toString(),
                 user.getName(),
-                user.getEmail(),
+                user.getEmail().value(),
                 user.getRoles(),
                 user.isActive(),
                 user.isChangePasswordOnNextLogin(),
-                user.getAssignedUsers());
+                user.getAssignedUsers().stream()
+                        .map(id -> id.value().toString())
+                        .toList());
     }
 
 }

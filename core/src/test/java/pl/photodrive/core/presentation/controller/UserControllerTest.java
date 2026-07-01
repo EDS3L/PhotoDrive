@@ -189,9 +189,9 @@ class UserControllerTest {
 
     private UserDto aUserDto() {
         return new UserDto(
-                UserId.newId(),
+                UserId.newId().value().toString(),
                 "Test User",
-                new Email("test@example.com"),
+                "test@example.com",
                 Set.of(Role.ADMIN),
                 true,
                 false,

@@ -226,7 +226,6 @@ public class AlbumController {
                 clientView ? null : album.getClientId(),
                 album.getTtd(),
                 mapFiles(album, clientView),
-                clientView || album.getAlbumPath() == null ? null : album.getAlbumPath().value(),
                 album.isPublic());
     }
 

@@ -8,13 +8,13 @@ export interface CurrentUserInfo {
 }
 
 export interface UserInfo {
-	id: { value: string };
+	id: string;
 	name: string;
-	email: { value: string };
+	email: string;
 	roles: string[];
 	isActive: boolean;
 	changePasswordOnNextLogin: boolean;
-	assignedUsers: { value: string }[];
+	assignedUsers: string[];
 }
 
 export interface AdminStats {

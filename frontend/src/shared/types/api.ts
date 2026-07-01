@@ -15,7 +15,6 @@ export interface AlbumDto {
 	clientId: string | null;
 	ttd: string | null;
 	files: FileDto[];
-	albumPath: string | null;
 	isPublic: boolean;
 }
 

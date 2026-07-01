@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import {
 	usePhotographerAlbums,
 	useCreateClientAlbum,
+	useSetAlbumTtd,
 } from '../../hooks/usePhotographerAlbums';
 import { usePhotographerClients } from '../../hooks/usePhotographerClients';
 import { getPhotoUrl } from '../../api/photographerApi';
@@ -32,6 +33,7 @@ export default function PhotographerAlbums() {
 	const { data: albums, isLoading: albumsLoading } = usePhotographerAlbums();
 	const { data: clients, isLoading: clientsLoading } = usePhotographerClients();
 	const createMutation = useCreateClientAlbum();
+	const ttdMutation = useSetAlbumTtd();
 
 	const [search, setSearch] = useState('');
 	const [clientFilter, setClientFilter] = useState('ALL');
@@ -68,7 +70,12 @@ export default function PhotographerAlbums() {
 				name: newName,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: (album) => {
+					// TTD nie jest częścią tworzenia albumu — ustawiamy je osobno
+					// zaraz po utworzeniu, jeśli podano datę.
+					if (newTtd) {
+						ttdMutation.mutate({ albumId: album.albumId, ttd: newTtd });
+					}
 					setCreateOpen(false);
 					setNewName('');
 					setNewClientId('');

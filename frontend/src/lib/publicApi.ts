@@ -12,24 +12,6 @@ export interface PublicPhotoDto {
 	fileName: string;
 }
 
-export interface PublicAlbumDto {
-	albumId: string;
-	name: string;
-	photoCount: number;
-}
-
-export function getPublicPhotos(albumId: string): Promise<PublicPhotoDto[]> {
-	return publicClient
-		.get<PublicPhotoDto[]>(`/album/${albumId}/photos`)
-		.then((res) => res.data);
-}
-
-export function getPublicAlbums(): Promise<PublicAlbumDto[]> {
-	return publicClient
-		.get<PublicAlbumDto[]>('/album/all')
-		.then((res) => res.data);
-}
-
 export interface PublicAlbumPhotosResponse {
 	albumId: string;
 	name: string;

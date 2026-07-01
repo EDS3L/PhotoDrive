@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/app/store/authStore';
 import { logout } from './api/clientZoneApi';
+import { useClientSession } from './hooks/useClientSession';
 import { LoginForm } from './components/LoginForm';
 import { AlbumList } from './components/AlbumList';
 import { AlbumDetailModal } from './components/AlbumDetailModal';
@@ -11,6 +12,7 @@ import { queryClient } from '@/lib/queryClient';
 
 export default function ClientZonePage() {
 	const { isAuthenticated, email, clear } = useAuthStore();
+	const { isChecking } = useClientSession();
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumDto | null>(null);
 
 	const handleLogout = async () => {
@@ -19,10 +21,18 @@ export default function ClientZonePage() {
 		} finally {
 			clear();
 			queryClient.removeQueries({ queryKey: ['albums'] });
+			queryClient.removeQueries({ queryKey: ['client', 'me'] });
 		}
 	};
 
 	if (!isAuthenticated) {
+		if (isChecking) {
+			return (
+				<div className='min-h-screen flex items-center justify-center'>
+					<Loader2 className='w-8 h-8 text-accent animate-spin' />
+				</div>
+			);
+		}
 		return <LoginForm />;
 	}
 

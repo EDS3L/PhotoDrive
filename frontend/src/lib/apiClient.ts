@@ -1,5 +1,12 @@
 import axios from 'axios';
 
+declare module 'axios' {
+	interface AxiosRequestConfig {
+		/** Gdy true — interceptor nie robi redirectu przy 401 (ciche sprawdzenie sesji). */
+		skipAuthRedirect?: boolean;
+	}
+}
+
 export const apiClient = axios.create({
 	baseURL: '/api',
 	withCredentials: true,
@@ -11,8 +18,10 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
 	(response) => response,
 	(error) => {
-		const isAuthEndpoint = error.config?.url?.startsWith('/auth/');
-		if (error.response?.status === 401 && !isAuthEndpoint) {
+		const config = error.config ?? {};
+		const isAuthEndpoint = config.url?.startsWith('/auth/');
+		const skipRedirect = config.skipAuthRedirect === true;
+		if (error.response?.status === 401 && !isAuthEndpoint && !skipRedirect) {
 			const isPanel =
 				window.location.pathname.startsWith('/admin') ||
 				window.location.pathname.startsWith('/photographer');

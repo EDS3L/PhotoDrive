@@ -9,6 +9,21 @@ export async function logout(): Promise<void> {
 	await apiClient.post('/auth/logout');
 }
 
+export interface CurrentUser {
+	id: string;
+	name: string;
+	email: string;
+	roles: string[];
+}
+
+/** Ciche sprawdzenie sesji z cookie (bez redirectu przy 401). */
+export async function getCurrentUser(): Promise<CurrentUser> {
+	const response = await apiClient.get<CurrentUser>('/user/me', {
+		skipAuthRedirect: true,
+	});
+	return response.data;
+}
+
 export async function getAssignedAlbums(): Promise<AlbumDto[]> {
 	const response = await apiClient.get<AlbumDto[]>(
 		'/album/getAllAssignedAlbums',

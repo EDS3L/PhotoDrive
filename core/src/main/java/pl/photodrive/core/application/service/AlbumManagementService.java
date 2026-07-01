@@ -266,6 +266,11 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
         Album targetAlbum = getAlbum(targetAlbumId);
 
+        // Autoryzacja własności na OBU albumach — bez tego dowolny fotograf mógł
+        // przenosić pliki między cudzymi albumami (m.in. do publicznego).
+        validateAccess(album, loggedInUser);
+        validateAccess(targetAlbum, loggedInUser);
+
         List<FileId> fileIdList = cmd.fileId().stream().map(FileId::new).toList();
 
         List<File> removedFiles = album.swapFiles(loggedInUser, targetAlbum.getAlbumPath(), fileIdList);

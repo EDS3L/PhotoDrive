@@ -12,6 +12,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import pl.photodrive.core.application.command.album.CreateAlbumCommand;
 import pl.photodrive.core.application.command.album.GetPhotoPathCommand;
 import pl.photodrive.core.application.command.album.RemoveAlbumCommand;
+import pl.photodrive.core.application.command.album.SwapFileCommand;
+import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
@@ -21,10 +23,12 @@ import pl.photodrive.core.application.port.user.AuthenticatedUser;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
+import pl.photodrive.core.domain.model.File;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.Email;
+import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.HashedPassword;
 
 import jakarta.servlet.ServletContext;
@@ -82,6 +86,32 @@ class AlbumManagementServiceTest {
         AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900));
         given(currentUser.requireAuthenticated()).willReturn(auth);
         given(userRepository.findById(user.getId())).willReturn(Optional.of(user));
+    }
+
+    // -----------------------------------------------------------------------
+    // swapFile — autoryzacja (B.13)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldThrowWhenPhotographerSwapsIntoAlbumHeDoesNotOwn() {
+        // Given — źródło należy do fotografa, cel do INNEGO fotografa
+        User otherPhotographer = User.create("Other", new Email("other@photodrive.pl"),
+                new HashedPassword("hashed"), Role.PHOTOGRAPHER);
+        Album source = Album.createForClient("Source", photographerUser, clientUser);
+        File file = File.create(new FileName("swap.jpg"), 10L, "image/jpeg");
+        source.addFile(file);
+        Album target = Album.createForClient("Target", otherPhotographer, clientUser);
+
+        stubCurrentUserAs(photographerUser);
+        given(albumRepository.findByAlbumId(source.getAlbumId())).willReturn(Optional.of(source));
+        given(albumRepository.findByAlbumId(target.getAlbumId())).willReturn(Optional.of(target));
+
+        SwapFileCommand cmd = new SwapFileCommand(
+                source.getAlbumId().value(), target.getAlbumId().value(), List.of(file.getFileId().value()));
+
+        // When / Then — brak własności albumu docelowego = odmowa (403)
+        assertThatThrownBy(() -> service.swapFile(cmd))
+                .isInstanceOf(SecurityException.class);
     }
 
     // -----------------------------------------------------------------------

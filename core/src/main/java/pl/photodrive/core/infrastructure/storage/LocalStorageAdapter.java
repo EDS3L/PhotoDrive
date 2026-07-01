@@ -345,6 +345,12 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         Path targetFilePath = targetDir.resolve(fileName);
 
+        // Backstop dla kolizji nazw: nie nadpisuj istniejącego pliku w albumie docelowym
+        // (ATOMIC_MOVE na Linuksie podmieniłby go po cichu). Domena i tak odrzuca kolizję wcześniej.
+        if (Files.exists(targetFilePath)) {
+            throw new StorageException("Target file already exists, refusing to overwrite: " + targetFilePath);
+        }
+
         log.info("Swapping file {} from {} to {}", fileName, sourceFilePath, targetFilePath);
 
         try {

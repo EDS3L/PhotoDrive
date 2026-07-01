@@ -369,6 +369,34 @@ class AlbumTest {
                 () -> album.swapFiles(client, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(fileId)));
     }
 
+    @Test
+    void shouldThrowWhenNonOwnerPhotographerTriesToSwap() {
+        // Given — album należy do `photographer`, swap próbuje inny fotograf
+        User otherPhotographer = User.create("Other", new Email("other@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER);
+        Album album = Album.createForClient("OwnedSource", photographer, client);
+        File file = File.create(new FileName("owned.jpg"), 100L, "image/jpeg");
+        album.addFile(file);
+
+        // When & Then — brak własności = odmowa (BOLA hardening)
+        assertThrows(AlbumException.class,
+                () -> album.swapFiles(otherPhotographer, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(file.getFileId())));
+    }
+
+    @Test
+    void shouldThrowWhenReceivingFileWithDuplicateNameInTarget() {
+        // Given — album docelowy ma już plik o tej samej nazwie
+        Album target = Album.createForClient("TargetDup", photographer, client);
+        File existing = File.create(new FileName("dup.jpg"), 100L, "image/jpeg");
+        target.addFile(existing);
+
+        File incoming = File.create(new FileName("dup.jpg"), 100L, "image/jpeg");
+        Map<FileId, File> incomingFiles = new HashMap<>();
+        incomingFiles.put(incoming.getFileId(), incoming);
+
+        // When & Then — kolizja nazw odrzucona zamiast cichego nadpisania
+        assertThrows(AlbumException.class, () -> target.receiveFiles(incomingFiles));
+    }
+
     // -----------------------------------------------------------------------
     // getFilePath
     // -----------------------------------------------------------------------

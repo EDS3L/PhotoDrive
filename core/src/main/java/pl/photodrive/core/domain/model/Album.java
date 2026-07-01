@@ -336,10 +336,7 @@ public class Album {
     }
 
     private File removeFileForSwap(User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
-        boolean isAdmin =  currentUser.getRoles().contains(Role.ADMIN);
-        boolean isPhotograph =  currentUser.getRoles().contains(Role.PHOTOGRAPHER);
-
-        if(!(isAdmin || isPhotograph)) {
+        if (!canManageFiles(currentUser)) {
             throw new AlbumException("Only admin or album owner can swap the file");
         }
 
@@ -355,6 +352,16 @@ public class Album {
     }
 
     public void receiveFiles(Map<FileId, File> incomingFiles) {
+        // Ochrona przed cichym nadpisaniem: przy kolizji nazwy z istniejącym plikiem
+        // odrzucamy swap zamiast nadpisać (ATOMIC_MOVE na Linuksie podmienia cel bez błędu).
+        Set<String> existingNames = new HashSet<>();
+        photos.values().forEach(f -> existingNames.add(f.getFileName().value()));
+        for (File incoming : incomingFiles.values()) {
+            if (existingNames.contains(incoming.getFileName().value())) {
+                throw new AlbumException(
+                        "Target album already contains a file named: " + incoming.getFileName().value());
+            }
+        }
         photos.putAll(incomingFiles);
     }
 

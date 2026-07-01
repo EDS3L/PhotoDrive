@@ -354,13 +354,30 @@ public class LocalStorageAdapter implements FileStoragePort {
                 throw new StorageException("Failed to move file from " + sourceFilePath + " to " + targetFilePath, e);
             }
 
+            moveThumbnail(sourceFilePath, targetDir, fileName);
+
             log.info("Successfully swapped file from {} to {}", sourceFilePath, targetFilePath);
         } catch (IOException e) {
             throw new StorageException("Failed to move file from " + sourceFilePath + " to " + targetFilePath, e);
         }
 
+    }
 
+    // Thumbnail is derived data — once the original has moved, a thumbnail failure must not fail the swap.
+    private void moveThumbnail(Path sourceFilePath, Path targetDir, String fileName) {
+        Path sourceThumbPath = sourceFilePath.getParent().resolve(".thumbnails").resolve(fileName);
+        if (!Files.exists(sourceThumbPath)) {
+            return;
+        }
 
+        try {
+            Path targetThumbDir = targetDir.resolve(".thumbnails");
+            Files.createDirectories(targetThumbDir);
+            Files.move(sourceThumbPath, targetThumbDir.resolve(fileName), REPLACE_EXISTING);
+            log.info("Moved thumbnail for {} to {}", fileName, targetThumbDir);
+        } catch (IOException e) {
+            log.error("Failed to move thumbnail for {}", fileName, e);
+        }
     }
 
     private String getImageFormat(File file) throws IOException {

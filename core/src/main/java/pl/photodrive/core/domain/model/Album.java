@@ -254,24 +254,26 @@ public class Album {
             throw new AlbumException("User is not allowed to change file visibility");
         }
 
-        fileIdList.forEach(fileId -> {
+        int changedCount = 0;
+        for (FileId fileId : fileIdList) {
             File file = photos.get(fileId);
             if (file == null) {
                 throw new AlbumException("File not found: " + fileId.value());
             }
 
-            if (isVisible) {
+            // Idempotentnie: pomijamy pliki już w docelowym stanie (mieszane zaznaczenie
+            // nie może wywalać całej paczki) — File celowo rzuca na zbędną tranzycję.
+            if (isVisible && !file.isVisible()) {
                 file.setViable();
-            } else {
+                changedCount++;
+            } else if (!isVisible && file.isVisible()) {
                 file.setUnviable();
+                changedCount++;
             }
+        }
 
-        });
-
-        if (!clientId.equals(photographId)) {
-            if (isVisible) {
-                this.registerEvent(new FileVisibleStatusChanged(userEmail, fileIdList.size()));
-            }
+        if (!clientId.equals(photographId) && isVisible && changedCount > 0) {
+            this.registerEvent(new FileVisibleStatusChanged(userEmail, changedCount));
         }
 
     }
@@ -292,15 +294,18 @@ public class Album {
                 throw new AlbumException("File not found: " + fileId.value());
             }
 
-            validateExtensions(file);
-
+            // Idempotentnie: pomijamy pliki już w docelowym stanie. Dodatkowo chroni to
+            // przed ponownym watermarkiem tego samego pliku (podwójna kompresja/wypalenie).
             if (hasWatermark) {
-                file.setWaterMark();
-                photos.put(fileId, file);
-                this.registerEvent(new WatermarkAddedToPhoto(this.albumPath.value() + "/" + file.getFileName().value()));
+                if (!file.isHasWatermark()) {
+                    validateExtensions(file);
+                    file.setWaterMark();
+                    this.registerEvent(new WatermarkAddedToPhoto(this.albumPath.value() + "/" + file.getFileName().value()));
+                }
             } else {
-                file.disableWatermark();
-                photos.put(fileId, file);
+                if (file.isHasWatermark()) {
+                    file.disableWatermark();
+                }
             }
         });
     }

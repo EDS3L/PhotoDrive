@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
+import pl.photodrive.core.domain.event.album.FileVisibleStatusChanged;
+import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.vo.Email;
@@ -125,6 +127,34 @@ class AlbumTest {
 
         // Then
         assertTrue(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
+    void shouldBeIdempotentWhenSomeFilesAlreadyWatermarked() {
+        // Given — jeden plik już owatermarkowany, drugi nie
+        Album album = Album.createForClient("MixedWatermark", photographer, client);
+        File already = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
+        File fresh = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
+        FileId alreadyId = already.getFileId();
+        FileId freshId = fresh.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(alreadyId, already);
+        photos.put(freshId, fresh);
+        album.assignPhotosToAlbum(photos);
+        album.changeWatermarkStatus(photographer, true, List.of(alreadyId));
+        album.pullDomainEvents(); // czyścimy zdarzenie z przygotowania
+
+        // When — paczka z już-owatermarkowanym plikiem NIE może rzucać
+        album.changeWatermarkStatus(photographer, true, List.of(alreadyId, freshId));
+
+        // Then — oba mają watermark, a zdarzenie odpaliło tylko dla nowego (bez podwójnej kompresji)
+        assertTrue(album.getPhotos().get(alreadyId).isHasWatermark());
+        assertTrue(album.getPhotos().get(freshId).isHasWatermark());
+        long watermarkEvents = album.pullDomainEvents().stream()
+                .filter(WatermarkAddedToPhoto.class::isInstance)
+                .count();
+        assertEquals(1, watermarkEvents);
     }
 
     @Test
@@ -327,6 +357,65 @@ class AlbumTest {
         assertThrows(AlbumException.class, () ->
                 album.changeFileVisibleStatus(List.of(file.getFileId()), true, client, client.getEmail()));
         assertFalse(album.getPhotos().get(file.getFileId()).isVisible());
+    }
+
+    @Test
+    void shouldBeIdempotentWhenSomeFilesAlreadyVisible() {
+        // Given — mieszane zaznaczenie: jeden plik już widoczny, drugi jeszcze nie
+        Album album = Album.createForClient("MixedVisible", photographer, client);
+        File alreadyVisible = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
+        File notVisible = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
+        album.addFile(alreadyVisible);
+        album.addFile(notVisible);
+        album.changeFileVisibleStatus(List.of(alreadyVisible.getFileId()), true, photographer, photographer.getEmail());
+
+        // When — ta sama akcja na paczce zawierającej już-widoczny plik NIE może rzucać
+        album.changeFileVisibleStatus(
+                List.of(alreadyVisible.getFileId(), notVisible.getFileId()), true, photographer, photographer.getEmail());
+
+        // Then — oba widoczne
+        assertTrue(album.getPhotos().get(alreadyVisible.getFileId()).isVisible());
+        assertTrue(album.getPhotos().get(notVisible.getFileId()).isVisible());
+    }
+
+    @Test
+    void shouldReportOnlyNewlyChangedCountInVisibilityEvent() {
+        // Given — dwa pliki, jeden już widoczny
+        Album album = Album.createForClient("VisibleEventCount", photographer, client);
+        File a = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
+        File b = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
+        album.addFile(a);
+        album.addFile(b);
+        album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
+        album.pullDomainEvents(); // czyścimy zdarzenie z przygotowania
+
+        // When — paczka [a (już widoczny), b (nowy)] → faktycznie zmienia się tylko b
+        album.changeFileVisibleStatus(
+                List.of(a.getFileId(), b.getFileId()), true, photographer, photographer.getEmail());
+
+        // Then — zdarzenie raportuje 1 (nie 2), więc klient nie dostaje maila o "już widocznych"
+        FileVisibleStatusChanged event = album.pullDomainEvents().stream()
+                .filter(FileVisibleStatusChanged.class::isInstance)
+                .map(FileVisibleStatusChanged.class::cast)
+                .findFirst().orElseThrow();
+        assertEquals(1, event.sizeList());
+    }
+
+    @Test
+    void shouldNotEmitVisibilityEventWhenNothingChanged() {
+        // Given — plik już widoczny
+        Album album = Album.createForClient("NoChangeEvent", photographer, client);
+        File a = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
+        album.addFile(a);
+        album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
+        album.pullDomainEvents();
+
+        // When — ponowne "ustaw widoczne" na już-widocznym
+        album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
+
+        // Then — żadnego zdarzenia (brak spamu mailowego do klienta)
+        assertTrue(album.pullDomainEvents().stream()
+                .noneMatch(FileVisibleStatusChanged.class::isInstance));
     }
 
     // -----------------------------------------------------------------------

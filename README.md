@@ -77,9 +77,10 @@ Backend czyta konfigurację z `core/src/main/resources/application.yml`, które 
 | `APP_BASE_URL` | bazowy URL aplikacji (np. `https://photodrive.dev`) |
 | `CSRF_ALLOWED_ORIGINS` | dozwolone originy dla żądań mutujących (anty-CSRF) |
 | `COOKIE_SECURE` | flaga `Secure` na cookie sesji (`true` na produkcji) |
+| `JWT_ACCESS_TTL_MINUTES` | czas życia sesji JWT w minutach (opcjonalny, default `60`; sliding renewal) |
 | `SWAGGER_USER`, `SWAGGER_PASSWORD` | logowanie do Swagger UI |
 
-> Sesja przechowywana jest w **HttpOnly cookie `pd_at`** (token JWT podpisany HS256). Czas życia tokenu jest krótki i odnawiany przy aktywności — konfigurowany po stronie backendu, nie ma osobnej właściwości `expiration-ms`.
+> Sesja przechowywana jest w **HttpOnly cookie `pd_at`** (token JWT podpisany HS256). Domyślny czas życia to **60 min** (`JWT_ACCESS_TTL_MINUTES`) z **sliding renewal** — cookie odnawia się przy aktywności, gdy tokenowi zostało mniej niż połowa życia.
 
 ### Uruchomienie ręczne
 Backend:

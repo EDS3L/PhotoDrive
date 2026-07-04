@@ -38,6 +38,7 @@ import {
 } from '../../hooks/useAdminAlbums';
 import { getPhotoUrl, getAlbumFileNames } from '../../api/adminApi';
 import { useSwapWithRename } from '../../hooks/useSwapWithRename';
+import { usePhotoSelection } from '../../hooks/usePhotoSelection';
 import type { AlbumDto, FileDto } from '@/shared/types/api';
 
 type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
@@ -64,7 +65,13 @@ export default function AdminAlbumDetail() {
 	const downloadMutation = useDownloadAlbum();
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const {
+		selected,
+		clearSelection,
+		selectOne,
+		handleItemClick,
+		toggleAll,
+	} = usePhotoSelection();
 	const [batchMode, setBatchMode] = useState(false);
 	const [visFilter, setVisFilter] = useState<VisibilityFilter>('ALL');
 	const [dragging, setDragging] = useState(false);
@@ -92,7 +99,7 @@ export default function AdminAlbumDetail() {
 		getFileNames: getAlbumFileNames,
 		rename: (v) => renameMutation.mutateAsync(v),
 		swap: (v) => swapMutation.mutateAsync(v),
-		onDone: () => setSelected(new Set()),
+		onDone: clearSelection,
 	});
 
 	const filteredFiles = useMemo(() => {
@@ -104,19 +111,17 @@ export default function AdminAlbumDetail() {
 		});
 	}, [album, visFilter]);
 
+	const orderedIds = useMemo(
+		() => filteredFiles.map((f) => f.fileID),
+		[filteredFiles],
+	);
+	const allSelected =
+		orderedIds.length > 0 && orderedIds.every((id) => selected.has(id));
+
 	const otherAlbums = useMemo(
 		() => albums?.filter((a) => a.albumId !== albumId) ?? [],
 		[albums, albumId],
 	);
-
-	const toggleSelect = (fileId: string) => {
-		setSelected((prev) => {
-			const next = new Set(prev);
-			if (next.has(fileId)) next.delete(fileId);
-			else next.add(fileId);
-			return next;
-		});
-	};
 
 	const handleUpload = useCallback(
 		(files: FileList | File[]) => {
@@ -139,7 +144,7 @@ export default function AdminAlbumDetail() {
 		if (!albumId || selected.size === 0) return;
 		visibilityMutation.mutate(
 			{ albumId, fileIds: [...selected], visible },
-			{ onSuccess: () => setSelected(new Set()) },
+			{ onSuccess: clearSelection },
 		);
 	};
 
@@ -147,7 +152,7 @@ export default function AdminAlbumDetail() {
 		if (!albumId || selected.size === 0) return;
 		watermarkMutation.mutate(
 			{ albumId, fileIds: [...selected], hasWatermark: true },
-			{ onSuccess: () => setSelected(new Set()) },
+			{ onSuccess: clearSelection },
 		);
 	};
 
@@ -164,7 +169,7 @@ export default function AdminAlbumDetail() {
 					{ albumId, fileIds: ids },
 					{
 						onSuccess: () => {
-							setSelected(new Set());
+							clearSelection();
 							setBatchMode(false);
 						},
 					},
@@ -400,6 +405,16 @@ export default function AdminAlbumDetail() {
 					))}
 				</div>
 				<div className='flex items-center gap-3'>
+					{batchMode && filteredFiles.length > 0 && (
+						<Button
+							variant='ghost'
+							size='sm'
+							onClick={() => toggleAll(orderedIds)}
+						>
+							<CheckSquare className='w-3.5 h-3.5 mr-1' />
+							{allSelected ? 'Odznacz wszystkie' : 'Zaznacz wszystkie'}
+						</Button>
+					)}
 					{batchMode && selected.size > 0 && (
 						<>
 							<span className='text-xs text-muted'>
@@ -449,7 +464,7 @@ export default function AdminAlbumDetail() {
 						size='sm'
 						onClick={() => {
 							setBatchMode(!batchMode);
-							setSelected(new Set());
+							clearSelection();
 						}}
 					>
 						{batchMode ? (
@@ -498,14 +513,14 @@ export default function AdminAlbumDetail() {
 					<p className='text-muted'>Brak zdjęć — kliknij aby dodać</p>
 				</div>
 			) : (
-				<div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1'>
+				<div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 select-none'>
 					{filteredFiles.map((file) => (
 						<div
 							key={file.fileID}
 							className={`relative aspect-square group cursor-pointer ${
 								!file.visible ? 'opacity-50' : ''
 							} ${selected.has(file.fileID) ? 'ring-2 ring-accent' : ''}`}
-							onClick={() => batchMode && toggleSelect(file.fileID)}
+							onClick={(e) => batchMode && handleItemClick(file.fileID, orderedIds, e.shiftKey)}
 						>
 							<img
 								src={getPhotoUrl(album.albumId, file.fileName, 300)}
@@ -636,7 +651,7 @@ export default function AdminAlbumDetail() {
 						<button
 							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
 							onClick={() => {
-								setSelected(new Set([contextMenu.file.fileID]));
+								selectOne(contextMenu.file.fileID);
 								setSwapModal(true);
 								setContextMenu(null);
 							}}

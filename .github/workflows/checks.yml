@@ -1,0 +1,67 @@
+name: Checks
+
+# Reużywalny zestaw bramek jakości (workflow_call). Definicja testów/lintu żyje
+# w JEDNYM miejscu i jest wołana przez:
+#   - ci.yml      → pełne sprawdzenie gałęzi i PR (backend + frontend zawsze),
+#   - publish.yml → warunkowo, tylko dla tego co się zmieniło (gate deployu).
+# Flagi wejściowe pozwalają odpalić wyłącznie potrzebną część.
+
+on:
+  workflow_call:
+    inputs:
+      backend:
+        description: Uruchom testy backendu (Gradle + JaCoCo)
+        type: boolean
+        default: true
+      frontend:
+        description: Uruchom lint + build frontu
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend — testy (Gradle + JaCoCo)
+    if: ${{ inputs.backend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Run tests
+        working-directory: core
+        run: ./gradlew test --no-daemon
+
+  frontend-checks:
+    name: Frontend — lint & build
+    if: ${{ inputs.frontend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build

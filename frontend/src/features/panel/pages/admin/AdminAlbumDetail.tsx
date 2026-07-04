@@ -111,6 +111,8 @@ export default function AdminAlbumDetail() {
 		});
 	}, [album, visFilter]);
 
+	// Kolejność widocznych plików napędza „zaznacz wszystkie" i zakres z Shift
+	// — zawsze względem aktualnego filtra widoczności.
 	const orderedIds = useMemo(
 		() => filteredFiles.map((f) => f.fileID),
 		[filteredFiles],

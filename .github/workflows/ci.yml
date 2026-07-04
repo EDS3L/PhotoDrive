@@ -1,13 +1,13 @@
 name: CI
 
-# Bramka jakości: uruchamia testy backendu oraz lint+build frontu na każdym
-# pushu i pull requeście. Workflow jest CELOWO oddzielony od publish.yml
-# (build+deploy), żeby nie ingerować w działający pipeline produkcyjny.
-# Aby uczynić z tego twardą bramkę PR, włącz branch protection na main
-# i wymagaj statusów: "Backend — testy" oraz "Frontend — lint & build".
+# Bramka jakości dla gałęzi roboczych i PR. Main jest bramkowany przez
+# publish.yml (checks przed build+deploy) — dlatego tutaj main pomijamy,
+# żeby nie dublować przebiegów. Definicja testów/lintu jest współdzielona
+# przez reużywalny checks.yml (jedno miejsce prawdy).
 
 on:
   push:
+    branches-ignore: [main, master]
   pull_request:
 
 permissions:
@@ -18,44 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend-tests:
-    name: Backend — testy (Gradle + JaCoCo)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-
-      - name: Run tests
-        working-directory: core
-        run: ./gradlew test --no-daemon
-
-  frontend-checks:
-    name: Frontend — lint & build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Lint
-        working-directory: frontend
-        run: npm run lint
-
-      - name: Build
-        working-directory: frontend
-        run: npm run build
+  checks:
+    uses: ./.github/workflows/checks.yml
+    with:
+      backend: true
+      frontend: true

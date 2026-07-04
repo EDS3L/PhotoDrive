@@ -45,8 +45,20 @@ jobs:
               - 'frontend/package.json'
               - 'frontend/nginx.conf'
 
-  build-backend:
+  # Bramka jakości: odpala testy/lint TYLKO dla tego, co się zmieniło
+  # (wg jobu `changes`). Buildy zależą od tego jobu (`needs: checks`),
+  # więc czerwone testy = brak builda i brak deployu.
+  checks:
     needs: changes
+    permissions:
+      contents: read
+    uses: ./.github/workflows/checks.yml
+    with:
+      backend: ${{ needs.changes.outputs.backend == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+
+  build-backend:
+    needs: [changes, checks]
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -71,7 +83,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
   build-frontend:
-    needs: changes
+    needs: [changes, checks]
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:

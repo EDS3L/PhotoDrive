@@ -86,7 +86,6 @@ class UserControllerTest {
         String body = objectMapper.writeValueAsString(Map.of(
                 "name", "Jan Kowalski",
                 "email", "jan@example.com",
-                "password", "Secret1!",
                 "role", "ADMIN"
         ));
 

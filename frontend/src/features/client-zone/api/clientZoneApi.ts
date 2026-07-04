@@ -14,6 +14,7 @@ export interface CurrentUser {
 	name: string;
 	email: string;
 	roles: string[];
+	changePasswordOnNextLogin: boolean;
 }
 
 /** Ciche sprawdzenie sesji z cookie (bez redirectu przy 401). */
@@ -22,6 +23,17 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 		skipAuthRedirect: true,
 	});
 	return response.data;
+}
+
+export async function changePassword(
+	userId: string,
+	currentPassword: string,
+	newPassword: string,
+): Promise<void> {
+	await apiClient.patch(`/user/${userId}/changePassword`, {
+		currentPassword,
+		newPassword,
+	});
 }
 
 export async function getAssignedAlbums(): Promise<AlbumDto[]> {

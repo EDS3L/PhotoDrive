@@ -8,6 +8,7 @@ import type { AxiosError } from 'axios';
 
 export function usePanelLogin() {
 	const setUser = usePanelAuthStore((s) => s.setUser);
+	const setLoginPassword = usePanelAuthStore((s) => s.setLoginPassword);
 
 	return useMutation<void, AxiosError, LoginRequest>({
 		// formularz logowania pokazuje błąd inline — pomijamy globalny toast
@@ -22,6 +23,8 @@ export function usePanelLogin() {
 				throw new Error('ACCESS_DENIED');
 			}
 			setUser(user);
+			// zachowujemy hasło z logowania na wypadek wymuszonej zmiany (pierwsze logowanie)
+			setLoginPassword(data.password);
 		},
 	});
 }

@@ -24,7 +24,6 @@ export default function PhotographerClients() {
 	const [addOpen, setAddOpen] = useState(false);
 	const [newName, setNewName] = useState('');
 	const [newEmail, setNewEmail] = useState('');
-	const [newPassword, setNewPassword] = useState('');
 
 	const filtered = useMemo(() => {
 		if (!clients) return [];
@@ -51,13 +50,12 @@ export default function PhotographerClients() {
 
 	const handleCreate = () => {
 		createMutation.mutate(
-			{ name: newName, email: newEmail, password: newPassword },
+			{ name: newName, email: newEmail },
 			{
 				onSuccess: () => {
 					setAddOpen(false);
 					setNewName('');
 					setNewEmail('');
-					setNewPassword('');
 				},
 			},
 		);
@@ -147,16 +145,9 @@ export default function PhotographerClients() {
 						value={newEmail}
 						onChange={(e) => setNewEmail(e.target.value)}
 					/>
-					<Input
-						id='client-password'
-						label='Hasło'
-						type='password'
-						placeholder='Min. 8 znaków'
-						value={newPassword}
-						onChange={(e) => setNewPassword(e.target.value)}
-					/>
 					<p className='text-xs text-muted'>
-						Dane logowania zostaną wysłane na email klienta
+						Hasło startowe zostanie wygenerowane i wysłane na email klienta.
+						Przy pierwszym logowaniu klient ustawi własne hasło.
 					</p>
 					<div className='bg-accent/5 border border-border p-3 flex items-start gap-2'>
 						<span className='text-accent text-xs mt-0.5'>ℹ</span>
@@ -172,9 +163,7 @@ export default function PhotographerClients() {
 					</Button>
 					<Button
 						onClick={handleCreate}
-						disabled={
-							createMutation.isPending || !newName || !newEmail || !newPassword
-						}
+						disabled={createMutation.isPending || !newName || !newEmail}
 					>
 						{createMutation.isPending ? (
 							<Loader2 className='w-4 h-4 mr-2 animate-spin' />

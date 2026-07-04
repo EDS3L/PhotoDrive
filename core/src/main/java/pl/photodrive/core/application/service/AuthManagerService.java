@@ -53,9 +53,9 @@ public class AuthManagerService {
             throw new LoginFailedException("Invalid credentials!");
         }
 
-        if (user.isChangePasswordOnNextLogin()) {
-            throw new LoginFailedException("You must change your password before logging in!");
-        }
+        // UWAGA: nie blokujemy logowania przy changePasswordOnNextLogin — użytkownik
+        // MUSI móc się zalogować hasłem startowym, a wymuszenie zmiany hasła realizuje
+        // front (globalna bramka wg flagi z /user/me), aż do zmiany hasła.
 
         Duration ttl = Duration.ofMinutes(accessTtlMinutes);
         String jwt = tokenEncoder.createAccessToken(user.getId(),

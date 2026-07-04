@@ -99,7 +99,7 @@ class UserManagementServiceTest {
         User newUser = User.create("New", new Email("new@photodrive.pl"), new HashedPassword("hashed_Pass123!"), Role.PHOTOGRAPHER);
         given(userRepository.save(any())).willReturn(newUser);
 
-        AddUserCommand cmd = new AddUserCommand("New", "new@photodrive.pl", "Pass123!", Role.PHOTOGRAPHER);
+        AddUserCommand cmd = new AddUserCommand("New", "new@photodrive.pl", Role.PHOTOGRAPHER);
 
         // When
         User result = service.addUser(cmd);
@@ -116,7 +116,7 @@ class UserManagementServiceTest {
         stubCurrentUserAs(adminUser);
         given(userUniquenessChecker.isEmailTaken(any())).willReturn(true);
 
-        AddUserCommand cmd = new AddUserCommand("X", "dup@photodrive.pl", "Pass123!", Role.PHOTOGRAPHER);
+        AddUserCommand cmd = new AddUserCommand("X", "dup@photodrive.pl", Role.PHOTOGRAPHER);
 
         // When / Then
         assertThatThrownBy(() -> service.addUser(cmd))
@@ -132,7 +132,7 @@ class UserManagementServiceTest {
         stubCurrentUserAs(clientUser);
         given(userUniquenessChecker.isEmailTaken(any())).willReturn(false);
 
-        AddUserCommand cmd = new AddUserCommand("X", "x@photodrive.pl", "Pass123!", Role.PHOTOGRAPHER);
+        AddUserCommand cmd = new AddUserCommand("X", "x@photodrive.pl", Role.PHOTOGRAPHER);
 
         // When / Then
         assertThatThrownBy(() -> service.addUser(cmd))

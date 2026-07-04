@@ -78,7 +78,6 @@ export default function AdminUsers() {
 	// New user form
 	const [newName, setNewName] = useState('');
 	const [newEmail, setNewEmail] = useState('');
-	const [newPassword, setNewPassword] = useState('');
 	const [newRole, setNewRole] = useState<'PHOTOGRAPHER' | 'CLIENT'>('CLIENT');
 
 	const filtered = useMemo(() => {
@@ -99,13 +98,12 @@ export default function AdminUsers() {
 
 	const handleCreate = () => {
 		createUserMutation.mutate(
-			{ name: newName, email: newEmail, password: newPassword, role: newRole },
+			{ name: newName, email: newEmail, role: newRole },
 			{
 				onSuccess: () => {
 					setAddOpen(false);
 					setNewName('');
 					setNewEmail('');
-					setNewPassword('');
 					setNewRole('CLIENT');
 				},
 			},
@@ -291,15 +289,6 @@ export default function AdminUsers() {
 						value={newEmail}
 						onChange={(e) => setNewEmail(e.target.value)}
 					/>
-					<Input
-						id='add-password'
-						label='Hasło'
-						type='password'
-						placeholder='Min. 8 znaków'
-						value={newPassword}
-						onChange={(e) => setNewPassword(e.target.value)}
-					/>
-
 					{/* Role selector */}
 					<div>
 						<p className='text-xs uppercase tracking-widest text-muted mb-3'>
@@ -340,7 +329,8 @@ export default function AdminUsers() {
 					</div>
 
 					<p className='text-xs text-muted'>
-						Dane logowania zostaną wysłane na podany adres email.
+						Hasło startowe zostanie wygenerowane i wysłane na podany email.
+						Użytkownik ustawi własne hasło przy pierwszym logowaniu.
 					</p>
 				</div>
 				<div className='px-8 py-6 border-t border-border flex justify-end gap-3'>
@@ -350,10 +340,7 @@ export default function AdminUsers() {
 					<Button
 						onClick={handleCreate}
 						disabled={
-							createUserMutation.isPending ||
-							!newName ||
-							!newEmail ||
-							!newPassword
+							createUserMutation.isPending || !newName || !newEmail
 						}
 					>
 						{createUserMutation.isPending ? (

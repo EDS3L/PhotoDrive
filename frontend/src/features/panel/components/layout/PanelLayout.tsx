@@ -4,7 +4,9 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { usePanelAuthStore } from '../../store/panelAuthStore';
 import { usePanelMe } from '../../hooks/usePanelAuth';
+import { changePassword } from '../../api/panelAuthApi';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
+import { ForcePasswordChange } from '@/shared/components/ForcePasswordChange';
 import type { PanelRole } from '../../types/panel';
 
 interface PanelLayoutProps {
@@ -13,8 +15,9 @@ interface PanelLayoutProps {
 
 export function PanelLayout({ requiredRole }: PanelLayoutProps) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
-	const { isAuthenticated, role } = usePanelAuthStore();
-	const { isLoading, isError } = usePanelMe();
+	const { isAuthenticated, role, loginPassword, setLoginPassword } =
+		usePanelAuthStore();
+	const { data: me, isLoading, isError, refetch } = usePanelMe();
 
 	if (isLoading) {
 		return (
@@ -26,6 +29,21 @@ export function PanelLayout({ requiredRole }: PanelLayoutProps) {
 
 	if (isError || !isAuthenticated) {
 		return <Navigate to='/panel-login' replace />;
+	}
+
+	// Wymuszona zmiana hasła startowego — zanim wpuścimy do panelu (dowolnej trasy).
+	if (me?.changePasswordOnNextLogin) {
+		return (
+			<ForcePasswordChange
+				userId={me.id}
+				changePassword={changePassword}
+				presetCurrentPassword={loginPassword ?? undefined}
+				onDone={async () => {
+					await refetch();
+					setLoginPassword(null);
+				}}
+			/>
+		);
 	}
 
 	if (requiredRole && role !== requiredRole) {

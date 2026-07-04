@@ -5,6 +5,7 @@ export interface CurrentUserInfo {
 	name: string;
 	email: string;
 	roles: string[];
+	changePasswordOnNextLogin: boolean;
 }
 
 export interface UserInfo {

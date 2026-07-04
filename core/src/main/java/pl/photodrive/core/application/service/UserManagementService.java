@@ -14,6 +14,7 @@ import pl.photodrive.core.application.event.UserCredentialsNotification;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
+import pl.photodrive.core.domain.util.PasswordGenerator;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.domain.vo.Password;
@@ -55,8 +56,11 @@ public class UserManagementService {
             throw new UserException("Photographers can only create clients");
         }
 
-        new Password(cmd.password()); // walidacja surowego hasła
-        HashedPassword hashedPassword = new HashedPassword(passwordHasher.encode(cmd.password()));
+        // Hasło startowe generowane serwerowo — twórca konta go nie zna, a użytkownik
+        // musi je zmienić przy pierwszym logowaniu (changePasswordOnNextLogin).
+        String generatedPassword = PasswordGenerator.generate();
+        new Password(generatedPassword); // walidacja spójności z regułami VO
+        HashedPassword hashedPassword = new HashedPassword(passwordHasher.encode(generatedPassword));
         User user = User.create(cmd.name(), email, hashedPassword, cmd.role());
 
         var savedUser = userRepository.save(user);
@@ -72,7 +76,7 @@ public class UserManagementService {
 
         publishEvents(user);
 
-        eventPublisher.publishEvent(new UserCredentialsNotification(cmd.email(), cmd.password()));
+        eventPublisher.publishEvent(new UserCredentialsNotification(cmd.email(), generatedPassword));
 
         return savedUser;
     }

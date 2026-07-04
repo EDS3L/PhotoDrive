@@ -1,18 +1,27 @@
 import { useMutation } from '@tanstack/react-query';
-import { login } from '../api/clientZoneApi';
+import { login, getCurrentUser, type CurrentUser } from '../api/clientZoneApi';
 import { useAuthStore } from '@/app/store/authStore';
 import type { LoginRequest } from '@/shared/types/api';
 import type { AxiosError } from 'axios';
 
 export function useLogin() {
-	const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
+	const setSession = useAuthStore((s) => s.setSession);
 
-	return useMutation<void, AxiosError, LoginRequest>({
+	return useMutation<CurrentUser, AxiosError, LoginRequest>({
 		// formularz logowania pokazuje błąd inline — pomijamy globalny toast
 		meta: { skipGlobalError: true },
-		mutationFn: login,
-		onSuccess: (_data, variables) => {
-			setAuthenticated(true, variables.email);
+		mutationFn: async (data) => {
+			await login(data);
+			// pobieramy /me, by mieć id + flagę wymuszonej zmiany hasła
+			return getCurrentUser();
+		},
+		onSuccess: (me, variables) => {
+			setSession({
+				email: me.email,
+				userId: me.id,
+				mustChangePassword: me.changePasswordOnNextLogin,
+				loginPassword: variables.password,
+			});
 		},
 	});
 }

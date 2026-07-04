@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from '@/shared/store/toastStore';
 
 /** Wyciąga czytelny komunikat z błędu axios/Error (backend: ApiException.message). */
-function getApiErrorMessage(error: unknown): string {
+export function getApiErrorMessage(error: unknown): string {
 	if (axios.isAxiosError(error)) {
 		const data = error.response?.data as { message?: string } | undefined;
 		if (data?.message) return data.message;

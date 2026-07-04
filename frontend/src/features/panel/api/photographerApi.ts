@@ -10,8 +10,8 @@ export async function getAssignedClients(): Promise<UserInfo[]> {
 export async function createClient(data: {
 	name: string;
 	email: string;
-	password: string;
 }): Promise<UserInfo> {
+	// Hasło startowe generuje backend i wysyła mailem — nie podajemy go z formularza.
 	const response = await apiClient.post<UserInfo>('/user/add', {
 		...data,
 		role: 'CLIENT',

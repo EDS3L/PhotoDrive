@@ -11,7 +11,7 @@ import { useAuthStore } from '@/app/store/authStore';
  */
 export function useClientSession() {
 	const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-	const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
+	const setSession = useAuthStore((s) => s.setSession);
 
 	const query = useQuery({
 		queryKey: ['client', 'me'],
@@ -23,9 +23,13 @@ export function useClientSession() {
 
 	useEffect(() => {
 		if (query.data) {
-			setAuthenticated(true, query.data.email);
+			setSession({
+				email: query.data.email,
+				userId: query.data.id,
+				mustChangePassword: query.data.changePasswordOnNextLogin,
+			});
 		}
-	}, [query.data, setAuthenticated]);
+	}, [query.data, setSession]);
 
 	return { isChecking: query.isLoading };
 }

@@ -30,9 +30,9 @@ export async function getAllAlbumsWithoutTtd(): Promise<AlbumDto[]> {
 export async function createUser(data: {
 	name: string;
 	email: string;
-	password: string;
 	role: string;
 }): Promise<UserInfo> {
+	// Hasło startowe generuje backend i wysyła mailem — nie podajemy go z formularza.
 	const response = await apiClient.post<UserInfo>('/user/add', data);
 	return response.data;
 }

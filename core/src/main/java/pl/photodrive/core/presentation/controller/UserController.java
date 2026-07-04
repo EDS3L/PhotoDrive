@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.photodrive.core.application.command.user.*;
 import pl.photodrive.core.application.service.UserManagementService;
-import pl.photodrive.core.domain.vo.Password;
 import pl.photodrive.core.presentation.dto.user.*;
 import pl.photodrive.core.presentation.mapper.ApiMappers;
 
@@ -34,7 +33,8 @@ public class UserController {
                 user.getId().value().toString(),
                 user.getName(),
                 user.getEmail().value(),
-                roles
+                roles,
+                user.isChangePasswordOnNextLogin()
         ));
     }
 
@@ -61,10 +61,10 @@ public class UserController {
 
     @PostMapping("/add")
     public ResponseEntity<UserDto> add(@Valid @RequestBody CreateUserRequest request) {
-        new Password(request.password()); // walidacja surowego hasła
+        // Hasło startowe generowane serwerowo (nie wybierane przez twórcę konta);
+        // użytkownik i tak musi je zmienić przy pierwszym logowaniu.
         var created = userService.addUser(new AddUserCommand(request.name(),
                 request.email(),
-                request.password(),
                 request.role()));
         return ResponseEntity.created(URI.create("/api/users/add" + created.getId().value())).body(ApiMappers.toDto(
                 created));

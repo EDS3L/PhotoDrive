@@ -1,17 +1,26 @@
 import { useState } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/app/store/authStore';
-import { logout } from './api/clientZoneApi';
+import { logout, changePassword } from './api/clientZoneApi';
 import { useClientSession } from './hooks/useClientSession';
 import { LoginForm } from './components/LoginForm';
 import { AlbumList } from './components/AlbumList';
 import { AlbumDetailModal } from './components/AlbumDetailModal';
 import { Button } from '@/shared/components/ui/Button';
+import { ForcePasswordChange } from '@/shared/components/ForcePasswordChange';
 import type { AlbumDto } from '@/shared/types/api';
 import { queryClient } from '@/lib/queryClient';
 
 export default function ClientZonePage() {
-	const { isAuthenticated, email, clear } = useAuthStore();
+	const {
+		isAuthenticated,
+		email,
+		userId,
+		mustChangePassword,
+		loginPassword,
+		clear,
+		completePasswordChange,
+	} = useAuthStore();
 	const { isChecking } = useClientSession();
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumDto | null>(null);
 
@@ -34,6 +43,18 @@ export default function ClientZonePage() {
 			);
 		}
 		return <LoginForm />;
+	}
+
+	// Wymuszona zmiana hasła startowego — dopóki flaga ustawiona, nic innego nie pokazujemy.
+	if (mustChangePassword && userId) {
+		return (
+			<ForcePasswordChange
+				userId={userId}
+				changePassword={changePassword}
+				presetCurrentPassword={loginPassword ?? undefined}
+				onDone={completePasswordChange}
+			/>
+		);
 	}
 
 	return (

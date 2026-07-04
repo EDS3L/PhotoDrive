@@ -130,16 +130,19 @@ class AuthManagerServiceTest {
     }
 
     @Test
-    void shouldThrowWhenChangePasswordFlagIsSet() {
-        // Given
+    void shouldReturnAccessTokenEvenWhenChangePasswordFlagIsSet() {
+        // Given — użytkownik z flagą „zmień hasło" MUSI móc się zalogować hasłem startowym;
+        // wymuszenie zmiany hasła realizuje front (bramka wg /user/me), nie backend.
         photographer.setChangePasswordOnNextLogin(true);
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordHasher.matches(any(), any())).willReturn(true);
+        given(tokenEncoder.createAccessToken(any(), any(), any(), any())).willReturn("jwt.token.here");
 
-        // When / Then
-        assertThatThrownBy(() -> service.login(new LoginCommand("photo@photodrive.pl", "Pass1!")))
-                .isInstanceOf(LoginFailedException.class)
-                .hasMessageContaining("change your password");
+        // When
+        AccessToken token = service.login(new LoginCommand("photo@photodrive.pl", "Pass1!"));
+
+        // Then
+        assertThat(token.value()).isEqualTo("jwt.token.here");
     }
 
     // -----------------------------------------------------------------------

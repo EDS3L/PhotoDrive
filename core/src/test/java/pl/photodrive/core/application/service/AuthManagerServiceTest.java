@@ -182,10 +182,24 @@ class AuthManagerServiceTest {
 
         RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", UUID.randomUUID(), "NewPass9!");
 
-        // When / Then
+        // When / Then — generyczny komunikat (anty-enumeracja), nie ujawnia stanu tokenu
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
-                .hasMessageContaining("Token not found");
+                .hasMessageContaining("Nieprawidłowy lub wygasły");
+    }
+
+    @Test
+    void shouldNotRevealWhetherEmailExistsOnRemindPassword() {
+        // Given — nieznany email (konto nie istnieje)
+        given(userRepository.findByEmail(any())).willReturn(Optional.empty());
+
+        RemindPasswordCommand cmd = new RemindPasswordCommand("ghost@photodrive.pl", UUID.randomUUID(), "NewPass9!");
+
+        // When / Then — DOKŁADNIE ta sama odpowiedź co przy znanym emailu bez tokenu,
+        // więc atakujący nie odróżni istniejącego konta od nieistniejącego.
+        assertThatThrownBy(() -> service.remindPassword(cmd))
+                .isInstanceOf(PasswordTokenException.class)
+                .hasMessageContaining("Nieprawidłowy lub wygasły");
     }
 
     @Test
@@ -206,7 +220,7 @@ class AuthManagerServiceTest {
         // When / Then
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
-                .hasMessageContaining("expired");
+                .hasMessageContaining("Nieprawidłowy lub wygasły");
     }
 
     @Test
@@ -226,9 +240,9 @@ class AuthManagerServiceTest {
 
         RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", wrongToken, "NewPass9!");
 
-        // When / Then
+        // When / Then — generyczny komunikat (anty-enumeracja)
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
-                .hasMessageContaining("Invalid token");
+                .hasMessageContaining("Nieprawidłowy lub wygasły");
     }
 }

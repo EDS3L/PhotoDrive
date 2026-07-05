@@ -85,7 +85,7 @@ public class User {
         }
 
         if (passwordHasher.matches(newPassword, this.password.value())) {
-            throw new UserException("New password cannot be the same as the current password");
+            throw new UserException("Nowe hasło nie może być takie samo jak obecne hasło.");
         }
 
         new Password(newPassword); // walidacja surowego hasła
@@ -96,7 +96,7 @@ public class User {
         if (token == null) throw new UserException("Token cannot be null");
 
         if (passwordHasher.matches(newPassword, this.password.value())) {
-            throw new UserException("New password cannot be the same as the current password");
+            throw new UserException("Nowe hasło nie może być takie samo jak obecne hasło.");
         }
 
         new Password(newPassword); // walidacja surowego hasła

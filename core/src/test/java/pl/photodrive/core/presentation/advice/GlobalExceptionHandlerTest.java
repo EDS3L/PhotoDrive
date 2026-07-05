@@ -81,9 +81,9 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void passwordTokenException_shouldReturn406() {
+    void passwordTokenException_shouldReturn400() {
         var response = handler.PasswordTokenException(new PasswordTokenException("Token error!"), request);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_ACCEPTABLE);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().errorCode()).isEqualTo("PASSWORD_TOKEN_EXCEPTION");
     }
 

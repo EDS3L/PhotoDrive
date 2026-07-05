@@ -123,7 +123,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 Instant.now(),
                 request.getRequestURI());
-        return new ResponseEntity<>(error, HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(DomainSecurityException.class)

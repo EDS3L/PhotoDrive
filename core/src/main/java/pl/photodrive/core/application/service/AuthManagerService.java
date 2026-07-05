@@ -38,6 +38,10 @@ public class AuthManagerService {
     @Value("${app.jwt.access-ttl-minutes:60}")
     private long accessTtlMinutes;
 
+    // Jeden generyczny komunikat dla WSZYSTKICH porażek resetu (nieznany email,
+    // brak tokenu, token wygasły, token niezgodny) — anty-enumeracja kont.
+    private static final String INVALID_RESET_TOKEN = "Nieprawidłowy lub wygasły kod autoryzacji.";
+
     @Transactional
     public AccessToken login(LoginCommand cmd) {
         Email email = new Email(cmd.email());
@@ -68,13 +72,16 @@ public class AuthManagerService {
     @Transactional
     public void remindPassword(RemindPasswordCommand cmd) {
         Email email = new Email(cmd.email());
-        User user = getUserByEmail(email);
+        // Nieznany email zwraca DOKŁADNIE ten sam błąd co niepoprawny token — bez tego
+        // różny status (401 vs 406) zdradzałby, czy konto istnieje (enumeracja).
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new PasswordTokenException(INVALID_RESET_TOKEN));
 
-        PasswordToken token = passwordTokenRepository.findByUserId(user.getId()).orElseThrow(() -> new PasswordTokenException(
-                "Token not found!"));
+        PasswordToken token = passwordTokenRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new PasswordTokenException(INVALID_RESET_TOKEN));
 
-        if (token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException("Token is expired!");
-        if (!token.matches(cmd.token())) throw new PasswordTokenException("Invalid token!");
+        if (token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException(INVALID_RESET_TOKEN);
+        if (!token.matches(cmd.token())) throw new PasswordTokenException(INVALID_RESET_TOKEN);
 
         user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);

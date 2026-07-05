@@ -8,6 +8,7 @@ import { useLogin } from '../hooks/useLogin';
 import { placeholder } from '@/lib/placeholder';
 import { useState } from 'react';
 import { requestPasswordToken, resetPassword } from '../api/clientZoneApi';
+import { getApiErrorMessage } from '@/lib/queryClient';
 
 const loginSchema = z.object({
 	email: z.string().email('Nieprawidłowy adres email'),
@@ -16,7 +17,7 @@ const loginSchema = z.object({
 
 const resetSchema = z
 	.object({
-		token: z.string().uuid('Nieprawidłowy token'),
+		token: z.string().uuid('Nieprawidłowy kod autoryzacji'),
 		newPassword: z.string().min(8, 'Hasło musi mieć min. 8 znaków'),
 		confirmPassword: z.string(),
 	})
@@ -30,10 +31,11 @@ type ResetFormData = z.infer<typeof resetSchema>;
 
 export function LoginForm() {
 	const { mutate, isPending, isError } = useLogin();
+	const [showReset, setShowReset] = useState(false);
 	const [resetEmailSent, setResetEmailSent] = useState(false);
 	const [resetEmail, setResetEmail] = useState('');
 	const [resetComplete, setResetComplete] = useState(false);
-	const [resetError, setResetError] = useState(false);
+	const [resetError, setResetError] = useState<string | null>(null);
 	const [resetPending, setResetPending] = useState(false);
 
 	const {
@@ -53,37 +55,47 @@ export function LoginForm() {
 		mutate(data);
 	};
 
-	const handleForgotPassword = async () => {
-		const email = getValues('email');
-		if (!email) return;
+	const openReset = () => {
+		// Zawsze przenosi na ekran resetu; email podpowiadamy z formularza logowania,
+		// jeśli był wpisany (ale NIE jest wymagany, żeby tu wejść).
+		setResetEmail(getValues('email') || '');
+		setResetError(null);
+		setResetEmailSent(false);
+		setShowReset(true);
+	};
+
+	const handleSendToken = async () => {
+		if (!resetEmail) return;
+		setResetPending(true);
+		setResetError(null);
 		try {
-			await requestPasswordToken(email);
-			setResetEmail(email);
-			setResetEmailSent(true);
+			await requestPasswordToken(resetEmail);
 		} catch {
-			// silently ignore — don't reveal if email exists
-			setResetEmail(email);
+			// cicho — nie zdradzamy, czy konto istnieje (anty-enumeracja)
+		} finally {
+			setResetPending(false);
 			setResetEmailSent(true);
 		}
 	};
 
 	const handleResetPassword = async (data: ResetFormData) => {
 		setResetPending(true);
-		setResetError(false);
+		setResetError(null);
 		try {
 			await resetPassword(resetEmail, data.token, data.newPassword);
 			setResetComplete(true);
-		} catch {
-			setResetError(true);
+		} catch (err) {
+			setResetError(getApiErrorMessage(err));
 		} finally {
 			setResetPending(false);
 		}
 	};
 
 	const handleBackToLogin = () => {
+		setShowReset(false);
 		setResetEmailSent(false);
 		setResetComplete(false);
-		setResetError(false);
+		setResetError(null);
 		setResetEmail('');
 	};
 
@@ -124,20 +136,55 @@ export function LoginForm() {
 								Powrót do logowania
 							</Button>
 						</>
-					) : resetEmailSent ? (
+					) : showReset ? (
 						<>
 							<h1 className='font-serif text-4xl md:text-5xl font-light mb-2'>
 								Zresetuj hasło
 							</h1>
-							<p className='text-muted mb-10'>
-								Jeśli konto istnieje, link do zmiany hasła został wysłany na{' '}
-								<strong>{resetEmail}</strong>. Wpisz token z wiadomości i nowe
-								hasło.
-							</p>
+
+							{!resetEmailSent ? (
+								<>
+									<p className='text-muted mb-10'>
+										Podaj swój adres email — wyślemy kod autoryzacji do ustawienia nowego
+										hasła.
+									</p>
+									<div className='space-y-6'>
+										<Input
+											id='reset-email'
+											label='Email'
+											type='email'
+											placeholder='anna@kowalska.pl'
+											value={resetEmail}
+											onChange={(e) => setResetEmail(e.target.value)}
+										/>
+										<Button
+											size='lg'
+											className='w-full'
+											onClick={handleSendToken}
+											disabled={resetPending || !resetEmail}
+										>
+											{resetPending ? (
+												<>
+													<Loader2 className='w-4 h-4 mr-2 animate-spin' />
+													Wysyłanie...
+												</>
+											) : (
+												'Wyślij kod'
+											)}
+										</Button>
+									</div>
+								</>
+							) : (
+								<>
+									<p className='text-muted mb-10'>
+										Jeśli konto istnieje, kod autoryzacji został wysłany na{' '}
+										<strong>{resetEmail}</strong>. Wpisz kod z wiadomości i
+										nowe hasło.
+									</p>
 
 							{resetError && (
 								<div className='mb-6 p-4 border border-error/30 text-error text-sm'>
-									Nieprawidłowy token lub token wygasł. Spróbuj ponownie.
+									{resetError}
 								</div>
 							)}
 
@@ -147,7 +194,7 @@ export function LoginForm() {
 							>
 								<Input
 									id='token'
-									label='Token'
+									label='Kod autoryzacji'
 									type='text'
 									placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 									error={resetForm.formState.errors.token?.message}
@@ -185,6 +232,8 @@ export function LoginForm() {
 									)}
 								</Button>
 							</form>
+								</>
+							)}
 
 							<button
 								type='button'
@@ -245,7 +294,7 @@ export function LoginForm() {
 
 							<button
 								type='button'
-								onClick={handleForgotPassword}
+								onClick={openReset}
 								className='mt-6 text-xs uppercase tracking-widest text-muted hover:text-accent transition-colors'
 							>
 								Nie pamiętasz hasła?

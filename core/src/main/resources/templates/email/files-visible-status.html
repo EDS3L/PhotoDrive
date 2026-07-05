@@ -2,119 +2,93 @@
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
-    <title>Twoje zdjęcia czekają na podgląd</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="supported-color-schemes" content="dark light" />
+    <title>Twoje zdjęcia czekają na podgląd</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
       body {
         margin: 0;
         padding: 0;
-        background-color: #f3f4f6;
+        background-color: #0c0c0b;
       }
       @media (max-width: 600px) {
-        .email-container {
+        .container {
           width: 100% !important;
           border-radius: 0 !important;
         }
-        .content-padding {
-          padding: 24px 18px !important;
+        .px {
+          padding-left: 24px !important;
+          padding-right: 24px !important;
         }
       }
     </style>
   </head>
-  <body style="margin: 0; padding: 0; background-color: #f3f4f6">
+  <body style="margin: 0; padding: 0; background-color: #0c0c0b">
     <div
-      style="
-        display: none;
-        visibility: hidden;
-        opacity: 0;
-        height: 0;
-        max-height: 0;
-        overflow: hidden;
-        mso-hide: all;
-        font-size: 1px;
-        line-height: 1px;
-        color: #f3f4f6;
-      "
+      style="display: none; visibility: hidden; opacity: 0; height: 0; width: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: #0c0c0b"
     >
-      Twój fotograf udostępnił Ci nowe zdjęcia. Zaloguj się na PhotoDrive i
-      obejrzyj swoją galerię.
+      Twój fotograf udostępnił Ci nowe zdjęcia w PhotoDrive.
     </div>
 
     <table
       role="presentation"
+      width="100%"
       cellpadding="0"
       cellspacing="0"
-      width="100%"
-      style="background-color: #f3f4f6"
+      bgcolor="#0c0c0b"
+      style="background-color: #0c0c0b"
     >
       <tr>
-        <td align="center" style="padding: 32px 16px">
+        <td align="center" style="padding: 40px 16px">
           <table
             role="presentation"
+            width="600"
             cellpadding="0"
             cellspacing="0"
-            width="600"
-            class="email-container"
-            style="
-              max-width: 600px;
-              background-color: #ffffff;
-              border-radius: 18px;
-              box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
-              overflow: hidden;
-            "
+            class="container"
+            bgcolor="#161614"
+            style="width: 600px; max-width: 600px; background-color: #161614; border: 1px solid #2a2a28; border-radius: 6px; overflow: hidden"
           >
             <tr>
-              <td
-                style="
-                  padding: 18px 28px;
-                  border-bottom: 1px solid #e5e7eb;
-                  background: linear-gradient(90deg, #1d4ed8, #2563eb);
-                "
-              >
-                <table
-                  role="presentation"
-                  cellpadding="0"
-                  cellspacing="0"
-                  width="100%"
+              <td class="px" style="padding: 26px 40px; border-bottom: 1px solid #2a2a28">
+                <span
+                  style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: 1px; color: #c9a05a"
+                  >PhotoDrive</span
                 >
+              </td>
+            </tr>
+
+            <tr>
+              <td class="px" style="padding: 40px 40px 32px 40px">
+                <p
+                  style="margin: 0 0 14px 0; font-family: 'Inter', Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #8a8680"
+                >
+                  Nowa galeria
+                </p>
+                <h1
+                  style="margin: 0 0 18px 0; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15; color: #f0ede8"
+                >
+                  Twoje zdjęcia są gotowe
+                </h1>
+                <p
+                  style="margin: 0 0 26px 0; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #c9c4bc"
+                >
+                  Twój fotograf udostępnił Ci nowy zestaw
+                  <strong style="color: #c9a05a">{{fileCount}}</strong> zdjęć.
+                  Zaloguj się, aby obejrzeć swoją prywatną galerię, wybrać ulubione
+                  kadry i pobrać zdjęcia w najwyższej jakości.
+                </p>
+
+                <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td
-                      align="left"
-                      style="
-                        font:
-                          600 15px/1.4 -apple-system,
-                          BlinkMacSystemFont,
-                          &quot;Segoe UI&quot;,
-                          Roboto,
-                          Arial,
-                          sans-serif;
-                        color: #e5e7eb;
-                      "
-                    >
-                      PhotoDrive
-                    </td>
-                    <td align="right">
-                      <span
-                        style="
-                          display: inline-block;
-                          width: 9px;
-                          height: 9px;
-                          border-radius: 999px;
-                          background-color: #ffffff;
-                          opacity: 0.9;
-                        "
-                      ></span>
-                      <span
-                        style="
-                          display: inline-block;
-                          width: 9px;
-                          height: 9px;
-                          border-radius: 999px;
-                          background-color: #bfdbfe;
-                          opacity: 0.9;
-                          margin-left: 4px;
-                        "
-                      ></span>
+                    <td align="center" bgcolor="#c9a05a" style="border-radius: 6px">
+                      <a
+                        href="https://photodrive.dev/strefa-klienta"
+                        style="display: inline-block; padding: 14px 34px; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; color: #0c0c0b; text-decoration: none; border-radius: 6px"
+                        >Zobacz zdjęcia</a
+                      >
                     </td>
                   </tr>
                 </table>
@@ -122,138 +96,17 @@
             </tr>
 
             <tr>
-              <td class="content-padding" style="padding: 32px 32px 26px 32px">
-                <h1
-                  style="
-                    margin: 0 0 12px 0;
-                    font:
-                      700 24px/1.3 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #111827;
-                  "
-                >
-                  Twoje zdjęcia są gotowe do obejrzenia 📸
-                </h1>
-
+              <td class="px" style="padding: 24px 40px 30px 40px; border-top: 1px solid #2a2a28">
                 <p
-                  style="
-                    margin: 0 0 16px 0;
-                    font:
-                      400 15px/1.7 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #4b5563;
-                  "
-                >
-                  Twój fotograf właśnie udostępnił Ci nowy zestaw {{fileCount}}
-                  zdjęć w usłudze
-                  <strong style="color: #111827">PhotoDrive</strong>.
-                </p>
-
-                <p
-                  style="
-                    margin: 0 0 20px 0;
-                    font:
-                      400 15px/1.7 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #4b5563;
-                  "
-                >
-                  Zaloguj się, aby obejrzeć swoją prywatną galerię, wybrać
-                  ulubione kadry i pobrać zdjęcia w najwyższej jakości.
-                </p>
-
-                <table
-                  role="presentation"
-                  cellpadding="0"
-                  cellspacing="0"
-                  width="100%"
-                  style="margin: 18px 0 26px 0"
-                >
-                  <tr>
-                    <td align="center">
-                      <a
-                        href="https://photodrive.dev/strefa-klienta"
-                        style="
-                          display: inline-block;
-                          padding: 14px 26px;
-                          background-color: #2563eb;
-                          color: #ffffff;
-                          font:
-                            600 15px/1 -apple-system,
-                            BlinkMacSystemFont,
-                            &quot;Segoe UI&quot;,
-                            Roboto,
-                            Arial,
-                            sans-serif;
-                          text-decoration: none;
-                          border-radius: 10px;
-                        "
-                      >
-                        Przejdź do galerii
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-
-                <p
-                  style="
-                    margin: 0 0 6px 0;
-                    font:
-                      500 11px/1.6 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #9ca3af;
-                    text-transform: uppercase;
-                    letter-spacing: 0.16em;
-                  "
-                >
-                  Wiadomość automatyczna
-                </p>
-                <p
-                  style="
-                    margin: 0 0 4px 0;
-                    font:
-                      400 11px/1.7 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #9ca3af;
-                  "
+                  style="margin: 0 0 6px 0; font-family: 'Inter', Arial, sans-serif; font-size: 11px; line-height: 1.6; color: #8a8680"
                 >
                   Jeśli zdjęcia zostały już przejrzane, możesz zignorować tę
                   wiadomość.
                 </p>
                 <p
-                  style="
-                    margin: 4px 0 0 0;
-                    font:
-                      400 11px/1.7 -apple-system,
-                      BlinkMacSystemFont,
-                      &quot;Segoe UI&quot;,
-                      Roboto,
-                      Arial,
-                      sans-serif;
-                    color: #9ca3af;
-                  "
+                  style="margin: 0; font-family: 'Inter', Arial, sans-serif; font-size: 11px; color: #5f5c57"
                 >
-                  2025 PhotoDrive. Wszelkie prawa zastrzeżone.
+                  © 2026 PhotoDrive · Wiadomość automatyczna
                 </p>
               </td>
             </tr>

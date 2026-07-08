@@ -28,6 +28,14 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
+/* Natywne <option> w <select> dziedziczą jasne tło systemowe (biały tekst na białym =
+   nieczytelny wybór klienta). Wymuszamy motyw appki niezależnie od tego, czy Select
+   dostaje opcje propem `options`, czy jako children. */
+select option {
+	background-color: var(--color-surface);
+	color: var(--color-foreground);
+}
+
 ::-webkit-scrollbar {
 	width: 6px;
 }

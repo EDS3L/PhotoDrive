@@ -333,7 +333,7 @@ export default function AdminAlbumDetail() {
 						ref={fileInputRef}
 						type='file'
 						multiple
-						accept='image/*'
+						accept='image/jpeg,image/png'
 						className='hidden'
 						onChange={(e) => e.target.files && handleUpload(e.target.files)}
 					/>
@@ -504,7 +504,7 @@ export default function AdminAlbumDetail() {
 						<Upload className='w-12 h-12 text-accent mx-auto mb-4' />
 						<p className='text-lg font-serif'>Upuść pliki tutaj</p>
 						<p className='text-xs text-muted mt-2'>
-							JPG, PNG, WEBP, TIFF, HEIC (maks. 100MB)
+							JPG, PNG (maks. 100MB)
 						</p>
 					</div>
 				</div>

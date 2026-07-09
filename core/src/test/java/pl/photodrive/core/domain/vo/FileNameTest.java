@@ -18,11 +18,40 @@ class FileNameTest {
     @ValueSource(strings = {
             "photo.jpg",
             "photo.jpeg",
-            "image.png",
-            "animation.gif",
-            "scan.bmp",
+            "image.png"
+    })
+    void shouldCreateFileNameForAllAllowedExtensions(String name) {
+        assertDoesNotThrow(() -> new FileName(name));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"photo.jpg", "photo.jpeg", "image.png"})
+    void shouldCreateWithOfForAllowedFormats(String name) {
+        assertDoesNotThrow(() -> FileName.of(name));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            // Odtworzenie z bazy (konstruktor) toleruje formaty z dawnej, szerszej polityki —
+            // inaczej legacy pliki nie załadowałyby się z DB. Whitelistę egzekwuje dopiero of().
+            "legacy.webp",
+            "old.heic",
+            "scan.tiff",
+            "clip.mp4"
+    })
+    void shouldAcceptLegacyFormatsOnReconstitution(String name) {
+        assertDoesNotThrow(() -> new FileName(name));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            // Formaty obrazów nieczytane przez stock ImageIO (→ null → NPE/500) — odrzucone przy uploadzie
             "picture.webp",
+            "apple.heic",
             "raw.tiff",
+            "scan.bmp",
+            "animation.gif",
+            // Wideo — PhotoDrive to platforma zdjęciowa, nagrania niedozwolone
             "video.mp4",
             "clip.mov",
             "film.avi",
@@ -31,11 +60,10 @@ class FileNameTest {
             "stream.flv",
             "web.webm",
             "encoded.mpeg",
-            "legacy.mpg",
-            "apple.heic"
+            "legacy.mpg"
     })
-    void shouldCreateFileNameForAllAllowedExtensions(String name) {
-        assertDoesNotThrow(() -> new FileName(name));
+    void shouldThrowWhenCreatingNewWithUnreadableImageOrVideoFormat(String name) {
+        assertThrows(FileException.class, () -> FileName.of(name));
     }
 
     @Test
@@ -178,12 +206,12 @@ class FileNameTest {
             "photo.raw"
     })
     void shouldThrowWhenFileNameHasUnsupportedExtension(String name) {
-        assertThrows(FileException.class, () -> new FileName(name));
+        assertThrows(FileException.class, () -> FileName.of(name));
     }
 
     @Test
     void shouldThrowWhenFileNameHasNoExtension() {
-        assertThrows(FileException.class, () -> new FileName("photoWithoutExtension"));
+        assertThrows(FileException.class, () -> FileName.of("photoWithoutExtension"));
     }
 
     @Test

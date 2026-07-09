@@ -6,23 +6,13 @@ import java.util.Set;
 
 public record FileName(String value) {
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".bmp",
-            ".webp",
-            ".tiff",
-            ".mp4",
-            ".mov",
-            ".avi",
-            ".mkv",
-            ".wmv",
-            ".flv",
-            ".webm",
-            ".mpeg",
-            ".mpg",
-            ".heic");
+    // Jedyne źródło prawdy dla dozwolonych formatów NOWYCH plików. PhotoDrive to platforma
+    // ZDJĘCIOWA (bez wideo). Zawężone do formatów realnie czytanych przez stock ImageIO w
+    // JDK, dla których powstają miniatury i działa resize. webp/heic/tiff/bmp/gif oraz wideo
+    // są świadomie odrzucone (brak wsparcia ImageIO → null → NPE/500). Egzekwowane przez
+    // FileName.of(...) przy uploadzie i przez Album (watermark). Odtwarzanie z bazy
+    // (konstruktor) tej listy NIE egzekwuje — legacy pliki muszą się nadal załadować.
+    public static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png");
 
     private static final Set<String> FORBIDDEN_EXTENSIONS = Set.of(".exe",
             ".bat",
@@ -59,15 +49,25 @@ public record FileName(String value) {
             "LPT8",
             "LPT9");
 
+    // Konstruktor (używany też przy odtwarzaniu z DB/FS): walidacja strukturalna + zakaz
+    // plików wykonywalnych. NIE egzekwuje białej listy formatów.
     public FileName {
         validate(value);
+    }
+
+    // Utworzenie NOWEGO pliku (upload) — dodatkowo egzekwuje białą listę formatów
+    // (tylko zdjęcia jpg/jpeg/png). Odtwarzanie z magazynu jej nie przechodzi.
+    public static FileName of(String value) {
+        FileName fileName = new FileName(value);
+        validateAllowedFormat(value);
+        return fileName;
     }
 
     private static void validate(String value) {
         validateNotEmpty(value);
         validateIllegalCharacters(value);
         validateReservedNames(value);
-        validateExtensions(value);
+        validateNotForbidden(value);
     }
 
     private static void validateNotEmpty(String value) {
@@ -101,13 +101,15 @@ public record FileName(String value) {
         }
     }
 
-    private static void validateExtensions(String value) {
+    private static void validateNotForbidden(String value) {
         String lower = value.toLowerCase();
-
         if (FORBIDDEN_EXTENSIONS.stream().anyMatch(lower::endsWith)) {
             throw new FileException("Executable files are not allowed");
         }
+    }
 
+    private static void validateAllowedFormat(String value) {
+        String lower = value.toLowerCase();
         if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
             throw new FileException("Invalid or unsupported file format");
         }

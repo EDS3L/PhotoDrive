@@ -343,6 +343,10 @@ public class AlbumManagementService {
 
     private Resource resizeFile(Resource originalResource, Integer width, Integer height) throws IOException {
         BufferedImage image = ImageIO.read(originalResource.getInputStream());
+
+        if (image == null) {
+            return originalResource;
+        }
         
         int originalWidth = image.getWidth();
         int originalHeight = image.getHeight();

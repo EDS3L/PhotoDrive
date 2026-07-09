@@ -257,7 +257,7 @@ public class AlbumController {
             try {
                 String tempId = temporaryStorageService.saveTemporary(file.getInputStream());
                 fileUploads.add(new FileUpload(
-                        new FileName(file.getOriginalFilename()),
+                        FileName.of(file.getOriginalFilename()),
                         file.getSize(),
                         file.getContentType(),
                         tempId));

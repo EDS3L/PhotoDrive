@@ -25,15 +25,6 @@ public class Album {
     private Map<FileId, File> photos = new LinkedHashMap<>();
     private final AlbumPath albumPath;
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg",
-            ".jpeg",
-            ".png",
-            ".bmp",
-            ".webp",
-            ".tiff",
-            ".heic");
-
-
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath, boolean isPublic) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
         if (photographId == null) throw new AlbumException("Photograph name cannot be null!");
@@ -294,8 +285,6 @@ public class Album {
                 throw new AlbumException("File not found: " + fileId.value());
             }
 
-            // Idempotentnie: pomijamy pliki już w docelowym stanie. Dodatkowo chroni to
-            // przed ponownym watermarkiem tego samego pliku (podwójna kompresja/wypalenie).
             if (hasWatermark) {
                 if (!file.isHasWatermark()) {
                     validateExtensions(file);
@@ -315,7 +304,7 @@ public class Album {
         String fileName = file.getFileName().value();
         String lower = fileName.toLowerCase();
 
-        if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
+        if (FileName.ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
             throw new FileException("Invalid or unsupported file format");
         }
     }

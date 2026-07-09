@@ -317,7 +317,7 @@ export default function PhotographerAlbumDetail() {
 						ref={fileInputRef}
 						type='file'
 						multiple
-						accept='image/*'
+						accept='image/jpeg,image/png'
 						className='hidden'
 						onChange={(e) => e.target.files && handleUpload(e.target.files)}
 					/>

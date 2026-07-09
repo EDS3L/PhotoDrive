@@ -4,12 +4,14 @@ import { getApiErrorMessage } from '@/lib/queryClient';
 
 // Upload w paczkach: każda paczka to osobny request, a jego odpowiedź = pliki
 // realnie zapisane na dysku VPS (osobna transakcja + commit po stronie backendu).
-// Dzięki temu pasek postępu odzwierciedla NIE TYLKO wysyłkę bajtów, ale też zapis.
-// Mniejsze requesty odciążają też słaby VPS (przetwarzanie jest synchroniczne,
-// w pamięci — patrz B.26) i sprawiają, że błąd jednej paczki nie gubi wszystkiego
-// (wcześniejsze paczki są już zapisane).
-const MAX_FILES_PER_CHUNK = 5;
-const MAX_BYTES_PER_CHUNK = 40 * 1024 * 1024;
+// Dzięki temu pasek postępu odzwierciedla NIE TYLKO wysyłkę bajtów, ale też zapis,
+// a błąd jednej paczki nie gubi wszystkiego (wcześniejsze paczki są już zapisane).
+// Paczka: max liczba plików LUB max sumaryczny rozmiar (co pierwsze). Większe paczki
+// = mniej round-tripów = szybciej (mniej martwego czasu między requestami). Spring
+// zapisuje części multipart na dysk (file-size-threshold=0), więc rozmiar paczki nie
+// obciąża mocno pamięci backendu; główny koszt = sekwencyjna generacja miniatur.
+const MAX_FILES_PER_CHUNK = 20;
+const MAX_BYTES_PER_CHUNK = 100 * 1024 * 1024;
 
 // Podział paska: połowa na transfer bajtów, połowa na potwierdzony zapis na serwerze.
 // 100% osiągane dopiero, gdy WSZYSTKIE bajty wysłane I wszystkie pliki zapisane.

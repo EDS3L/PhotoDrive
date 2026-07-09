@@ -41,7 +41,8 @@ import {
 } from '../../api/photographerApi';
 import { useSwapWithRename } from '../../hooks/useSwapWithRename';
 import { usePhotoSelection } from '../../hooks/usePhotoSelection';
-import { useChunkedUpload } from '../../hooks/useChunkedUpload';
+import { useUploadWithCollisionCheck } from '../../hooks/useUploadWithCollisionCheck';
+import { UploadCollisionDialog } from '../../components/shared/UploadCollisionDialog';
 import { queryClient } from '@/lib/queryClient';
 import type { FileDto } from '@/shared/types/api';
 
@@ -75,7 +76,8 @@ export default function PhotographerAlbumDetail() {
 	const [dragging, setDragging] = useState(false);
 	// Upload w paczkach: pasek liczy wysyłkę bajtów + potwierdzony zapis na VPS,
 	// steruje też guardem „nie zamykaj karty". null = brak aktywnego uploadu.
-	const uploadFlow = useChunkedUpload({
+	const uploadFlow = useUploadWithCollisionCheck({
+		getFileNames: getAlbumFileNames,
 		upload: (files, onProgress) => uploadFiles(albumId ?? '', files, onProgress),
 		onComplete: () =>
 			queryClient.invalidateQueries({
@@ -139,7 +141,7 @@ export default function PhotographerAlbumDetail() {
 	const handleUpload = useCallback(
 		(files: FileList | File[]) => {
 			if (!albumId) return;
-			uploadFlow.start(Array.from(files));
+			uploadFlow.begin(albumId, Array.from(files));
 		},
 		[albumId, uploadFlow],
 	);
@@ -811,6 +813,16 @@ export default function PhotographerAlbumDetail() {
 				onConfirm={swapFlow.confirm}
 				onCancel={swapFlow.cancel}
 				isPending={swapFlow.isSubmitting}
+			/>
+
+			{/* Kolizja nazw przy uploadzie — zmiana nazwy lub pominięcie pliku */}
+			<UploadCollisionDialog
+				open={!!uploadFlow.collisions}
+				collisions={uploadFlow.collisions ?? []}
+				onSetAction={uploadFlow.setAction}
+				onSetName={uploadFlow.setNewName}
+				onConfirm={uploadFlow.resolve}
+				onCancel={uploadFlow.cancel}
 			/>
 		</div>
 	);

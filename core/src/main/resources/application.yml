@@ -44,6 +44,9 @@ server:
     max-swallow-size: -1
     max-http-form-post-size: -1
     max-save-post-size: -1
+    # Limit liczby czesci multipart (Tomcat 10.1.42+, CVE-2025-48988; domyslnie 10/50).
+    # -1 = bez limitu, spojnie z reszta limitow uploadu (uploady tylko dla ADMIN/PHOTOGRAPHER).
+    max-part-count: -1
 
 jwt:
   secret: ${TOKEN_SECRETKEY}

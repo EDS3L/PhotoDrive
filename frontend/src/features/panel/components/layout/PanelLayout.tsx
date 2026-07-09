@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
-import { usePanelAuthStore } from '../../store/panelAuthStore';
+import { usePanelAuthStore, resolveRole } from '../../store/panelAuthStore';
 import { usePanelMe } from '../../hooks/usePanelAuth';
 import { changePassword } from '../../api/panelAuthApi';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
@@ -15,8 +15,7 @@ interface PanelLayoutProps {
 
 export function PanelLayout({ requiredRole }: PanelLayoutProps) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
-	const { isAuthenticated, role, loginPassword, setLoginPassword } =
-		usePanelAuthStore();
+	const { loginPassword, setLoginPassword } = usePanelAuthStore();
 	const { data: me, isLoading, isError, refetch } = usePanelMe();
 
 	if (isLoading) {
@@ -27,12 +26,17 @@ export function PanelLayout({ requiredRole }: PanelLayoutProps) {
 		);
 	}
 
-	if (isError || !isAuthenticated) {
+	// Uwierzytelnienie i rolę bierzemy WPROST z `me` (query.data), nie z Zustanda.
+	// Store jest zasilany dopiero w useEffect (usePanelMe) PO rozwiązaniu query, więc
+	// poleganie na nim dawało render z `isLoading=false`, ale pustym store → błędny
+	// redirect na /panel-login, a stamtąd PanelLoginPage odsyłał na dashboard
+	// (gubienie bieżącej podstrony po F5 — B.23).
+	if (isError || !me) {
 		return <Navigate to='/panel-login' replace />;
 	}
 
 	// Wymuszona zmiana hasła startowego — zanim wpuścimy do panelu (dowolnej trasy).
-	if (me?.changePasswordOnNextLogin) {
+	if (me.changePasswordOnNextLogin) {
 		return (
 			<ForcePasswordChange
 				userId={me.id}
@@ -46,6 +50,7 @@ export function PanelLayout({ requiredRole }: PanelLayoutProps) {
 		);
 	}
 
+	const role = resolveRole(me.roles);
 	if (requiredRole && role !== requiredRole) {
 		const redirect = role === 'ADMIN' ? '/admin' : '/photographer';
 		return <Navigate to={redirect} replace />;

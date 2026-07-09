@@ -110,6 +110,13 @@ export default function PhotographerAlbumDetail() {
 	const allSelected =
 		orderedIds.length > 0 && orderedIds.every((id) => selected.has(id));
 
+	// B.19: chowamy akcje wsadowe nieadekwatne do zaznaczenia (na bazie idempotencji A4).
+	const selectedFiles =
+		album?.files.filter((f) => selected.has(f.fileID)) ?? [];
+	const canShowSelected = selectedFiles.some((f) => !f.visible);
+	const canHideSelected = selectedFiles.some((f) => f.visible);
+	const canWatermarkSelected = selectedFiles.some((f) => !f.hasWatermark);
+
 	const otherAlbums = useMemo(
 		() => albums?.filter((a) => a.albumId !== albumId) ?? [],
 		[albums, albumId],
@@ -388,26 +395,32 @@ export default function PhotographerAlbumDetail() {
 							<span className='text-xs text-muted'>
 								Zaznaczono {selected.size}
 							</span>
-							<Button
-								variant='ghost'
-								size='sm'
-								onClick={() => handleBatchVisibility(true)}
-							>
-								<Eye className='w-3.5 h-3.5 mr-1' />
-								Pokaż
-							</Button>
-							<Button
-								variant='ghost'
-								size='sm'
-								onClick={() => handleBatchVisibility(false)}
-							>
-								<EyeOff className='w-3.5 h-3.5 mr-1' />
-								Ukryj
-							</Button>
-							<Button variant='ghost' size='sm' onClick={handleBatchWatermark}>
-								<Droplets className='w-3.5 h-3.5 mr-1' />
-								Watermark
-							</Button>
+							{canShowSelected && (
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => handleBatchVisibility(true)}
+								>
+									<Eye className='w-3.5 h-3.5 mr-1' />
+									Pokaż
+								</Button>
+							)}
+							{canHideSelected && (
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => handleBatchVisibility(false)}
+								>
+									<EyeOff className='w-3.5 h-3.5 mr-1' />
+									Ukryj
+								</Button>
+							)}
+							{canWatermarkSelected && (
+								<Button variant='ghost' size='sm' onClick={handleBatchWatermark}>
+									<Droplets className='w-3.5 h-3.5 mr-1' />
+									Watermark
+								</Button>
+							)}
 							<Button
 								variant='ghost'
 								size='sm'

@@ -13,7 +13,7 @@ interface PanelAuthState {
 	clear: () => void;
 }
 
-function resolveRole(roles: string[]): PanelRole | null {
+export function resolveRole(roles: string[]): PanelRole | null {
 	if (roles.includes('ADMIN')) return 'ADMIN';
 	if (roles.includes('PHOTOGRAPHER')) return 'PHOTOGRAPHER';
 	return null;

@@ -23,10 +23,10 @@ import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { SwapRenameDialog } from '../../components/shared/SwapRenameDialog';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { UploadProgress } from '../../components/shared/UploadProgress';
 import {
 	useAdminAlbums,
 	useDeleteAlbum,
-	useUploadFiles,
 	useRemoveFiles,
 	useSetFilesVisible,
 	useAddWatermark,
@@ -36,9 +36,11 @@ import {
 	useSetAlbumTtd,
 	useDownloadAlbum,
 } from '../../hooks/useAdminAlbums';
-import { getPhotoUrl, getAlbumFileNames } from '../../api/adminApi';
+import { getPhotoUrl, getAlbumFileNames, uploadFiles } from '../../api/adminApi';
 import { useSwapWithRename } from '../../hooks/useSwapWithRename';
 import { usePhotoSelection } from '../../hooks/usePhotoSelection';
+import { useChunkedUpload } from '../../hooks/useChunkedUpload';
+import { queryClient } from '@/lib/queryClient';
 import type { AlbumDto, FileDto } from '@/shared/types/api';
 
 type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
@@ -53,7 +55,6 @@ export default function AdminAlbumDetail() {
 	const { data: albums, isLoading } = useAdminAlbums();
 	const album = albums?.find((a) => a.albumId === albumId);
 
-	const uploadMutation = useUploadFiles();
 	const removeMutation = useRemoveFiles();
 	const visibilityMutation = useSetFilesVisible();
 	const watermarkMutation = useAddWatermark();
@@ -75,6 +76,13 @@ export default function AdminAlbumDetail() {
 	const [batchMode, setBatchMode] = useState(false);
 	const [visFilter, setVisFilter] = useState<VisibilityFilter>('ALL');
 	const [dragging, setDragging] = useState(false);
+	// Upload w paczkach: pasek liczy wysyłkę bajtów + potwierdzony zapis na VPS,
+	// steruje też guardem „nie zamykaj karty". null = brak aktywnego uploadu.
+	const uploadFlow = useChunkedUpload({
+		upload: (files, onProgress) => uploadFiles(albumId ?? '', files, onProgress),
+		onComplete: () =>
+			queryClient.invalidateQueries({ queryKey: ['panel', 'admin-albums'] }),
+	});
 	const [contextMenu, setContextMenu] = useState<{
 		file: FileDto;
 		x: number;
@@ -135,10 +143,9 @@ export default function AdminAlbumDetail() {
 	const handleUpload = useCallback(
 		(files: FileList | File[]) => {
 			if (!albumId) return;
-			const arr = Array.from(files);
-			uploadMutation.mutate({ albumId, files: arr });
+			uploadFlow.start(Array.from(files));
 		},
-		[albumId, uploadMutation],
+		[albumId, uploadFlow],
 	);
 
 	const handleDrop = (e: DragEvent) => {
@@ -510,13 +517,8 @@ export default function AdminAlbumDetail() {
 				</div>
 			)}
 
-			{/* Upload progress */}
-			{uploadMutation.isPending && (
-				<div className='mb-4 p-4 bg-surface border border-border flex items-center gap-3'>
-					<Loader2 className='w-5 h-5 text-accent animate-spin' />
-					<span className='text-sm'>Przesyłanie zdjęć...</span>
-				</div>
-			)}
+			{/* Upload progress (bajty + zapis na VPS) + ostrzeżenie „nie zamykaj karty" */}
+			<UploadProgress state={uploadFlow.state} />
 
 			{/* Photo grid */}
 			{filteredFiles.length === 0 ? (

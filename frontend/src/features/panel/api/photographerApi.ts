@@ -60,11 +60,16 @@ export async function deleteAlbum(albumId: string): Promise<void> {
 export async function uploadFiles(
 	albumId: string,
 	files: File[],
+	onProgress?: (percent: number) => void,
 ): Promise<void> {
 	const formData = new FormData();
 	files.forEach((file) => formData.append('files', file));
 	await apiClient.post(`/album/upload/${albumId}/files`, formData, {
 		headers: { 'Content-Type': 'multipart/form-data' },
+		onUploadProgress: (e) => {
+			if (!onProgress || !e.total) return;
+			onProgress(Math.round((e.loaded / e.total) * 100));
+		},
 	});
 }
 

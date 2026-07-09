@@ -22,10 +22,10 @@ import { Modal } from '../../components/shared/Modal';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { SwapRenameDialog } from '../../components/shared/SwapRenameDialog';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner';
+import { UploadProgress } from '../../components/shared/UploadProgress';
 import {
 	usePhotographerAlbums,
 	useDeleteAlbum,
-	useUploadFiles,
 	useRemoveFiles,
 	useSetFilesVisible,
 	useAddWatermark,
@@ -34,9 +34,15 @@ import {
 	useSetAlbumTtd,
 	useDownloadAlbum,
 } from '../../hooks/usePhotographerAlbums';
-import { getPhotoUrl, getAlbumFileNames } from '../../api/photographerApi';
+import {
+	getPhotoUrl,
+	getAlbumFileNames,
+	uploadFiles,
+} from '../../api/photographerApi';
 import { useSwapWithRename } from '../../hooks/useSwapWithRename';
 import { usePhotoSelection } from '../../hooks/usePhotoSelection';
+import { useChunkedUpload } from '../../hooks/useChunkedUpload';
+import { queryClient } from '@/lib/queryClient';
 import type { FileDto } from '@/shared/types/api';
 
 type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
@@ -47,7 +53,6 @@ export default function PhotographerAlbumDetail() {
 	const { data: albums, isLoading } = usePhotographerAlbums();
 	const album = albums?.find((a) => a.albumId === albumId);
 
-	const uploadMutation = useUploadFiles();
 	const removeMutation = useRemoveFiles();
 	const visibilityMutation = useSetFilesVisible();
 	const watermarkMutation = useAddWatermark();
@@ -68,6 +73,15 @@ export default function PhotographerAlbumDetail() {
 	const [batchMode, setBatchMode] = useState(false);
 	const [visFilter, setVisFilter] = useState<VisibilityFilter>('ALL');
 	const [dragging, setDragging] = useState(false);
+	// Upload w paczkach: pasek liczy wysyłkę bajtów + potwierdzony zapis na VPS,
+	// steruje też guardem „nie zamykaj karty". null = brak aktywnego uploadu.
+	const uploadFlow = useChunkedUpload({
+		upload: (files, onProgress) => uploadFiles(albumId ?? '', files, onProgress),
+		onComplete: () =>
+			queryClient.invalidateQueries({
+				queryKey: ['panel', 'photographer-albums'],
+			}),
+	});
 	const [contextMenu, setContextMenu] = useState<{
 		file: FileDto;
 		x: number;
@@ -125,9 +139,9 @@ export default function PhotographerAlbumDetail() {
 	const handleUpload = useCallback(
 		(files: FileList | File[]) => {
 			if (!albumId) return;
-			uploadMutation.mutate({ albumId, files: Array.from(files) });
+			uploadFlow.start(Array.from(files));
 		},
-		[albumId, uploadMutation],
+		[albumId, uploadFlow],
 	);
 
 	const handleDrop = (e: DragEvent) => {
@@ -473,13 +487,8 @@ export default function PhotographerAlbumDetail() {
 				</div>
 			)}
 
-			{/* Upload progress */}
-			{uploadMutation.isPending && (
-				<div className='mb-4 p-4 bg-surface border border-border flex items-center gap-3'>
-					<Loader2 className='w-5 h-5 text-accent animate-spin' />
-					<span className='text-sm'>Przesyłanie zdjęć...</span>
-				</div>
-			)}
+			{/* Upload progress (bajty + zapis na VPS) + ostrzeżenie „nie zamykaj karty" */}
+			<UploadProgress state={uploadFlow.state} />
 
 			{/* Photo grid */}
 			{filteredFiles.length === 0 ? (

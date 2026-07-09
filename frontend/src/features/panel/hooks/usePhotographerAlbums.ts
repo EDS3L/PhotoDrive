@@ -6,7 +6,6 @@ import {
 	createClientAlbum,
 	setAlbumTtd,
 	deleteAlbum,
-	uploadFiles,
 	removeFiles,
 	setFilesVisible,
 	addWatermark,
@@ -58,16 +57,6 @@ export function useDeleteAlbum() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['panel', 'photographer-albums'] });
 			queryClient.invalidateQueries({ queryKey: ['panel', 'photographer-albums-no-ttd'] });
-		},
-	});
-}
-
-export function useUploadFiles() {
-	return useMutation({
-		mutationFn: ({ albumId, files }: { albumId: string; files: File[] }) =>
-			uploadFiles(albumId, files),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['panel', 'photographer-albums'] });
 		},
 	});
 }

@@ -1,8 +1,11 @@
 package pl.photodrive.core.application.port.file;
 
+import org.springframework.core.io.Resource;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 
 public interface FileStoragePort {
     void createPhotographerFolder(String photographerEmail);
@@ -17,11 +20,22 @@ public interface FileStoragePort {
 
     void renameFile(String path, String oldName, String newName);
 
-    byte[] createZipArchive(String albumPath, List<String> fileNames);
+    // watermarkCacheKeys: nazwa pliku -> klucz cache (fileId-wersjaLoga) dla plików, które
+    // w ZIP-ie mają iść w wersji watermarkowanej (pobieranie klienta); pusta mapa = same oryginały.
+    byte[] createZipArchive(String albumPath, List<String> fileNames, Map<String, String> watermarkCacheKeys, byte[] watermarkPng);
 
     void deleteFolder(String albumPath);
 
-    void addWatermark(String path);
+    /**
+     * Zwraca watermarkowaną wersję zdjęcia: z cache ({storage}/.cache/watermark/{cacheKey}-{wariant}),
+     * a przy braku — komponuje kafelki w locie z oryginału/miniatury i zapisuje do cache.
+     * Cache jest jednorazowego użytku (klucz po fileId+wersji loga) — można go skasować w każdej chwili.
+     * Oryginał na dysku pozostaje nietknięty.
+     */
+    Resource getOrCreateWatermarkedPhoto(String albumPath, String fileName, String cacheKey, boolean thumbnail, byte[] watermarkPng);
+
+    /** Czyści cały cache watermarkowanych wersji (wołane przy podmianie/usunięciu loga). */
+    void clearWatermarkCache();
 
     void swapFile(String albumPath, String targetPath, String fileName);
 }

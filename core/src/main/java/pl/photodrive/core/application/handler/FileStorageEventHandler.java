@@ -9,7 +9,6 @@ import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
-import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,9 +45,4 @@ public class FileStorageEventHandler {
 
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    public void handleChangeWatermarkStatus(WatermarkAddedToPhoto event) {
-        log.info("[FileStorageEventHandler] Change watermark status: {}", event);
-        fileStoragePort.addWatermark(event.path());
-    }
 }

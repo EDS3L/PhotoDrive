@@ -269,9 +269,16 @@ public class Album {
 
     }
 
-    public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList) {
+    // Flaga hasWatermark to JEDYNA prawda o watermarku — wersje watermarkowane są
+    // komponowane w locie przy serwowaniu (cache po fileId), więc toggle nie wykonuje
+    // żadnych operacji plikowych ani nie rejestruje zdarzeń.
+    public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList, boolean watermarkConfigured) {
         if (!canManageFiles(user)) {
             throw new AlbumException("User is not allowed to change file visibility");
+        }
+
+        if (hasWatermark && !watermarkConfigured) {
+            throw new AlbumException("Platform watermark is not configured — upload a watermark first");
         }
 
         if (fileIdList.size() > 15) {
@@ -289,7 +296,6 @@ public class Album {
                 if (!file.isHasWatermark()) {
                     validateExtensions(file);
                     file.setWaterMark();
-                    this.registerEvent(new WatermarkAddedToPhoto(this.albumPath.value() + "/" + file.getFileName().value()));
                 }
             } else {
                 if (file.isHasWatermark()) {

@@ -23,4 +23,6 @@ public interface FileJpaRepository extends JpaRepository<FileEntity, FileIdEmbed
             """)
     long countBySizeBytes();
 
+    long countByHasWatermarkTrue();
+
 }

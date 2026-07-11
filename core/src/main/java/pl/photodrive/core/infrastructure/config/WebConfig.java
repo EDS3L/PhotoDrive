@@ -78,6 +78,10 @@ public class WebConfig {
                         .requestMatchers("/api/user/*/assignUsers").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/removeUsers").hasRole("ADMIN")
                         .requestMatchers("/api/album/*/setPublic").hasRole("ADMIN")
+                        // Status watermarku czyta też fotograf (steruje widocznością akcji w UI);
+                        // zarządzanie samym logiem (GET/PUT/DELETE /api/watermark) tylko ADMIN.
+                        .requestMatchers("/api/watermark/status").hasAnyRole("ADMIN", "PHOTOGRAPHER")
+                        .requestMatchers("/api/watermark", "/api/watermark/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/changePassword").authenticated()
                         .requestMatchers("/api/user/*/changeEmail").authenticated()
                         .requestMatchers("/api/user/me").authenticated()

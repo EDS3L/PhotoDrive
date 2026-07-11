@@ -3,6 +3,8 @@ package pl.photodrive.core.infrastructure.storage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
@@ -13,6 +15,7 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +26,8 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Semaphore;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -37,6 +42,24 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     @Value("${storage.dir}")
     private Path baseDirectory;
+
+    private static final String THUMB_DIR = ".thumbnails";
+    // Cache watermarkowanych wersji — jednorazowego użytku (klucz po fileId+wersji loga),
+    // można skasować w każdej chwili; NIE wymaga synchronizacji z bazą ani obsługi
+    // przy rename/swap/delete (osierocone wpisy są nieszkodliwe).
+    private static final String WATERMARK_CACHE_DIR = ".cache/watermark";
+
+    // Pełnowymiarowa kompozycja to dekod całego zdjęcia (~100-200 MB RAM dla 24MP) —
+    // na słabym VPS ograniczamy do jednej naraz; miniatury (600px) są tanie i idą bez limitu.
+    private static final Semaphore FULL_COMPOSE_PERMIT = new Semaphore(1);
+
+    // Watermark = kafelki po całości (nie da się wykadrować). Rozmiar kafla liczony
+    // względem SZEROKOŚCI ZDJĘCIA (spójny na każdej rozdzielczości), na skos, niskie krycie.
+    private static final float WATERMARK_ALPHA = 0.20f;
+    private static final double WATERMARK_TILE_WIDTH_RATIO = 0.18; // szerokość kafla = % szer. zdjęcia
+    private static final double WATERMARK_ANGLE_DEG = -30.0;
+    private static final double WATERMARK_GAP_X_RATIO = 0.8; // odstęp poziomy = % szer. kafla
+    private static final double WATERMARK_GAP_Y_RATIO = 2.0; // odstęp pionowy = % wys. kafla
 
     @Override
     public void createPhotographerFolder(String photographerEmail) {
@@ -174,10 +197,7 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             Files.delete(filePath);
-            Path thumbPath = filePath.getParent().resolve(".thumbnails").resolve(fileName);
-            if (Files.exists(thumbPath)) {
-                Files.delete(thumbPath);
-            }
+            deleteQuietly(filePath.getParent().resolve(THUMB_DIR).resolve(fileName));
         } catch (IOException e) {
             throw new StorageException("Failed to delete file: " + fileName, e);
         }
@@ -199,11 +219,8 @@ public class LocalStorageAdapter implements FileStoragePort {
 
             Files.move(filePath, targetPath);
 
-            Path oldThumbPath = filePath.getParent().resolve(".thumbnails").resolve(oldName);
-            if (Files.exists(oldThumbPath)) {
-                Path newThumbPath = targetPath.getParent().resolve(".thumbnails").resolve(newName);
-                Files.move(oldThumbPath, newThumbPath);
-            }
+            Path thumbDir = filePath.getParent().resolve(THUMB_DIR);
+            moveIfExists(thumbDir.resolve(oldName), thumbDir.resolve(newName));
         } catch (IOException e) {
             throw new StorageException("Failed to rename file: " + path, e);
         }
@@ -211,7 +228,7 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
-    public byte[] createZipArchive(String albumPath, List<String> fileNames) {
+    public byte[] createZipArchive(String albumPath, List<String> fileNames, Map<String, String> watermarkCacheKeys, byte[] watermarkPng) {
         Path albumDir = resolveAndValidate(albumPath);
 
         if (!Files.isDirectory(albumDir)) {
@@ -225,13 +242,29 @@ public class LocalStorageAdapter implements FileStoragePort {
                     continue;
                 }
 
+                // Pliki oznaczone watermarkiem idą w wersji watermarkowanej (klient nigdy
+                // nie dostaje czystego oryginału) — z cache albo komponowane teraz.
+                if (watermarkCacheKeys != null && watermarkCacheKeys.containsKey(fileName)) {
+                    Resource watermarked = getOrCreateWatermarkedPhoto(albumPath,
+                            fileName,
+                            watermarkCacheKeys.get(fileName),
+                            false,
+                            watermarkPng);
+                    zos.putNextEntry(new ZipEntry(fileName));
+                    try (InputStream in = watermarked.getInputStream()) {
+                        in.transferTo(zos);
+                    }
+                    zos.closeEntry();
+                    continue;
+                }
+
                 Path filePath = resolveAndValidate(albumPath, fileName);
 
                 if (!Files.isRegularFile(filePath)) {
                     continue;
                 }
 
-                ZipEntry entry = new ZipEntry(filePath.getFileName().toString());
+                ZipEntry entry = new ZipEntry(fileName);
                 zos.putNextEntry(entry);
                 Files.copy(filePath, zos);
                 zos.closeEntry();
@@ -276,61 +309,165 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
-    public void addWatermark(String path) {
-        String WATERMARK_PATH = baseDirectory + "/" + "watermark" + "/" + "watermark.png";
-
-        Path sourcePath = resolveAndValidate(path);
-        File sourceFile = sourcePath.toFile();
-        log.info("Adding source: {}", sourceFile.getPath());
-        File watermarkFile = new File(WATERMARK_PATH);
-        log.info("Adding watermark: {}", watermarkFile.getPath());
-
-        if (!sourceFile.exists() || !watermarkFile.exists()) {
-            throw new StorageException("File not found: " + path);
+    public Resource getOrCreateWatermarkedPhoto(String albumPath, String fileName, String cacheKey, boolean thumbnail, byte[] watermarkPng) {
+        String variant = thumbnail ? "thumb" : "full";
+        String extension = fileName.toLowerCase().endsWith(".png") ? "png" : "jpg";
+        Path cacheDir = baseDirectory.resolve(WATERMARK_CACHE_DIR).normalize();
+        Path cacheFile = cacheDir.resolve(cacheKey + "-" + variant + "." + extension).normalize();
+        if (!cacheFile.startsWith(baseDirectory)) {
+            throw new SecurityException("Invalid watermark cache key");
         }
 
-        float alpha = 0.9f;
-
         try {
-            BufferedImage image = ImageIO.read(sourceFile);
-            BufferedImage watermarkImage = ImageIO.read(watermarkFile);
-
-            String originalFormat = getImageFormat(sourceFile);
-
-            Graphics2D g2d = image.createGraphics();
-
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-
-            double scaleFactor = 3.0;
-
-            int imageWidth = image.getWidth();
-            int imageHeight = image.getHeight();
-            int watermarkWidth = (int) (watermarkImage.getWidth() * scaleFactor);
-            int watermarkHeight = (int) (watermarkImage.getHeight() * scaleFactor);
-
-            int marginX = (int) (imageWidth * 0.10);
-            int marginY = (int) (imageHeight * 0.10);
-            int x = imageWidth - watermarkWidth - marginX;
-            int y = imageHeight - watermarkHeight - marginY;
-
-            g2d.drawImage(watermarkImage, x, y, watermarkWidth, watermarkHeight, null);
-            g2d.dispose();
-
-            File outputFile = resolveAndValidate(path).toFile();
-
-            if ("jpg".equalsIgnoreCase(originalFormat) || "jpeg".equalsIgnoreCase(originalFormat)) {
-                saveAsJPEG(image, outputFile, 0.9f);
-            } else {
-                ImageIO.write(image, originalFormat, outputFile);
+            if (Files.exists(cacheFile)) {
+                return new UrlResource(cacheFile.toUri());
             }
 
-            log.info("Successfully added watermark: {}", path);
+            // Miniatura komponowana z istniejącego thumba (600px — tanio); pełna z oryginału.
+            Path original = resolveAndValidate(albumPath, fileName);
+            Path source = original;
+            if (thumbnail) {
+                Path thumbSource = original.getParent().resolve(THUMB_DIR).resolve(fileName);
+                if (Files.exists(thumbSource)) {
+                    source = thumbSource;
+                }
+            }
+            if (!Files.isRegularFile(source)) {
+                throw new StorageException("File not found: " + albumPath + "/" + fileName);
+            }
+
+            if (!thumbnail) {
+                FULL_COMPOSE_PERMIT.acquireUninterruptibly();
+            }
+            try {
+                // Ktoś mógł skomponować, gdy czekaliśmy na semafor.
+                if (Files.exists(cacheFile)) {
+                    return new UrlResource(cacheFile.toUri());
+                }
+                composeToCache(source, cacheFile, extension, watermarkPng);
+            } finally {
+                if (!thumbnail) {
+                    FULL_COMPOSE_PERMIT.release();
+                }
+            }
+
+            return new UrlResource(cacheFile.toUri());
         } catch (IOException e) {
-            throw new StorageException("Failed to add watermark to file", e);
+            throw new StorageException("Failed to create watermarked photo: " + fileName, e);
+        }
+    }
+
+    // Kompozycja kafelków + atomiczny zapis do cache (temp + move), by współbieżny
+    // odczyt nie zobaczył połowicznie zapisanego pliku.
+    private void composeToCache(Path source, Path cacheFile, String extension, byte[] watermarkPng) throws IOException {
+        if (watermarkPng == null || watermarkPng.length == 0) {
+            throw new StorageException("No watermark image provided");
+        }
+
+        BufferedImage image = ImageIO.read(source.toFile());
+        BufferedImage watermarkImage = ImageIO.read(new ByteArrayInputStream(watermarkPng));
+        if (image == null || watermarkImage == null) {
+            throw new StorageException("Failed to read image for watermark: " + source.getFileName());
+        }
+
+        drawWatermark(image, watermarkImage);
+
+        Files.createDirectories(cacheFile.getParent());
+        Path tempFile = Files.createTempFile(cacheFile.getParent(), "compose-", ".tmp");
+        try {
+            writeImage(image, extension, tempFile.toFile());
+            try {
+                Files.move(tempFile, cacheFile, ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tempFile, cacheFile, REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            deleteQuietly(tempFile);
+            throw e;
+        }
+        log.info("Composed watermarked variant into cache: {}", cacheFile.getFileName());
+    }
+
+    @Override
+    public void clearWatermarkCache() {
+        Path cacheDir = baseDirectory.resolve(WATERMARK_CACHE_DIR).normalize();
+        if (!Files.exists(cacheDir)) {
+            return;
+        }
+        try {
+            Files.walk(cacheDir).sorted(Comparator.reverseOrder()).forEach(this::deleteQuietly);
+            log.info("Cleared watermark cache");
+        } catch (IOException e) {
+            log.warn("Failed to clear watermark cache", e);
+        }
+    }
+
+    /**
+     * Nakłada znak wodny jako KAFELKI po całej powierzchni (na skos, niskie krycie) —
+     * nie da się wykadrować. Rozmiar kafla liczony względem szerokości zdjęcia, więc
+     * wygląda tak samo na oryginale i na miniaturze (miniatura powstaje z owatermarkowanego
+     * obrazu). Mutuje przekazany obraz w miejscu.
+     */
+    private void drawWatermark(BufferedImage image, BufferedImage watermarkImage) {
+        int imageWidth = image.getWidth();
+        int imageHeight = image.getHeight();
+
+        int tileWidth = Math.max(1, (int) (imageWidth * WATERMARK_TILE_WIDTH_RATIO));
+        int tileHeight = Math.max(1,
+                (int) ((double) watermarkImage.getHeight() / watermarkImage.getWidth() * tileWidth));
+
+        Graphics2D g2d = image.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, WATERMARK_ALPHA));
+
+        // Obrót całej siatki wokół środka — kafle idą na skos.
+        g2d.rotate(Math.toRadians(WATERMARK_ANGLE_DEG), imageWidth / 2.0, imageHeight / 2.0);
+
+        int stepX = tileWidth + (int) (tileWidth * WATERMARK_GAP_X_RATIO);
+        int stepY = tileHeight + (int) (tileHeight * WATERMARK_GAP_Y_RATIO);
+
+        // Po obrocie trzeba pokryć obszar większy niż zdjęcie (przekątna z zapasem).
+        int reach = (int) Math.hypot(imageWidth, imageHeight);
+
+        int row = 0;
+        for (int y = -reach; y < imageHeight + reach; y += stepY, row++) {
+            int rowOffset = (row % 2 == 0) ? 0 : stepX / 2; // szachownica
+            for (int x = -reach; x < imageWidth + reach; x += stepX) {
+                g2d.drawImage(watermarkImage, x + rowOffset, y, tileWidth, tileHeight, null);
+            }
+        }
+
+        g2d.dispose();
+    }
+
+    private void writeImage(BufferedImage image, String format, File outputFile) throws IOException {
+        if ("jpg".equalsIgnoreCase(format) || "jpeg".equalsIgnoreCase(format)) {
+            saveAsJPEG(image, outputFile, 0.9f);
+        } else {
+            ImageIO.write(image, format, outputFile);
+        }
+    }
+
+    private void deleteQuietly(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("Failed to delete {}", path, e);
+        }
+    }
+
+    /** Przenosi plik, jeśli istnieje (tworzy katalog docelowy) — nie-fatalnie (dane pochodne). */
+    private void moveIfExists(Path source, Path target) {
+        if (!Files.exists(source)) {
+            return;
+        }
+        try {
+            Files.createDirectories(target.getParent());
+            Files.move(source, target, REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.error("Failed to move {} to {}", source, target, e);
         }
     }
 
@@ -384,19 +521,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         } catch (IOException e) {
             log.error("Failed to move thumbnail for {}", fileName, e);
         }
-    }
-
-    private String getImageFormat(File file) throws IOException {
-        ImageInputStream iis = ImageIO.createImageInputStream(file);
-        Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
-        if (readers.hasNext()) {
-            ImageReader reader = readers.next();
-            String format = reader.getFormatName();
-            iis.close();
-            return format;
-        }
-        iis.close();
-        return "png";
     }
 
     private void saveAsJPEG(BufferedImage image, File outputFile, float quality) throws IOException {

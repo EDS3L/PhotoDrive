@@ -41,6 +41,7 @@ import { useSwapWithRename } from '../../hooks/useSwapWithRename';
 import { usePhotoSelection } from '../../hooks/usePhotoSelection';
 import { useUploadWithCollisionCheck } from '../../hooks/useUploadWithCollisionCheck';
 import { UploadCollisionDialog } from '../../components/shared/UploadCollisionDialog';
+import { useWatermarkStatus } from '../../hooks/useWatermark';
 import { queryClient } from '@/lib/queryClient';
 import type { AlbumDto, FileDto } from '@/shared/types/api';
 
@@ -136,6 +137,13 @@ export default function AdminAlbumDetail() {
 	const canShowSelected = selectedFiles.some((f) => !f.visible);
 	const canHideSelected = selectedFiles.some((f) => f.visible);
 	const canWatermarkSelected = selectedFiles.some((f) => !f.hasWatermark);
+	const canUnwatermarkSelected = selectedFiles.some((f) => f.hasWatermark);
+
+	// A1: bez wgranego loga platformy DODAWANIE watermarku jest ukryte (backend i tak
+	// pilnuje — 400). ZDEJMOWANIE musi być dostępne zawsze — inaczej pliki z flagą
+	// nie miałyby jak jej stracić (a bez tego nie da się np. usunąć loga).
+	const { data: watermarkStatus } = useWatermarkStatus();
+	const watermarkAvailable = watermarkStatus?.configured ?? false;
 
 	const otherAlbums = useMemo(
 		() => albums?.filter((a) => a.albumId !== albumId) ?? [],
@@ -166,10 +174,10 @@ export default function AdminAlbumDetail() {
 		);
 	};
 
-	const handleBatchWatermark = () => {
+	const handleBatchWatermark = (hasWatermark: boolean) => {
 		if (!albumId || selected.size === 0) return;
 		watermarkMutation.mutate(
-			{ albumId, fileIds: [...selected], hasWatermark: true },
+			{ albumId, fileIds: [...selected], hasWatermark },
 			{ onSuccess: clearSelection },
 		);
 	};
@@ -458,10 +466,24 @@ export default function AdminAlbumDetail() {
 									Ukryj
 								</Button>
 							)}
-							{canWatermarkSelected && (
-								<Button variant='ghost' size='sm' onClick={handleBatchWatermark}>
+							{watermarkAvailable && canWatermarkSelected && (
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => handleBatchWatermark(true)}
+								>
 									<Droplets className='w-3.5 h-3.5 mr-1' />
 									Watermark
+								</Button>
+							)}
+							{canUnwatermarkSelected && (
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => handleBatchWatermark(false)}
+								>
+									<Droplets className='w-3.5 h-3.5 mr-1' />
+									Usuń watermark
 								</Button>
 							)}
 							<Button
@@ -650,23 +672,25 @@ export default function AdminAlbumDetail() {
 								</>
 							)}
 						</button>
-						<button
-							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
-							onClick={() => {
-								if (!albumId) return;
-								watermarkMutation.mutate({
-									albumId,
-									fileIds: [contextMenu.file.fileID],
-									hasWatermark: !contextMenu.file.hasWatermark,
-								});
-								setContextMenu(null);
-							}}
-						>
-							<Droplets className='w-3.5 h-3.5' />
-							{contextMenu.file.hasWatermark
-								? 'Usuń watermark'
-								: 'Dodaj watermark'}
-						</button>
+						{(watermarkAvailable || contextMenu.file.hasWatermark) && (
+							<button
+								className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
+								onClick={() => {
+									if (!albumId) return;
+									watermarkMutation.mutate({
+										albumId,
+										fileIds: [contextMenu.file.fileID],
+										hasWatermark: !contextMenu.file.hasWatermark,
+									});
+									setContextMenu(null);
+								}}
+							>
+								<Droplets className='w-3.5 h-3.5' />
+								{contextMenu.file.hasWatermark
+									? 'Usuń watermark'
+									: 'Dodaj watermark'}
+							</button>
+						)}
 						<button
 							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
 							onClick={() => {

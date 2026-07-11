@@ -41,4 +41,9 @@ public class FileRepositoryAdapter implements FileRepository {
     public long countBySizeBytes() {
         return jpa.countBySizeBytes();
     }
+
+    @Override
+    public long countWithWatermark() {
+        return jpa.countByHasWatermarkTrue();
+    }
 }

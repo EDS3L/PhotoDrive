@@ -18,4 +18,6 @@ public interface FileRepository {
 
     long countBySizeBytes();
 
+    long countWithWatermark();
+
 }

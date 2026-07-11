@@ -27,3 +27,9 @@ export interface ApiError {
 	message: string;
 	status: number;
 }
+
+export interface WatermarkStatusDto {
+	configured: boolean;
+	/** ISO timestamp ostatniej podmiany loga — cache-buster podglądu; null gdy brak. */
+	updatedAt: string | null;
+}

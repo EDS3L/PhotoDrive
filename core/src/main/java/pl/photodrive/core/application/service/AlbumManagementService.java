@@ -20,6 +20,8 @@ import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
+import pl.photodrive.core.application.port.file.PlatformWatermark;
+import pl.photodrive.core.application.port.file.WatermarkStorePort;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
 import pl.photodrive.core.application.port.repository.FileRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
@@ -66,6 +68,7 @@ public class AlbumManagementService {
     private final FileUniquenessChecker fileUniquenessChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final FileStoragePort fileStoragePort;
+    private final WatermarkStorePort watermarkStore;
     private final CurrentUser currentUser;
     private final FileRepository fileRepository;
     private final ServletContext servletContext;
@@ -181,8 +184,28 @@ public class AlbumManagementService {
 
         List<String> existingFileNames = files.stream().map(f -> f.getFileName().value()).toList();
 
+        // Klient pobiera watermarkowane wersje plików oznaczonych (nigdy czystego oryginału);
+        // właściciel (admin/fotograf) dostaje czyste oryginały.
+        Map<String, String> watermarkCacheKeys = new HashMap<>();
+        byte[] watermarkImage = null;
+        if (isClient(user)) {
+            Optional<PlatformWatermark> watermark = watermarkStore.get();
+            if (watermark.isPresent()) {
+                watermarkImage = watermark.get().image();
+                long watermarkVersion = watermark.get().updatedAt().toEpochMilli();
+                for (File file : files) {
+                    if (file.isHasWatermark()) {
+                        watermarkCacheKeys.put(file.getFileName().value(),
+                                file.getFileId().value().toString() + "-" + watermarkVersion);
+                    }
+                }
+            } else if (files.stream().anyMatch(File::isHasWatermark)) {
+                log.warn("Watermarked files in ZIP but no platform watermark configured — serving clean");
+            }
+        }
+
         String storagePath = resolveAlbumStoragePath(album);
-        byte[] zipData = fileStoragePort.createZipArchive(storagePath, existingFileNames);
+        byte[] zipData = fileStoragePort.createZipArchive(storagePath, existingFileNames, watermarkCacheKeys, watermarkImage);
 
         log.info("Successfully created ZIP with {} files from album: {}", files.size(), albumId.value());
 
@@ -252,7 +275,8 @@ public class AlbumManagementService {
         return getFileResource(cmd.fileName(),
                 album.getFilePath(user, photographer.getEmail().value()),
                 cmd.width(),
-                cmd.height());
+                cmd.height(),
+                watermarkedFileId(album, cmd.fileName()));
     }
 
 
@@ -288,7 +312,7 @@ public class AlbumManagementService {
 
     }
 
-    private FileResource getFileResource(String fileName, String filePath, Integer width, Integer height) {
+    private FileResource getFileResource(String fileName, String filePath, Integer width, Integer height, String watermarkFileId) {
 
         try {
             Path targetPath = fileStorageLocation.resolve(filePath).resolve(fileName).normalize();
@@ -319,6 +343,26 @@ public class AlbumManagementService {
 
                 if (height == null) {
                     height = 0;
+                }
+
+                // Plik z watermarkiem: NIGDY nie serwuj czystego oryginału ani czystej miniatury —
+                // każde żądanie dostaje wersję watermarkowaną (z cache albo komponowaną teraz).
+                // To domyka obejście (dawniej ?width oddawał czysty 600px thumb).
+                if (watermarkFileId != null) {
+                    Optional<PlatformWatermark> watermark = watermarkStore.get();
+                    if (watermark.isPresent()) {
+                        boolean thumbnail = width > 0 || height > 0;
+                        String cacheKey = watermarkFileId + "-" + watermark.get().updatedAt().toEpochMilli();
+                        Resource watermarkedResource = fileStoragePort.getOrCreateWatermarkedPhoto(filePath,
+                                fileName,
+                                cacheKey,
+                                thumbnail,
+                                watermark.get().image());
+                        return new FileResource(watermarkedResource, contentType);
+                    }
+                    // Flaga jest, a loga brak (DELETE jest blokowany, gdy watermark w użyciu —
+                    // stan awaryjny): nie blokujemy podglądu, ale logujemy głośno.
+                    log.warn("File {} flagged as watermarked but no platform watermark configured — serving clean", fileName);
                 }
 
                 if (width > 0 || height > 0) {
@@ -440,7 +484,7 @@ public class AlbumManagementService {
 
         List<FileId> fileIdList = cmd.filesUUIDList().stream().map(FileId::new).toList();
 
-        album.changeWatermarkStatus(user, cmd.hasWatermark(), fileIdList);
+        album.changeWatermarkStatus(user, cmd.hasWatermark(), fileIdList, watermarkStore.exists());
 
         albumRepository.save(album);
 
@@ -519,7 +563,7 @@ public class AlbumManagementService {
             throw new AlbumException("File not found");
         }
 
-        return getFileResource(fileName, resolveAlbumStoragePath(album), null, null);
+        return getFileResource(fileName, resolveAlbumStoragePath(album), null, null, watermarkedFileId(album, fileName));
     }
 
     @Transactional(readOnly = true)
@@ -592,6 +636,16 @@ public class AlbumManagementService {
         if (!user.getRoles().contains(requiredRole)) {
             throw new SecurityException("User does not have required role: " + requiredRole);
         }
+    }
+
+    /** fileId (do klucza cache watermarku), jeśli plik istnieje i ma flagę hasWatermark; inaczej null. */
+    private String watermarkedFileId(Album album, String fileName) {
+        return album.getPhotos().values().stream()
+                .filter(file -> file.getFileName().value().equals(fileName))
+                .filter(File::isHasWatermark)
+                .map(file -> file.getFileId().value().toString())
+                .findFirst()
+                .orElse(null);
     }
 
     private String resolveAlbumStoragePath(Album album) {

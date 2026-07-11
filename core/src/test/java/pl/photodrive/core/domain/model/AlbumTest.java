@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
 import pl.photodrive.core.domain.event.album.FileVisibleStatusChanged;
-import pl.photodrive.core.domain.event.album.WatermarkAddedToPhoto;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.vo.Email;
@@ -107,7 +106,7 @@ class AlbumTest {
 
         // When & Then
         assertThrows(FileException.class, () ->
-                album.changeWatermarkStatus(photographer, true, List.of(fileId))
+                album.changeWatermarkStatus(photographer, true, List.of(fileId), true)
         );
     }
 
@@ -123,10 +122,46 @@ class AlbumTest {
         album.assignPhotosToAlbum(photos);
 
         // When
-        album.changeWatermarkStatus(photographer, true, List.of(fileId));
+        album.changeWatermarkStatus(photographer, true, List.of(fileId), true);
 
         // Then
         assertTrue(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
+    void shouldThrowWhenEnablingWatermarkWithoutConfiguredPlatformWatermark() {
+        // Given — admin nie wgrał loga → włączenie watermarku musi być zablokowane (guard serwerowy)
+        Album album = Album.createForClient("NoLogo", photographer, client);
+        File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = photo.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, photo);
+        album.assignPhotosToAlbum(photos);
+
+        // When & Then
+        assertThrows(AlbumException.class, () ->
+                album.changeWatermarkStatus(photographer, true, List.of(fileId), false));
+        assertFalse(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
+    void shouldAllowDisablingWatermarkEvenWhenPlatformWatermarkNotConfigured() {
+        // Given — plik z flagą; zdejmowanie watermarku nie może zależeć od obecności loga
+        Album album = Album.createForClient("DisableAlways", photographer, client);
+        File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
+        FileId fileId = photo.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, photo);
+        album.assignPhotosToAlbum(photos);
+        album.changeWatermarkStatus(photographer, true, List.of(fileId), true);
+
+        // When
+        album.changeWatermarkStatus(photographer, false, List.of(fileId), false);
+
+        // Then
+        assertFalse(album.getPhotos().get(fileId).isHasWatermark());
     }
 
     @Test
@@ -142,19 +177,15 @@ class AlbumTest {
         photos.put(alreadyId, already);
         photos.put(freshId, fresh);
         album.assignPhotosToAlbum(photos);
-        album.changeWatermarkStatus(photographer, true, List.of(alreadyId));
-        album.pullDomainEvents(); // czyścimy zdarzenie z przygotowania
+        album.changeWatermarkStatus(photographer, true, List.of(alreadyId), true);
 
         // When — paczka z już-owatermarkowanym plikiem NIE może rzucać
-        album.changeWatermarkStatus(photographer, true, List.of(alreadyId, freshId));
+        album.changeWatermarkStatus(photographer, true, List.of(alreadyId, freshId), true);
 
-        // Then — oba mają watermark, a zdarzenie odpaliło tylko dla nowego (bez podwójnej kompresji)
+        // Then — oba mają watermark (toggle to czysty flip flagi — wersje watermarkowane
+        // są komponowane przy serwowaniu, więc nie ma już zdarzeń plikowych do liczenia)
         assertTrue(album.getPhotos().get(alreadyId).isHasWatermark());
         assertTrue(album.getPhotos().get(freshId).isHasWatermark());
-        long watermarkEvents = album.pullDomainEvents().stream()
-                .filter(WatermarkAddedToPhoto.class::isInstance)
-                .count();
-        assertEquals(1, watermarkEvents);
     }
 
     @Test

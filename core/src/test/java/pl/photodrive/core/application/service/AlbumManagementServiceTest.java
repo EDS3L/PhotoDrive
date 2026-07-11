@@ -52,6 +52,7 @@ class AlbumManagementServiceTest {
     @Mock private FileUniquenessChecker fileUniquenessChecker;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private FileStoragePort fileStoragePort;
+    @Mock private pl.photodrive.core.application.port.file.WatermarkStorePort watermarkStore;
     @Mock private CurrentUser currentUser;
     @Mock private FileRepository fileRepository;
     @Mock private ServletContext servletContext;

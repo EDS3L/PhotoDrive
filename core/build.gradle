@@ -54,47 +54,42 @@ jacoco {
 	toolVersion = '0.8.12'
 }
 
+// Jedna lista wykluczeń dla raportu I bramki — wcześniej były dwie kopie, które
+// mogły się rozjechać. Wykluczamy WYŁĄCZNIE kod bez własnej logiki albo taki,
+// którego nie da się sensownie zmierzyć testem (wiring Springa, adaptery I/O).
+// Wszystko, co ma reguły biznesowe, MUSI się liczyć do pokrycia.
+ext.jacocoExcludes = [
+		// Punkt wejścia Spring Boota — sam bootstrap
+		'**/CoreApplication.class',
+		// Konfiguracja Springa (wiring, nie logika)
+		'**/infrastructure/config/**',
+		// Adaptery persystencji i poczty — pokrywane testami integracyjnymi (Testcontainers),
+		// nie testem jednostkowym. Do włączenia razem z nimi.
+		'**/infrastructure/jpa/**',
+		'**/infrastructure/mail/**',
+		'**/infrastructure/domain/**',
+		'**/infrastructure/exception/**',
+		// Rekordy: komendy, zdarzenia, DTO — czyste kontenery danych
+		'**/application/command/**',
+		'**/application/event/**',
+		'**/application/exception/**',
+		'**/presentation/dto/**',
+		// Interfejsy portów — brak implementacji
+		'**/application/port/**',
+		// AlbumController — wymaga testów integracyjnych (plikowe I/O + baza)
+		'**/presentation/controller/AlbumController.class',
+		'**/presentation/web/**'
+]
+
 jacocoTestReport {
 	dependsOn test
 	reports {
 		xml.required = true
 		html.required = true
 	}
-	// Exclude infrastructure implementations and boilerplate classes
 	afterEvaluate {
 		classDirectories.setFrom(files(classDirectories.files.collect {
-			fileTree(dir: it, exclude: [
-					// Spring Boot entry point
-					'**/CoreApplication.class',
-					// Infrastructure adapters — hard to unit test without a container
-					'**/infrastructure/config/**',
-					'**/infrastructure/jpa/**',
-					'**/infrastructure/jwt/**',
-					'**/infrastructure/mail/**',
-					'**/infrastructure/security/**',
-					'**/infrastructure/storage/**',
-					'**/infrastructure/domain/**',
-					'**/infrastructure/exception/**',
-					// CQRS handlers — wiring only, tested via service tests
-					'**/application/handler/**',
-					// Scheduler — tested at integration level
-					'**/application/scheduler/**',
-					// Command/Event records — pure data containers, no logic
-					'**/application/command/**',
-					'**/application/event/**',
-					// Port interfaces — no implementation logic
-					'**/application/port/**',
-					// Application exception classes — no business logic
-					'**/application/exception/**',
-					// AlbumController — file I/O methods require integration tests
-					'**/presentation/controller/AlbumController.class',
-					// DTO records — no business logic
-					'**/presentation/dto/album/**',
-					'**/presentation/dto/file/**',
-					'**/presentation/web/**',
-					// Utility classes
-					'**/domain/util/**'
-			])
+			fileTree(dir: it, exclude: jacocoExcludes)
 		}))
 	}
 }
@@ -110,33 +105,14 @@ jacocoTestCoverageVerification {
 			}
 		}
 	}
-	// Apply same exclusions as the report
+	// Ta sama lista co w raporcie — bramka mierzy dokładnie to, co raport pokazuje.
 	afterEvaluate {
 		classDirectories.setFrom(files(classDirectories.files.collect {
-			fileTree(dir: it, exclude: [
-					'**/CoreApplication.class',
-					'**/infrastructure/config/**',
-					'**/infrastructure/jpa/**',
-					'**/infrastructure/jwt/**',
-					'**/infrastructure/mail/**',
-					'**/infrastructure/security/**',
-					'**/infrastructure/storage/**',
-					'**/infrastructure/domain/**',
-					'**/infrastructure/exception/**',
-					'**/application/handler/**',
-					'**/application/scheduler/**',
-					'**/application/command/**',
-					'**/application/event/**',
-					// Port interfaces — no implementation logic
-					'**/application/port/**',
-					// Application exception classes — no business logic
-					'**/application/exception/**',
-					'**/presentation/controller/AlbumController.class',
-					'**/presentation/dto/album/**',
-					'**/presentation/dto/file/**',
-					'**/presentation/web/**',
-					'**/domain/util/**'
-			])
+			fileTree(dir: it, exclude: jacocoExcludes)
 		}))
 	}
 }
+
+// Próg pokrycia jest EGZEKWOWANY: `check` (a więc i `build`, i CI) pada, gdy
+// pokrycie spadnie poniżej 70%. Wcześniej zadanie istniało, ale nikt go nie wołał.
+check.dependsOn jacocoTestCoverageVerification

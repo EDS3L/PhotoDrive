@@ -36,9 +36,11 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      - name: Run tests
+      # `check` = testy + jacocoTestCoverageVerification (próg 70% linii).
+      # Samo `test` przepuszczało spadek pokrycia — bramka nie była nigdzie wołana.
+      - name: Run tests + coverage gate
         working-directory: core
-        run: ./gradlew test --no-daemon
+        run: ./gradlew check --no-daemon
 
   frontend-checks:
     name: Frontend — lint & build

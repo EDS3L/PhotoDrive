@@ -35,6 +35,11 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Testy integracyjne (5.1): prawdziwy MySQL w kontenerze na czas testów.
+    // Wersje bierze BOM Spring Boota. Wymaga działającego Dockera (CI: ubuntu-latest ma go z pudełka).
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
     implementation 'io.jsonwebtoken:jjwt:0.12.6'
     implementation("com.nimbusds:nimbus-jose-jwt:10.5")
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
@@ -80,9 +85,11 @@ ext.jacocoExcludes = [
 		'**/CoreApplication.class',
 		// Konfiguracja Springa (wiring, nie logika)
 		'**/infrastructure/config/**',
-		// Adaptery persystencji i poczty — pokrywane testami integracyjnymi (Testcontainers),
-		// nie testem jednostkowym. Do włączenia razem z nimi.
-		'**/infrastructure/jpa/**',
+		// Encje JPA i repozytoria Spring Data — wygenerowane akcesory i interfejsy bez ciała.
+		// UWAGA: adaptery i mappery z tego pakietu SĄ realnie przechodzone przez testy
+		// integracyjne (5.1), więc wykluczenie dotyczy tylko encji i interfejsów repozytoriów.
+		'**/infrastructure/jpa/entity/**',
+		'**/infrastructure/jpa/repository/**',
 		'**/infrastructure/mail/**',
 		'**/infrastructure/domain/**',
 		'**/infrastructure/exception/**',
@@ -93,8 +100,6 @@ ext.jacocoExcludes = [
 		'**/presentation/dto/**',
 		// Interfejsy portów — brak implementacji
 		'**/application/port/**',
-		// AlbumController — wymaga testów integracyjnych (plikowe I/O + baza)
-		'**/presentation/controller/AlbumController.class',
 		'**/presentation/web/**'
 ]
 

@@ -36,8 +36,10 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      # `check` = testy + jacocoTestCoverageVerification (próg 70% linii).
+      # `check` = testy (jednostkowe + integracyjne) + jacocoTestCoverageVerification (próg 70% linii).
       # Samo `test` przepuszczało spadek pokrycia — bramka nie była nigdzie wołana.
+      # Testy integracyjne (5.1) startują MySQL przez Testcontainers — runner `ubuntu-latest`
+      # ma Dockera z pudełka, więc nie trzeba go tu instalować ani konfigurować.
       - name: Run tests + coverage gate
         working-directory: core
         run: ./gradlew check --no-daemon

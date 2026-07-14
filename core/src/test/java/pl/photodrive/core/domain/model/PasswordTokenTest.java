@@ -1,6 +1,7 @@
 package pl.photodrive.core.domain.model;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
 import pl.photodrive.core.domain.exception.PasswordTokenException;
@@ -27,6 +28,7 @@ class PasswordTokenTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Reset token is stored hashed, never in plain text")
     void shouldCreatePasswordTokenWithCorrectData() {
         // Given
         UUID token = UUID.randomUUID();
@@ -46,6 +48,7 @@ class PasswordTokenTest {
     }
 
     @Test
+    @DisplayName("Creating a token registers an event so the code is mailed to the user")
     void shouldRegisterPasswordTokenCreatedEvent() {
         // Given
         UUID token = UUID.randomUUID();
@@ -63,21 +66,27 @@ class PasswordTokenTest {
     }
 
     @Test
+    @DisplayName("Token value is required")
     void shouldThrowWhenTokenIsNull() {
+        // When / Then
         assertThatThrownBy(() -> PasswordToken.create(null, Instant.now().plusSeconds(900), Instant.now(), user))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Token is null");
     }
 
     @Test
+    @DisplayName("Token expiry is required")
     void shouldThrowWhenExpirationIsNull() {
+        // When / Then
         assertThatThrownBy(() -> PasswordToken.create(UUID.randomUUID(), null, Instant.now(), user))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Expiration is null");
     }
 
     @Test
+    @DisplayName("Token creation time is required")
     void shouldThrowWhenCreatedIsNull() {
+        // When / Then
         assertThatThrownBy(() -> PasswordToken.create(UUID.randomUUID(), Instant.now().plusSeconds(900), null, user))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Created is null");
@@ -88,6 +97,7 @@ class PasswordTokenTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Requesting a new code replaces the token and extends its expiry")
     void shouldUpdateTokenAndUpdateExpiration() {
         // Given
         UUID original = UUID.randomUUID();
@@ -110,6 +120,7 @@ class PasswordTokenTest {
     }
 
     @Test
+    @DisplayName("Token cannot be updated to null")
     void shouldThrowWhenUpdatingWithNullToken() {
         // Given
         PasswordToken passwordToken = PasswordToken.create(UUID.randomUUID(), Instant.now().plusSeconds(900), Instant.now(), user);
@@ -121,6 +132,7 @@ class PasswordTokenTest {
     }
 
     @Test
+    @DisplayName("Token cannot be replaced by the same value")
     void shouldThrowWhenUpdatingWithSameToken() {
         // Given
         UUID original = UUID.randomUUID();
@@ -133,6 +145,7 @@ class PasswordTokenTest {
     }
 
     @Test
+    @DisplayName("Pulling domain events clears them, so they are published exactly once")
     void shouldClearEventsAfterPull() {
         // Given
         PasswordToken passwordToken = PasswordToken.create(UUID.randomUUID(), Instant.now().plusSeconds(900), Instant.now(), user);

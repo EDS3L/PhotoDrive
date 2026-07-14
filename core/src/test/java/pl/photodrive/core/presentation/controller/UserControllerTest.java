@@ -2,6 +2,7 @@ package pl.photodrive.core.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -27,8 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -51,6 +51,7 @@ class UserControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin receives the user list")
     void shouldReturn200WithUsersListWhenGetAll() throws Exception {
         // Given
         UserDto dto = aUserDto();
@@ -63,6 +64,7 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("Non-admin is refused the user list")
     void shouldReturn403WhenGetAllForbidden() throws Exception {
         // Given
         given(userService.getAllUsers()).willThrow(new ApplicationSecurityException("Forbidden!"));
@@ -78,6 +80,7 @@ class UserControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Creating a user returns 201")
     void shouldReturn201WhenUserCreated() throws Exception {
         // Given
         var user = aUserDomainStub();
@@ -97,8 +100,9 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("Incomplete user payload is rejected by validation")
     void shouldReturn400WhenAddUserWithMissingFields() throws Exception {
-        // When / Then — missing required fields triggers @Valid → MethodArgumentNotValidException → 400
+        // When / Then - missing required fields triggers @Valid → MethodArgumentNotValidException → 400
         String body = objectMapper.writeValueAsString(Map.of("email", ""));
 
         mockMvc.perform(post("/api/user/add")
@@ -113,6 +117,7 @@ class UserControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Email change returns 200")
     void shouldReturn200WhenEmailChangedSuccessfully() throws Exception {
         // Given
         var user = aUserDomainStub();
@@ -129,6 +134,7 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("Non-admin cannot change another user's email")
     void shouldReturn403WhenNonAdminAttemptsToChangeOtherUsersEmail() throws Exception {
         // Given
         given(userService.changeEmail(any()))
@@ -150,8 +156,9 @@ class UserControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Password change returns 204")
     void shouldReturn204WhenPasswordChangedSuccessfully() throws Exception {
-        // No mock needed — void method, default does nothing
+        // No mock needed - void method, default does nothing
 
         UUID id = UUID.randomUUID();
         String body = objectMapper.writeValueAsString(
@@ -165,10 +172,10 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("Password change for an unknown user returns 400")
     void shouldReturn400WhenUserNotFoundOnPasswordChange() throws Exception {
         // Given
-        doThrow(new UserException("User not found!"))
-                .when(userService).changePassword(any());
+        willThrow(new UserException("User not found!")).given(userService).changePassword(any());
 
         UUID id = UUID.randomUUID();
         String body = objectMapper.writeValueAsString(

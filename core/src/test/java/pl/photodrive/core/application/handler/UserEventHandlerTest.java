@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserEventHandlerTest {
@@ -35,36 +36,42 @@ class UserEventHandlerTest {
     private UserEventHandler handler;
 
     @Test
-    @DisplayName("Nowy fotograf dostaje własny folder w storage")
+    @DisplayName("A new photographer gets his own storage folder")
     void shouldCreateFolderForPhotographer() {
+        // When
         handler.handlePhotographCreated(new UserCreated(
                 UUID.randomUUID(), "foto@photodrive.dev", Set.of(Role.PHOTOGRAPHER)));
 
-        verify(fileStoragePort).createPhotographerFolder("foto@photodrive.dev");
+        // Then
+        then(fileStoragePort).should().createPhotographerFolder("foto@photodrive.dev");
     }
 
     @Test
-    @DisplayName("Klient NIE dostaje folderu fotografa")
+    @DisplayName("A new client gets no photographer folder")
     void shouldNotCreateFolderForClient() {
+        // When
         handler.handlePhotographCreated(new UserCreated(
                 UUID.randomUUID(), "klient@photodrive.dev", Set.of(Role.CLIENT)));
 
-        verifyNoInteractions(fileStoragePort);
+        // Then
+        then(fileStoragePort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("Mail powitalny podstawia email i hasło startowe, po uprzednim escape'owaniu")
+    @DisplayName("Welcome mail carries the escaped email and the generated start password")
     void shouldSendCredentialsMailWithEscapedValues() {
-        when(mailSenderPort.escapeHtml("klient@photodrive.dev")).thenReturn("klient@photodrive.dev");
-        when(mailSenderPort.escapeHtml("Haslo123!")).thenReturn("Haslo123!");
-        when(mailSenderPort.loadResourceAsString("templates/email/account-created-credentials.html"))
-                .thenReturn("<p>{{email}} / {{password}}</p>");
+        // Given
+        given(mailSenderPort.escapeHtml("klient@photodrive.dev")).willReturn("klient@photodrive.dev");
+        given(mailSenderPort.escapeHtml("Haslo123!")).willReturn("Haslo123!");
+        given(mailSenderPort.loadResourceAsString("templates/email/account-created-credentials.html")).willReturn("<p>{{email}} / {{password}}</p>");
 
+        // When
         handler.handleCredentialsNotification(
                 new UserCredentialsNotification("klient@photodrive.dev", "Haslo123!"));
 
-        verify(mailSenderPort).escapeHtml("Haslo123!");
-        verify(mailSenderPort).send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
+        // Then
+        then(mailSenderPort).should().escapeHtml("Haslo123!");
+        then(mailSenderPort).should().send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
                 body.contains("klient@photodrive.dev")
                         && body.contains("Haslo123!")
                         && !body.contains("{{email}}")
@@ -72,36 +79,42 @@ class UserEventHandlerTest {
     }
 
     @Test
-    @DisplayName("Mail z kodem autoryzacji podstawia token")
+    @DisplayName("Password reset mail carries the authorization code")
     void shouldSendResetTokenMail() {
+        // Given
         UUID token = UUID.randomUUID();
-        when(mailSenderPort.escapeHtml(token.toString())).thenReturn(token.toString());
-        when(mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html"))
-                .thenReturn("<p>{{token}}</p>");
+        given(mailSenderPort.escapeHtml(token.toString())).willReturn(token.toString());
+        given(mailSenderPort.loadResourceAsString("templates/email/password_reset_token.html")).willReturn("<p>{{token}}</p>");
 
+        // When
         handler.handleTokenCreated(new PasswordTokenCreated("klient@photodrive.dev", token));
 
-        verify(mailSenderPort).send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
+        // Then
+        then(mailSenderPort).should().send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
                 body.contains(token.toString()) && !body.contains("{{token}}")));
     }
 
     @Test
-    @DisplayName("Zmiana hasła wysyła potwierdzenie")
+    @DisplayName("Password change is confirmed by mail")
     void shouldSendPasswordChangedMail() {
-        when(mailSenderPort.loadResourceAsString("templates/email/password_changed.html"))
-                .thenReturn("<p>zmienione</p>");
+        // Given
+        given(mailSenderPort.loadResourceAsString("templates/email/password_changed.html")).willReturn("<p>zmienione</p>");
 
+        // When
         handler.handleUserRemindPassword(new UserRemindedPassword("klient@photodrive.dev"));
 
-        verify(mailSenderPort).send(eq("klient@photodrive.dev"), anyString(), eq("<p>zmienione</p>"));
+        // Then
+        then(mailSenderPort).should().send(eq("klient@photodrive.dev"), anyString(), eq("<p>zmienione</p>"));
     }
 
     @Test
-    @DisplayName("Padnięcie poczty NIE wywraca operacji — mail leci AFTER_COMMIT, konto już istnieje")
+    @DisplayName("A broken mail server does not undo the operation, because mail is sent after commit")
     void shouldSwallowMailFailures() {
-        when(mailSenderPort.escapeHtml(anyString())).thenReturn("x");
-        when(mailSenderPort.loadResourceAsString(anyString())).thenThrow(new RuntimeException("SMTP down"));
+        // Given
+        given(mailSenderPort.escapeHtml(anyString())).willReturn("x");
+        given(mailSenderPort.loadResourceAsString(anyString())).willThrow(new RuntimeException("SMTP down"));
 
+        // When / Then
         assertThatCode(() -> handler.handleCredentialsNotification(
                 new UserCredentialsNotification("klient@photodrive.dev", "Haslo123!")))
                 .doesNotThrowAnyException();
@@ -110,6 +123,6 @@ class UserEventHandlerTest {
                 new PasswordTokenCreated("klient@photodrive.dev", UUID.randomUUID())))
                 .doesNotThrowAnyException();
 
-        verify(mailSenderPort, never()).send(anyString(), anyString(), anyString());
+        then(mailSenderPort).should(never()).send(anyString(), anyString(), anyString());
     }
 }

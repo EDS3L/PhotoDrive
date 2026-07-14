@@ -1,6 +1,7 @@
 package pl.photodrive.core.domain.model;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.domain.exception.UserException;
@@ -43,6 +44,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("New user is created active, with the given role and a pending password change")
     void shouldCreateUserWithCorrectData() {
         // When
         User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
@@ -57,6 +59,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Creating a user registers an event so a photographer gets his storage folder")
     void shouldRegisterUserCreatedEvent() {
         // When
         User user = User.create("Jan", new Email("jan@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
@@ -66,8 +69,9 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Deactivated user cannot log in")
     void shouldThrowWhenInactiveUserTriesToLogin() {
-        // Given — tworzymy nieaktywnego użytkownika przez deaktywację
+        // Given - an inactive user, produced by deactivating him first
         photographer.deactivateUser(false, admin);
 
         // When & Then
@@ -75,6 +79,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Login is refused while the password change flag is still set")
     void shouldThrowWhenUserMustChangePasswordOnLogin() {
         // Given
         // When & Then
@@ -82,6 +87,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Login succeeds once the password change flag is cleared")
     void shouldLoginSuccessfullyWhenFlagIsDisabled() {
         // Given
         photographer.setChangePasswordOnNextLogin(false);
@@ -91,6 +97,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Admin can grant an additional role")
     void shouldAddRoleSuccessfully() {
         // When
         photographer.addRole(Role.ADMIN);
@@ -100,24 +107,28 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("The same role cannot be granted twice")
     void shouldThrowWhenAddingDuplicateRole() {
         // When & Then
         assertThrows(UserException.class, () -> photographer.addRole(Role.PHOTOGRAPHER));
     }
 
     @Test
+    @DisplayName("Admin cannot also be a client")
     void shouldThrowWhenAddingClientRoleToAdmin() {
         // When & Then
         assertThrows(UserException.class, () -> admin.addRole(Role.CLIENT));
     }
 
     @Test
+    @DisplayName("Photographer cannot also be a client")
     void shouldThrowWhenAddingClientRoleToPhotographer() {
         // When & Then
         assertThrows(UserException.class, () -> photographer.addRole(Role.CLIENT));
     }
 
     @Test
+    @DisplayName("Admin can revoke a role")
     void shouldRemoveRoleSuccessfully() {
         // Given
         photographer.addRole(Role.ADMIN);
@@ -130,18 +141,21 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("The admin role cannot be revoked")
     void shouldThrowWhenRemovingAdminRole() {
         // When & Then
         assertThrows(RuntimeException.class, () -> admin.removeRole(Role.ADMIN));
     }
 
     @Test
+    @DisplayName("A role that was never granted cannot be revoked")
     void shouldThrowWhenRemovingRoleNotAssigned() {
         // When & Then
         assertThrows(UserException.class, () -> photographer.removeRole(Role.CLIENT));
     }
 
     @Test
+    @DisplayName("The last remaining role cannot be revoked, so no user is left role-less")
     void shouldThrowWhenRemovingLastRole() {
         // Given
         // When & Then
@@ -149,6 +163,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("User can change his password with the current one")
     void shouldChangePasswordSuccessfully() {
         // Given
         String currentRaw = RAW_PASSWORD;
@@ -164,6 +179,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Password change is refused when the current password is wrong")
     void shouldThrowWhenCurrentPasswordIsIncorrect() {
         // When & Then
         assertThrows(UserException.class, () ->
@@ -172,6 +188,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("New password must differ from the current one")
     void shouldThrowWhenNewPasswordSameAsCurrent() {
         // Given
         String current = RAW_PASSWORD;
@@ -189,6 +206,7 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("User can reset his password with a valid authorization code")
     void shouldChangePasswordWithTokenSuccessfully() {
         // Given
         String newRaw = "NewPass9!";
@@ -202,6 +220,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Password reset without an authorization code is refused")
     void shouldThrowWhenTokenIsNull() {
         // When & Then
         assertThrows(UserException.class, () ->
@@ -210,6 +229,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Password reset to the same password is refused")
     void shouldThrowWhenNewPasswordSameAsCurrentWithToken() {
         // Given
         String currentRaw = RAW_PASSWORD;
@@ -223,6 +243,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Password reset registers an event so the user gets a confirmation mail")
     void shouldRegisterUserRemindedPasswordEvent() {
         // Given
         photographer.pullDomainEvents();
@@ -235,8 +256,9 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Admin can activate a user")
     void shouldActivateUserSuccessfully() {
-        // Given — deaktywujemy najpierw
+        // Given - deactivate him first
         photographer.deactivateUser(false, admin);
 
         // When
@@ -247,12 +269,14 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Activating an already active user is refused")
     void shouldThrowWhenActivatingAlreadyActiveUser() {
         // When & Then
         assertThrows(UserException.class, () -> photographer.activeUser(true, admin));
     }
 
     @Test
+    @DisplayName("Admin can deactivate a user")
     void shouldDeactivateUserSuccessfully() {
         // When
         photographer.deactivateUser(false, admin);
@@ -262,6 +286,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Deactivating an already inactive user is refused")
     void shouldThrowWhenDeactivatingAlreadyInactiveUser() {
         // Given
         photographer.deactivateUser(false, admin);
@@ -271,12 +296,14 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Client cannot activate other users")
     void shouldThrowWhenClientTriesToActivateUser() {
         // When & Then
         assertThrows(UserException.class, () -> photographer.activeUser(true, client));
     }
 
     @Test
+    @DisplayName("Admin can assign clients to a photographer")
     void shouldAssignUsersToPhotographerSuccessfully() {
         // Given
         List<UserId> users = List.of(client.getId());
@@ -289,6 +316,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Clients can be assigned only to a photographer")
     void shouldThrowWhenAssigningUsersToNonPhotographer() {
         // When & Then
         assertThrows(UserException.class, () ->
@@ -297,6 +325,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Only an admin can assign clients to a photographer")
     void shouldThrowWhenNonAdminTriesToAssignUsers() {
         // When & Then
         assertThrows(UserException.class, () ->
@@ -305,6 +334,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Admin can unassign clients from a photographer")
     void shouldDisconnectUsersSuccessfully() {
         // Given
         photographer.assignUsers(new ArrayList<>(List.of(client.getId())), admin);
@@ -317,6 +347,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Unassigning a client who was never assigned is refused")
     void shouldThrowWhenDisconnectingUserNotAssigned() {
         // Given
         // When & Then
@@ -326,6 +357,7 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Unassigning an empty list changes nothing")
     void shouldDoNothingWhenDisconnectingEmptyList() {
         // When & Then
         assertDoesNotThrow(() -> photographer.disconnectUsers(List.of()));
@@ -336,6 +368,7 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("User can change his email")
     void shouldChangeEmailSuccessfully() {
         // When
         photographer.changeEmail("new@photodrive.pl");
@@ -345,7 +378,9 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("New email must differ from the current one")
     void shouldThrowWhenNewEmailSameAsCurrent() {
+        // When / Then
         assertThrows(UserException.class, () ->
                 photographer.changeEmail("photographer@photodrive.pl")
         );
@@ -356,6 +391,7 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("Password verification passes for the correct password")
     void shouldPassVerifyPasswordWhenCorrect() {
         // Given
         String currentRaw = RAW_PASSWORD;
@@ -367,7 +403,9 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Password verification fails for a wrong password")
     void shouldThrowWhenVerifyPasswordWithWrongPassword() {
+        // When / Then
         assertThrows(UserException.class, () ->
                 photographer.verifyPassword("WrongPass1!", passwordHasher)
         );
@@ -378,12 +416,14 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("Password change flag blocks the login path")
     void shouldThrowWhenChangePasswordFlagIsSet() {
-        // Given — flag is true by default after create()
+        // Given - flag is true by default after create()
         assertThrows(UserException.class, () -> photographer.shouldChangePasswordOnNextLogin());
     }
 
     @Test
+    @DisplayName("Cleared password change flag unblocks the login path")
     void shouldPassWhenChangePasswordFlagIsCleared() {
         // Given
         photographer.setChangePasswordOnNextLogin(false);
@@ -397,12 +437,16 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin may read the full user list")
     void shouldReturnTrueForAdminHasAccessToReadAllUsers() {
+        // When / Then
         assertTrue(photographer.hasAccessToReadAllUsers(admin));
     }
 
     @Test
+    @DisplayName("Non-admin may not read the full user list")
     void shouldThrowForNonAdminHasAccessToReadAllUsers() {
+        // When / Then
         assertThrows(UserException.class, () ->
                 photographer.hasAccessToReadAllUsers(photographer)
         );
@@ -413,6 +457,7 @@ class UserTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer sees the clients assigned to him")
     void shouldReturnAssignedUsersForPhotographer() {
         // Given
         photographer.assignUsers(new ArrayList<>(List.of(client.getId())), admin);
@@ -425,18 +470,21 @@ class UserTest {
     }
 
     @Test
+    @DisplayName("Only a photographer can list his assigned clients")
     void shouldThrowWhenNonPhotographerCallsGetPhotographUsers() {
+        // When / Then
         assertThrows(UserException.class, () ->
                 photographer.getPhotographUsers(admin)
         );
     }
 
     @Test
+    @DisplayName("Photographer cannot list another photographer's clients")
     void shouldThrowWhenPhotographerAccessesAnotherPhotographersUsers() {
         // Given
         User anotherPhotographer = User.create("Other", new Email("other@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
 
-        // When/Then — anotherPhotographer tries to read photographer's list
+        // When/Then - anotherPhotographer tries to read photographer's list
         assertThrows(UserException.class, () ->
                 photographer.getPhotographUsers(anotherPhotographer)
         );

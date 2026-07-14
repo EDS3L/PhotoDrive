@@ -1,6 +1,7 @@
 package pl.photodrive.core.domain.model;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
@@ -36,20 +37,26 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Admin album is created with the admin as both photographer and client")
     void shouldCreateAlbumForAdmin() {
+        // When
         Album album = Album.createForAdmin("System Album", admin);
 
+        // Then
         assertNotNull(album);
         assertEquals("System Album", album.getName());
         assertEquals(admin.getId().value(), album.getPhotographId());
     }
 
     @Test
+    @DisplayName("Only an admin can create an admin (portfolio) album")
     void shouldThrowExceptionWhenPhotographerTriesToCreateAdminAlbum() {
+        // When / Then
         assertThrows(AlbumException.class, () -> Album.createForAdmin("Fake Admin", photographer));
     }
 
     @Test
+    @DisplayName("Upload is rejected when it would exceed the storage quota")
     void shouldThrowExceptionWhenAddingFilesExceedsStorage() {
         // Given
         Album album = Album.createForAdmin("StorageTest", admin);
@@ -61,6 +68,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Adding a file registers a domain event so the bytes are written to disk before commit")
     void shouldRegisterEventWhenFileIsAdded() {
         // Given
         Album album = Album.createForAdmin("EventTest", admin);
@@ -75,15 +83,17 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Admin can list files of any album")
     void shouldGrantAccessToAdminAlways() {
         // Given
         Album album = Album.createForClient("Private", photographer, client);
 
-        // When & Then — admin powinien mieć dostęp nawet gdy visible = false
+        // When & Then - the admin has access even when visible = false
         assertTrue(album.hasAccessToGetFilesFromAlbum(admin, false));
     }
 
     @Test
+    @DisplayName("Client cannot request hidden files of an album")
     void shouldDenyAccessToClientWhenAlbumIsNotVisible() {
         // Given
         Album album = Album.createForClient("Secret", photographer, client);
@@ -93,6 +103,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Watermark cannot be applied to a file with an unsupported extension")
     void shouldThrowExceptionWhenWatermarkingUnsupportedExtension() {
         // Given
         Album album = Album.createForClient("WatermarkTest", photographer, client);
@@ -111,8 +122,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Watermark flag is set on the selected files")
     void shouldSetWatermarkSuccessfully() {
-        // Given — happy path dla watermark
+        // Given - the happy path for the watermark
         Album album = Album.createForClient("WatermarkHappy", photographer, client);
         File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
         FileId fileId = photo.getFileId();
@@ -129,8 +141,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Watermark cannot be enabled when no platform logo is configured")
     void shouldThrowWhenEnablingWatermarkWithoutConfiguredPlatformWatermark() {
-        // Given — admin nie wgrał loga → włączenie watermarku musi być zablokowane (guard serwerowy)
+        // Given - no logo uploaded, so enabling the watermark must be blocked server-side
         Album album = Album.createForClient("NoLogo", photographer, client);
         File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
         FileId fileId = photo.getFileId();
@@ -146,8 +159,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Watermark can always be removed, even when the platform logo is gone")
     void shouldAllowDisablingWatermarkEvenWhenPlatformWatermarkNotConfigured() {
-        // Given — plik z flagą; zdejmowanie watermarku nie może zależeć od obecności loga
+        // Given - a flagged file; removing the watermark must not depend on the logo being present
         Album album = Album.createForClient("DisableAlways", photographer, client);
         File photo = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
         FileId fileId = photo.getFileId();
@@ -165,8 +179,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Watermarking a mixed selection skips already watermarked files instead of failing the whole batch")
     void shouldBeIdempotentWhenSomeFilesAlreadyWatermarked() {
-        // Given — jeden plik już owatermarkowany, drugi nie
+        // Given - one file is already watermarked, the other is not
         Album album = Album.createForClient("MixedWatermark", photographer, client);
         File already = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
         File fresh = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
@@ -179,16 +194,17 @@ class AlbumTest {
         album.assignPhotosToAlbum(photos);
         album.changeWatermarkStatus(photographer, true, List.of(alreadyId), true);
 
-        // When — paczka z już-owatermarkowanym plikiem NIE może rzucać
+        // When - a batch containing an already watermarked file must NOT throw
         album.changeWatermarkStatus(photographer, true, List.of(alreadyId, freshId), true);
 
-        // Then — oba mają watermark (toggle to czysty flip flagi — wersje watermarkowane
-        // są komponowane przy serwowaniu, więc nie ma już zdarzeń plikowych do liczenia)
+        // Then - both are watermarked (the toggle is a pure flag flip; watermarked versions are
+        // composed while serving, so there are no file events left to count)
         assertTrue(album.getPhotos().get(alreadyId).isHasWatermark());
         assertTrue(album.getPhotos().get(freshId).isHasWatermark());
     }
 
     @Test
+    @DisplayName("Storage size is converted from bytes to gigabytes")
     void shouldCalcToGBCorrectly() {
         // Given
         Album album = Album.createForAdmin("Math", admin);
@@ -201,6 +217,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("TTD cannot be set on an admin album because it has no client")
     void shouldThrowExceptionWhenAdminTriesToSetTTDForOwnAlbum() {
         // Given
         Album adminAlbum = Album.createForAdmin("SystemAlbum", admin);
@@ -211,6 +228,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("TTD must be a date in the future")
     void shouldThrowExceptionWhenSettingTTDInThePast() {
         // Given
         Album album = Album.createForClient("ClientAlbum", photographer, client);
@@ -221,8 +239,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Setting TTD stores the date and notifies the client")
     void shouldSetTTDSuccessfully() {
-        // Given — happy path dla TTD
+        // Given - the happy path for TTD
         Album album = Album.createForClient("ClientAlbumTTD", photographer, client);
         Instant futureDate = Instant.now().plusSeconds(3600);
 
@@ -234,6 +253,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Removing an album clears its photos")
     void shouldClearPhotosWhenRemovingAlbum() {
         // Given
         Album album = Album.createForClient("ToDelete", photographer, client);
@@ -250,6 +270,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot remove an album")
     void shouldThrowExceptionWhenClientTriesToRemoveAlbum() {
         // Given
         Album album = Album.createForClient("ClientTryDelete", photographer, client);
@@ -261,6 +282,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("An album that has not expired yet cannot be removed as expired")
     void shouldThrowExceptionWhenRemovingNonExpiredAlbum() {
         // Given
         Album album = Album.createForClient("ValidAlbum", photographer, client);
@@ -276,6 +298,7 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer can remove a file from his own album")
     void shouldRemoveFileFromAlbumSuccessfully() {
         // Given
         Album album = Album.createForClient("RemoveTest", photographer, client);
@@ -291,6 +314,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Removing a file that is not in the album is rejected")
     void shouldThrowWhenRemovingNonExistentFile() {
         // Given
         Album album = Album.createForClient("RemoveTest2", photographer, client);
@@ -301,6 +325,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot remove files, even from his own album")
     void shouldDenyClientRemovingFileFromOwnAlbum() {
         // Given
         Album album = Album.createForClient("RemoveTest3", photographer, client);
@@ -318,6 +343,7 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer can rename a file in his own album")
     void shouldRenameFileInAlbumSuccessfully() {
         // Given
         Album album = Album.createForClient("RenameTest", photographer, client);
@@ -333,6 +359,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Renaming to a name already taken in the album is rejected")
     void shouldThrowWhenRenamingToAlreadyExistingFileName() {
         // Given
         Album album = Album.createForClient("RenameConflict", photographer, client);
@@ -347,6 +374,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot rename files, even in his own album")
     void shouldDenyClientRenamingFileInOwnAlbum() {
         // Given
         Album album = Album.createForClient("RenameDeny", photographer, client);
@@ -363,6 +391,7 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer can reveal a file to the client")
     void shouldMakeFileVisibleSuccessfully() {
         // Given
         Album album = Album.createForClient("VisibleTest", photographer, client);
@@ -378,6 +407,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot change file visibility")
     void shouldDenyClientChangingVisibilityInOwnAlbum() {
         // Given
         Album album = Album.createForClient("VisibleDeny", photographer, client);
@@ -391,8 +421,9 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Changing visibility of a mixed selection skips files already in the target state")
     void shouldBeIdempotentWhenSomeFilesAlreadyVisible() {
-        // Given — mieszane zaznaczenie: jeden plik już widoczny, drugi jeszcze nie
+        // Given - a mixed selection: one file is already visible, the other is not
         Album album = Album.createForClient("MixedVisible", photographer, client);
         File alreadyVisible = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
         File notVisible = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
@@ -400,31 +431,32 @@ class AlbumTest {
         album.addFile(notVisible);
         album.changeFileVisibleStatus(List.of(alreadyVisible.getFileId()), true, photographer, photographer.getEmail());
 
-        // When — ta sama akcja na paczce zawierającej już-widoczny plik NIE może rzucać
+        // When - the same action on a batch containing an already visible file must NOT throw
         album.changeFileVisibleStatus(
                 List.of(alreadyVisible.getFileId(), notVisible.getFileId()), true, photographer, photographer.getEmail());
 
-        // Then — oba widoczne
+        // Then - both are visible
         assertTrue(album.getPhotos().get(alreadyVisible.getFileId()).isVisible());
         assertTrue(album.getPhotos().get(notVisible.getFileId()).isVisible());
     }
 
     @Test
+    @DisplayName("Visibility event counts only newly revealed files, so the client is not mailed about unchanged ones")
     void shouldReportOnlyNewlyChangedCountInVisibilityEvent() {
-        // Given — dwa pliki, jeden już widoczny
+        // Given - two files, one already visible
         Album album = Album.createForClient("VisibleEventCount", photographer, client);
         File a = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
         File b = File.create(new FileName("b.jpg"), 100L, "image/jpeg");
         album.addFile(a);
         album.addFile(b);
         album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
-        album.pullDomainEvents(); // czyścimy zdarzenie z przygotowania
+        album.pullDomainEvents(); // drop the event produced by the setup
 
-        // When — paczka [a (już widoczny), b (nowy)] → faktycznie zmienia się tylko b
+        // When - batch [a (already visible), b (new)]: only b actually changes
         album.changeFileVisibleStatus(
                 List.of(a.getFileId(), b.getFileId()), true, photographer, photographer.getEmail());
 
-        // Then — zdarzenie raportuje 1 (nie 2), więc klient nie dostaje maila o "już widocznych"
+        // Then - the event reports 1 (not 2), so the client is not mailed about files he could already see
         FileVisibleStatusChanged event = album.pullDomainEvents().stream()
                 .filter(FileVisibleStatusChanged.class::isInstance)
                 .map(FileVisibleStatusChanged.class::cast)
@@ -433,18 +465,19 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("No visibility event and no mail when nothing actually changed")
     void shouldNotEmitVisibilityEventWhenNothingChanged() {
-        // Given — plik już widoczny
+        // Given - the file is already visible
         Album album = Album.createForClient("NoChangeEvent", photographer, client);
         File a = File.create(new FileName("a.jpg"), 100L, "image/jpeg");
         album.addFile(a);
         album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
         album.pullDomainEvents();
 
-        // When — ponowne "ustaw widoczne" na już-widocznym
+        // When - revealing a file that is already visible
         album.changeFileVisibleStatus(List.of(a.getFileId()), true, photographer, photographer.getEmail());
 
-        // Then — żadnego zdarzenia (brak spamu mailowego do klienta)
+        // Then - no event at all, so the client gets no pointless mail
         assertTrue(album.pullDomainEvents().stream()
                 .noneMatch(FileVisibleStatusChanged.class::isInstance));
     }
@@ -454,6 +487,7 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Swapping removes the files from the source album and hands them to the target")
     void shouldSwapFilesToTargetMapSuccessfully() {
         // Given
         Album source = Album.createForClient("Source", photographer, client);
@@ -477,6 +511,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot move files between albums")
     void shouldThrowWhenClientTriesToSwapFiles() {
         // Given
         Album album = Album.createForClient("SwapDeny", photographer, client);
@@ -490,21 +525,23 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Photographer cannot move files out of an album he does not own")
     void shouldThrowWhenNonOwnerPhotographerTriesToSwap() {
-        // Given — album należy do `photographer`, swap próbuje inny fotograf
+        // Given - the album belongs to `photographer`, another photographer attempts the swap
         User otherPhotographer = User.create("Other", new Email("other@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER);
         Album album = Album.createForClient("OwnedSource", photographer, client);
         File file = File.create(new FileName("owned.jpg"), 100L, "image/jpeg");
         album.addFile(file);
 
-        // When & Then — brak własności = odmowa (BOLA hardening)
+        // When & Then - no ownership means refusal (broken-object-level-authorization hardening)
         assertThrows(AlbumException.class,
                 () -> album.swapFiles(otherPhotographer, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(file.getFileId())));
     }
 
     @Test
+    @DisplayName("Target album rejects an incoming file whose name is taken, so no photo is silently overwritten")
     void shouldThrowWhenReceivingFileWithDuplicateNameInTarget() {
-        // Given — album docelowy ma już plik o tej samej nazwie
+        // Given - the target album already holds a file with the same name
         Album target = Album.createForClient("TargetDup", photographer, client);
         File existing = File.create(new FileName("dup.jpg"), 100L, "image/jpeg");
         target.addFile(existing);
@@ -513,7 +550,7 @@ class AlbumTest {
         Map<FileId, File> incomingFiles = new HashMap<>();
         incomingFiles.put(incoming.getFileId(), incoming);
 
-        // When & Then — kolizja nazw odrzucona zamiast cichego nadpisania
+        // When & Then - the name collision is rejected instead of silently overwriting a photo
         assertThrows(AlbumException.class, () -> target.receiveFiles(incomingFiles));
     }
 
@@ -522,6 +559,7 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Storage path of an admin album is the album name alone")
     void shouldReturnJustAlbumNameForAdmin() {
         // Given
         Album album = Album.createForAdmin("AdminAlbum", admin);
@@ -534,6 +572,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Storage path of a client album is prefixed with the photographer email")
     void shouldReturnEmailPrefixedPathForPhotographer() {
         // Given
         Album album = Album.createForClient("ClientAlbum", photographer, client);
@@ -547,6 +586,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client resolves the same storage path as the photographer who owns the album")
     void shouldReturnPathForClientWithPhotographerEmailPrefix() {
         // Client is the owner, path includes photographer prefix
         // Given
@@ -565,15 +605,17 @@ class AlbumTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin can manage the content of any album")
     void shouldGrantAccessToAdminAlbum() {
         // Given
         Album album = Album.createForClient("CanAccessTest", photographer, client);
 
-        // When / Then — admin always has access
+        // When / Then - admin always has access
         assertTrue(album.canAccess(admin.getId(), admin.getRoles()));
     }
 
     @Test
+    @DisplayName("Photographer can manage the content of his own album")
     void shouldGrantAccessToOwnerPhotographer() {
         // Given
         Album album = Album.createForClient("OwnerAccess", photographer, client);
@@ -583,6 +625,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Photographer cannot manage another photographer's album")
     void shouldDenyAccessToOtherPhotographer() {
         // Given
         Album album = Album.createForClient("OtherPhotograph", photographer, client);
@@ -593,6 +636,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client cannot manage album content")
     void shouldDenyAccessToClient() {
         // Given
         Album album = Album.createForClient("ClientNoAccess", photographer, client);
@@ -602,6 +646,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Client can read only the files marked visible in his album")
     void shouldAllowClientToReadOnlyVisibleFileInOwnAlbum() {
         // Given
         Album album = Album.createForClient("ClientVisibleRead", photographer, client);
@@ -618,6 +663,7 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("Public portfolio exposes only the files marked visible")
     void shouldExposeOnlyVisibleFilesAsPublicFiles() {
         // Given
         Album album = Album.createForClient("PublicVisibleRead", photographer, client);

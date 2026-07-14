@@ -1,6 +1,7 @@
 package pl.photodrive.core.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -46,8 +47,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -82,8 +83,8 @@ class AlbumManagementServiceTest {
         // inject @Value fields via reflection
         var storageField = AlbumManagementService.class.getDeclaredField("fileStorageLocation");
         storageField.setAccessible(true);
-        // Ścieżka MUSI być absolutna — serwis porównuje ją z targetPath w guardzie
-        // path-traversal; ścieżka względna wywala się na Windowsie zanim dojdzie do pliku.
+        // The path MUST be absolute: the service compares it with targetPath in the
+        // path-traversal guard, and a relative path fails on Windows before it ever reaches the file.
         storageField.set(service, Path.of(System.getProperty("java.io.tmpdir"), "photodrive-test")
                 .toAbsolutePath().normalize());
 
@@ -99,12 +100,13 @@ class AlbumManagementServiceTest {
     }
 
     // -----------------------------------------------------------------------
-    // swapFile — autoryzacja (B.13)
+    // swapFile - authorization
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer cannot move files into an album owned by someone else")
     void shouldThrowWhenPhotographerSwapsIntoAlbumHeDoesNotOwn() {
-        // Given — źródło należy do fotografa, cel do INNEGO fotografa
+        // Given - the source belongs to this photographer, the target to a DIFFERENT one
         User otherPhotographer = User.create("Other", new Email("other@photodrive.pl"),
                 new HashedPassword("hashed"), Role.PHOTOGRAPHER);
         Album source = Album.createForClient("Source", photographerUser, clientUser);
@@ -119,7 +121,7 @@ class AlbumManagementServiceTest {
         SwapFileCommand cmd = new SwapFileCommand(
                 source.getAlbumId().value(), target.getAlbumId().value(), List.of(file.getFileId().value()));
 
-        // When / Then — brak własności albumu docelowego = odmowa (403)
+        // When / Then - not owning the target album means refusal
         assertThatThrownBy(() -> service.swapFile(cmd))
                 .isInstanceOf(SecurityException.class);
     }
@@ -129,6 +131,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin creates a portfolio album and the storage folder is requested")
     void shouldCreateAdminAlbumSuccessfully() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -141,10 +144,11 @@ class AlbumManagementServiceTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("TestAlbum");
-        verify(albumRepository).save(any());
+        then(albumRepository).should().save(any());
     }
 
     @Test
+    @DisplayName("Album name must be unique")
     void shouldThrowWhenAlbumAlreadyExists() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -157,6 +161,7 @@ class AlbumManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Photographer cannot create a portfolio album")
     void shouldThrowWhenPhotographerTriesToCreateAdminAlbum() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -172,6 +177,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer creates an album for his client")
     void shouldCreateAlbumForClientSuccessfully() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -186,10 +192,11 @@ class AlbumManagementServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        verify(albumRepository).save(any());
+        then(albumRepository).should().save(any());
     }
 
     @Test
+    @DisplayName("Admin cannot create an album through the photographer use case")
     void shouldThrowWhenAdminTriesToCreateClientAlbum() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -205,6 +212,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Deleting an album also schedules removal of its folder")
     void shouldDeleteAlbumSuccessfully() {
         // Given
         Album album = Album.createForClient("ToDelete", photographerUser, clientUser);
@@ -214,13 +222,13 @@ class AlbumManagementServiceTest {
         given(albumRepository.findByAlbumId(any())).willReturn(Optional.of(album));
         given(userRepository.findById(new pl.photodrive.core.domain.vo.UserId(album.getPhotographId())))
                 .willReturn(Optional.of(photographerUser));
-        doNothing().when(albumRepository).delete(any());
+        willDoNothing().given(albumRepository).delete(any());
 
         // When
         service.deleteAlbum(new RemoveAlbumCommand(album.getAlbumId().value()));
 
         // Then
-        verify(albumRepository).delete(album);
+        then(albumRepository).should().delete(album);
     }
 
     // -----------------------------------------------------------------------
@@ -228,6 +236,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer sees only his own albums")
     void shouldReturnAlbumsByPhotographerId() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -240,11 +249,12 @@ class AlbumManagementServiceTest {
 
         // Then
         assertThat(result).hasSize(1);
-        verify(albumRepository).findAllByPhotographId(photographerUser.getId().value());
-        verify(albumRepository, never()).findAllByClientId(any());
+        then(albumRepository).should().findAllByPhotographId(photographerUser.getId().value());
+        then(albumRepository).should(never()).findAllByClientId(any());
     }
 
     @Test
+    @DisplayName("Client sees only albums assigned to him")
     void shouldReturnAlbumsByClientId() {
         // Given
         stubCurrentUserAs(clientUser);
@@ -257,11 +267,12 @@ class AlbumManagementServiceTest {
 
         // Then
         assertThat(result).hasSize(1);
-        verify(albumRepository).findAllByClientId(clientUser.getId().value());
-        verify(albumRepository, never()).findAllByPhotographId(any());
+        then(albumRepository).should().findAllByClientId(clientUser.getId().value());
+        then(albumRepository).should(never()).findAllByPhotographId(any());
     }
 
     @Test
+    @DisplayName("Admin has no assigned albums, so the query is refused")
     void shouldThrowWhenAdminCallsGetAssignedAlbums() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -277,6 +288,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Scheduled cleanup removes albums past their TTD")
     void shouldRemoveExpiredAlbumsUsingRepository() {
         // Given
         Album album = Album.createForClient("Expired", photographerUser, clientUser);
@@ -292,19 +304,20 @@ class AlbumManagementServiceTest {
         );
 
         given(albumRepository.findByTtdBeforeAndTtdIsNotNull(any())).willReturn(List.of(expiredAlbum));
-        doNothing().when(albumRepository).delete(any());
+        willDoNothing().given(albumRepository).delete(any());
 
         // When
         service.removeExpiredAlbum();
 
         // Then
-        verify(albumRepository).findByTtdBeforeAndTtdIsNotNull(any(Instant.class));
-        verify(albumRepository).delete(expiredAlbum);
+        then(albumRepository).should().findByTtdBeforeAndTtdIsNotNull(any(Instant.class));
+        then(albumRepository).should().delete(expiredAlbum);
     }
 
     @Test
+    @DisplayName("Cleanup skips albums without a storage path, so nothing unrelated is deleted")
     void shouldNotDeleteAlbumsWithNullPath() {
-        // Given — album with null ttd should not be returned (repo query handles it),
+        // Given - album with null ttd should not be returned (repo query handles it),
         // but we also verify an empty list results in no deletes
         given(albumRepository.findByTtdBeforeAndTtdIsNotNull(any())).willReturn(List.of());
 
@@ -312,7 +325,7 @@ class AlbumManagementServiceTest {
         service.removeExpiredAlbum();
 
         // Then
-        verify(albumRepository, never()).delete(any());
+        then(albumRepository).should(never()).delete(any());
     }
 
     // -----------------------------------------------------------------------
@@ -320,6 +333,7 @@ class AlbumManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin can list every album")
     void shouldReturnAllAlbumsForAdmin() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -330,10 +344,11 @@ class AlbumManagementServiceTest {
 
         // Then
         assertThat(result).isEmpty();
-        verify(albumRepository).findAll();
+        then(albumRepository).should().findAll();
     }
 
     @Test
+    @DisplayName("Only an admin can list every album")
     void shouldThrowWhenNonAdminCallsGetAllAlbums() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -345,10 +360,10 @@ class AlbumManagementServiceTest {
     }
 
     // =======================================================================
-    // Pomocnicze
+    // Helpers
     // =======================================================================
 
-    /** Album klienta z jednym plikiem; zwraca album, plik dostępny przez getPhotos(). */
+    /** Client album with a single file; the file is reachable through getPhotos(). */
     private Album clientAlbumWithFile(String albumName, String fileName) {
         Album album = Album.createForClient(albumName, photographerUser, clientUser);
         album.addFile(File.create(new FileName(fileName), 10L, "image/jpeg"));
@@ -365,11 +380,13 @@ class AlbumManagementServiceTest {
     }
 
     // =======================================================================
-    // addFilesToAlbum — upload
+    // addFilesToAlbum - upload
     // =======================================================================
 
     @Test
+    @DisplayName("Upload registers one storage request per file, so every byte lands on disk before commit")
     void shouldAddFilesAndRequestStorageForEachUpload() {
+        // Given
         Album album = Album.createForClient("Sesja", photographerUser, clientUser);
         album.pullDomainEvents();
         stubCurrentUserAs(photographerUser);
@@ -381,36 +398,43 @@ class AlbumManagementServiceTest {
                 new FileUpload(FileName.of("a.jpg"), 10L, "image/jpeg", "temp-a"),
                 new FileUpload(FileName.of("b.jpg"), 20L, "image/jpeg", "temp-b")));
 
+        // When
         List<FileId> ids = service.addFilesToAlbum(cmd);
 
+        // Then
         assertThat(ids).hasSize(2);
         assertThat(album.getPhotos()).hasSize(2);
-        verify(eventPublisher, times(2)).publishEvent(any(FileStorageRequested.class));
-        verify(albumRepository).save(album);
+        then(eventPublisher).should(times(2)).publishEvent(any(FileStorageRequested.class));
+        then(albumRepository).should().save(album);
     }
 
     @Test
+    @DisplayName("Colliding upload name is made unique instead of overwriting the existing photo")
     void shouldGiveUniqueNameWhenFileNameAlreadyTaken() {
+        // Given - an album that already holds a file under the requested name
         Album album = Album.createForClient("Sesja", photographerUser, clientUser);
         album.pullDomainEvents();
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
         given(fileRepository.countBySizeBytes()).willReturn(0L);
-        // „foto.jpg" jest zajęte, „foto_1.jpg" już nie
+        // "foto.jpg" is already taken in this album
         given(fileUniquenessChecker.isFileNameTaken(any(), any()))
                 .willAnswer(inv -> ((FileName) inv.getArgument(1)).value().equals("foto.jpg"));
 
+        // When
         service.addFilesToAlbum(new AddFileToAlbumCommand(album.getAlbumId().value(),
                 List.of(new FileUpload(FileName.of("foto.jpg"), 10L, "image/jpeg", "t1"))));
 
-        // Backend rozwiązuje kolizję sufiksem „ (1)" — NIE „_1" (patrz FileNamingPolicy).
+        // The backend resolves a collision with a " (1)" suffix, NOT "_1" (see FileNamingPolicy).
         assertThat(album.getPhotos().values())
                 .extracting(f -> f.getFileName().value())
                 .containsExactly("foto (1).jpg");
     }
 
     @Test
+    @DisplayName("User without access to the album cannot upload into it")
     void shouldRejectUploadFromUserWithoutAccessToAlbum() {
+        // Given
         User otherClient = User.create("Obcy", new Email("obcy@photodrive.pl"),
                 new HashedPassword("hashed"), Role.CLIENT);
         Album album = Album.createForClient("Sesja", photographerUser, clientUser);
@@ -421,6 +445,7 @@ class AlbumManagementServiceTest {
         AddFileToAlbumCommand cmd = new AddFileToAlbumCommand(album.getAlbumId().value(),
                 List.of(new FileUpload(FileName.of("a.jpg"), 1L, "image/jpeg", "t")));
 
+        // When / Then
         assertThatThrownBy(() -> service.addFilesToAlbum(cmd))
                 .isInstanceOf(SecurityException.class);
     }
@@ -430,20 +455,25 @@ class AlbumManagementServiceTest {
     // =======================================================================
 
     @Test
+    @DisplayName("Client cannot download a photo the photographer has not revealed")
     void shouldRefuseZipWhenClientAsksForHiddenFile() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "ukryte.jpg");
         stubCurrentUserAs(clientUser);
         stubAlbum(album);
 
         DownloadFilesCommand cmd = new DownloadFilesCommand(List.of("ukryte.jpg"), album.getAlbumId().value());
 
+        // When / Then
         assertThatThrownBy(() -> service.downloadFilesAsZip(cmd))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("hidden");
     }
 
     @Test
+    @DisplayName("Client downloads the watermarked version, never the clean original")
     void shouldBuildZipWithWatermarkKeysForClient() {
+        // Given - a visible, watermarked photo and a configured platform logo
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         album.changeFileVisibleStatus(List.of(file.getFileId()), true, photographerUser, clientUser.getEmail());
@@ -458,15 +488,18 @@ class AlbumManagementServiceTest {
                 new pl.photodrive.core.application.port.file.PlatformWatermark(new byte[]{1}, logoVersion)));
         given(fileStoragePort.createZipArchive(any(), any(), any(), any())).willReturn(new byte[]{9});
 
+        // When
         service.downloadFilesAsZip(new DownloadFilesCommand(List.of("foto.jpg"), album.getAlbumId().value()));
 
-        // Klucz cache = {fileId}-{wersjaLoga}; klient NIGDY nie dostaje czystego oryginału
-        verify(fileStoragePort).createZipArchive(any(), eq(List.of("foto.jpg")),
+        // Then - cache key is {fileId}-{logoVersion}; the client NEVER gets the clean original
+        then(fileStoragePort).should().createZipArchive(any(), eq(List.of("foto.jpg")),
                 eq(Map.of("foto.jpg", file.getFileId().value() + "-1234")), any());
     }
 
     @Test
+    @DisplayName("Owner downloads clean originals, without the watermark")
     void shouldBuildZipWithCleanOriginalsForOwner() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         album.changeWatermarkStatus(photographerUser, true, List.of(file.getFileId()), true);
@@ -478,88 +511,113 @@ class AlbumManagementServiceTest {
 
         service.downloadFilesAsZip(new DownloadFilesCommand(List.of("foto.jpg"), album.getAlbumId().value()));
 
-        // Właściciel dostaje oryginały — bez kluczy watermarku i bez obrazu loga
-        verify(fileStoragePort).createZipArchive(any(), any(), eq(Map.of()), isNull());
-        verify(watermarkStore, never()).get();
+        // When
+        // The owner gets originals: no watermark keys and no logo image
+        then(fileStoragePort).should().createZipArchive(any(), any(), eq(Map.of()), isNull());
+
+        // Then
+        then(watermarkStore).should(never()).get();
     }
 
     // =======================================================================
-    // Operacje na plikach
+    // File operations
     // =======================================================================
 
     @Test
+    @DisplayName("Photographer renames a file in his album")
     void shouldRenameFile() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "stara.jpg");
         File file = onlyFile(album);
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
 
+        // When
         service.renameFile(new RenameFileCommand(album.getAlbumId().value(), file.getFileId().value(), "nowa.jpg"));
 
+        // Then
         assertThat(album.getPhotos().values())
                 .extracting(f -> f.getFileName().value())
                 .containsExactly("nowa.jpg");
-        verify(albumRepository).save(album);
+        then(albumRepository).should().save(album);
     }
 
     @Test
+    @DisplayName("Photographer removes files from his album")
     void shouldRemoveFiles() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
 
+        // When
         service.removeFiles(new RemoveFileCommand(List.of(file.getFileId().value()), album.getAlbumId().value()));
 
+        // Then
         assertThat(album.getPhotos()).isEmpty();
-        verify(albumRepository).save(album);
+        then(albumRepository).should().save(album);
     }
 
     @Test
+    @DisplayName("Setting TTD stores the date and notifies the client")
     void shouldSetTtdAndNotifyClient() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         Instant ttd = Instant.now().plusSeconds(86_400);
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
         given(userRepository.findById(clientUser.getId())).willReturn(Optional.of(clientUser));
 
+        // When
         service.setTTD(new SetTTDCommand(album.getAlbumId().value(), ttd));
 
+        // Then
         assertThat(album.getTtd()).isEqualTo(ttd);
-        verify(eventPublisher, atLeastOnce()).publishEvent(any(Object.class));
+        then(eventPublisher).should(atLeastOnce()).publishEvent(any(Object.class));
     }
 
     @Test
+    @DisplayName("Photographer reveals files to the client")
     void shouldChangeVisibilityOfFiles() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
         given(userRepository.findById(clientUser.getId())).willReturn(Optional.of(clientUser));
 
+        // When
         service.changeVisibleStatus(new ChangeVisibleCommand(album.getAlbumId().value(),
                 List.of(file.getFileId().value()), true));
 
+        // Then
         assertThat(onlyFile(album).isVisible()).isTrue();
-        verify(albumRepository).save(album);
+        then(albumRepository).should().save(album);
     }
 
     @Test
+    @DisplayName("Watermark can be applied when the platform logo is configured")
     void shouldChangeWatermarkStatusWhenLogoConfigured() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
         given(watermarkStore.exists()).willReturn(true);
 
+        // When
         service.changeWatermarkStatus(new ChangeWatermarkCommand(album.getAlbumId().value(),
                 List.of(file.getFileId().value()), true));
 
+        // Then
         assertThat(onlyFile(album).isHasWatermark()).isTrue();
     }
 
     @Test
+    @DisplayName("Watermark cannot be applied without a platform logo")
     void shouldRefuseWatermarkWhenNoPlatformLogoConfigured() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         File file = onlyFile(album);
         stubCurrentUserAs(photographerUser);
@@ -569,16 +627,19 @@ class AlbumManagementServiceTest {
         ChangeWatermarkCommand cmd = new ChangeWatermarkCommand(album.getAlbumId().value(),
                 List.of(file.getFileId().value()), true);
 
+        // When / Then
         assertThatThrownBy(() -> service.changeWatermarkStatus(cmd))
                 .isInstanceOf(AlbumException.class);
     }
 
     // =======================================================================
-    // Serwowanie zdjęć — autoryzacja
+    // Serving photos - authorization
     // =======================================================================
 
     @Test
+    @DisplayName("Serving a photo is refused for a user with no access to the album")
     void shouldRefusePhotoForUserWithoutReadAccess() {
+        // Given
         User otherClient = User.create("Obcy", new Email("obcy@photodrive.pl"),
                 new HashedPassword("hashed"), Role.CLIENT);
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
@@ -587,88 +648,110 @@ class AlbumManagementServiceTest {
 
         GetPhotoPathCommand cmd = new GetPhotoPathCommand(album.getAlbumId().value(), "foto.jpg", null, null);
 
+        // When / Then
         assertThatThrownBy(() -> service.getFilePath(cmd))
                 .isInstanceOf(SecurityException.class);
     }
 
     @Test
+    @DisplayName("Client cannot fetch a photo that is still hidden")
     void shouldRefuseHiddenPhotoForClient() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "ukryte.jpg");
         stubCurrentUserAs(clientUser);
         stubAlbum(album);
 
         GetPhotoPathCommand cmd = new GetPhotoPathCommand(album.getAlbumId().value(), "ukryte.jpg", null, null);
 
+        // When / Then
         assertThatThrownBy(() -> service.getFilePath(cmd))
                 .isInstanceOf(SecurityException.class);
     }
 
     @Test
+    @DisplayName("Missing file on disk is reported instead of returning an empty response")
     void shouldThrowWhenPhotoFileMissingOnDisk() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
 
         GetPhotoPathCommand cmd = new GetPhotoPathCommand(album.getAlbumId().value(), "foto.jpg", null, null);
 
+        // When / Then
         assertThatThrownBy(() -> service.getFilePath(cmd))
                 .isInstanceOf(AlbumException.class)
                 .hasMessageContaining("File not found");
     }
 
     // =======================================================================
-    // Albumy publiczne (portfolio)
+    // Public albums (portfolio)
     // =======================================================================
 
     @Test
+    @DisplayName("Public albums are listed for the portfolio")
     void shouldReturnPublicAlbums() {
+        // When
         given(albumRepository.findAllPublic()).willReturn(List.of());
 
+        // Then
         assertThat(service.getAllPublicAlbums()).isEmpty();
     }
 
     @Test
+    @DisplayName("A private album is not reachable through the public endpoint")
     void shouldThrowWhenPublicAlbumNotFound() {
+        // Given
         AlbumId albumId = new AlbumId(UUID.randomUUID());
         given(albumRepository.findPublicByAlbumId(albumId)).willReturn(Optional.empty());
 
+        // When / Then
         assertThatThrownBy(() -> service.getPublicAlbum(albumId))
                 .isInstanceOf(AlbumNotFoundException.class);
     }
 
     @Test
+    @DisplayName("A private album is not reachable by name either")
     void shouldThrowWhenPublicAlbumByNameNotFound() {
+        // Given
         given(albumRepository.findPublicByName("brak")).willReturn(Optional.empty());
 
+        // When / Then
         assertThatThrownBy(() -> service.getPublicAlbumByName("brak"))
                 .isInstanceOf(AlbumNotFoundException.class);
     }
 
     @Test
+    @DisplayName("Portfolio never serves a photo that is not marked visible")
     void shouldRefusePublicPhotoThatIsNotVisible() {
+        // Given - a public album holding a photo the photographer never revealed
         Album album = clientAlbumWithFile("Portfolio", "ukryte.jpg");
         given(albumRepository.findPublicByAlbumId(album.getAlbumId())).willReturn(Optional.of(album));
-
         UUID id = album.getAlbumId().value();
 
-        // Plik istnieje, ale jest niewidoczny → publicznie niedostępny
+        // When / Then - the file exists but is hidden, so it is not reachable publicly
         assertThatThrownBy(() -> service.getPublicPhoto(id, "ukryte.jpg"))
                 .isInstanceOf(AlbumException.class)
                 .hasMessageContaining("File not found");
     }
 
     // =======================================================================
-    // Publikacja i listy
+    // Publishing and listings
     // =======================================================================
 
     @Test
+    @DisplayName("Admin publishes an album to the portfolio and can withdraw it")
     void shouldMakeAlbumPublicAndPrivate() {
+        // Given
         Album album = Album.createForAdmin("Portfolio", adminUser);
         album.pullDomainEvents();
         stubCurrentUserAs(adminUser);
         stubAlbum(album);
 
+        // When
         service.setAlbumPublic(new SetAlbumVisibilityCommand(album.getAlbumId().value(), true));
+
+        // Then
         assertThat(album.isPublic()).isTrue();
 
         service.setAlbumPublic(new SetAlbumVisibilityCommand(album.getAlbumId().value(), false));
@@ -676,29 +759,43 @@ class AlbumManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Album list without TTD skips albums that already expire")
     void shouldFilterOutAlbumsWithTtd() {
-        // TTD dotyczy wyłącznie albumów klienta — domena odrzuca TTD na albumie admina.
+        // Given
+        // TTD applies to client albums only - the domain refuses TTD on an admin album.
         Album withoutTtd = Album.createForClient("Bez TTD", photographerUser, clientUser);
         Album withTtd = Album.createForClient("Z TTD", photographerUser, clientUser);
         withTtd.setTTD(Instant.now().plusSeconds(3600), photographerUser, clientUser.getEmail().value());
         stubCurrentUserAs(adminUser);
+
+        // When
         given(albumRepository.findAll()).willReturn(List.of(withoutTtd, withTtd));
 
+        // Then
         assertThat(service.getAllAlbumsWithoutTTD()).containsExactly(withoutTtd);
     }
 
     @Test
+    @DisplayName("File names are listed for collision detection before upload")
     void shouldReturnFileNamesOfAlbum() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         stubCurrentUserAs(photographerUser);
+
+        // When
         stubAlbum(album);
 
+        // Then
         assertThat(service.getAlbumFileNames(album.getAlbumId())).containsExactly("foto.jpg");
     }
 
     @Test
+    @DisplayName("Service reports whether the caller is a client")
     void shouldTellWhetherCurrentUserIsClient() {
+        // When
         stubCurrentUserAs(clientUser);
+
+        // Then
         assertThat(service.isCurrentUserClient()).isTrue();
 
         stubCurrentUserAs(adminUser);
@@ -710,14 +807,19 @@ class AlbumManagementServiceTest {
     // =======================================================================
 
     @Test
+    @DisplayName("Photo URLs carry the size parameters only when a size was requested")
     void shouldBuildPhotoUrlsWithAndWithoutSize() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "foto.jpg");
         stubCurrentUserAs(photographerUser);
         stubAlbum(album);
         UUID albumId = album.getAlbumId().value();
 
+        // When
         List<String> plain = service.getAllUrlsFromAlbum(
                 new GetUrlsCommand(albumId, "https://photodrive.dev", null, null, false));
+
+        // Then
         assertThat(plain).containsExactly(
                 "https://photodrive.dev/api/album/" + albumId + "/photo/foto.jpg");
 
@@ -728,14 +830,18 @@ class AlbumManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Only visible photos get a URL when the caller asks for visible ones")
     void shouldReturnOnlyVisibleUrlsWhenRequested() {
+        // Given
         Album album = clientAlbumWithFile("Sesja", "ukryte.jpg");
         stubCurrentUserAs(clientUser);
         stubAlbum(album);
 
+        // When
         List<String> urls = service.getAllUrlsFromAlbum(new GetUrlsCommand(
                 album.getAlbumId().value(), "https://photodrive.dev", null, null, true));
 
+        // Then
         assertThat(urls).isEmpty();
     }
 }

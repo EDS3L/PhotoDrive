@@ -1,5 +1,6 @@
 package pl.photodrive.core.presentation.controller;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -27,13 +28,13 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Portfolio jest dostępne BEZ logowania — kluczowe jest to, że wycieka wyłącznie to,
- * co fotograf świadomie oznaczył jako widoczne.
+ * The portfolio is reachable WITHOUT logging in, so the crucial property is that it exposes
+ * only what the photographer deliberately marked as visible.
  */
 @WebMvcTest(controllers = PublicAlbumController.class,
         excludeAutoConfiguration = {SecurityAutoConfiguration.class, SecurityFilterAutoConfiguration.class},
@@ -46,7 +47,7 @@ class PublicAlbumControllerTest {
     @MockitoBean
     private AlbumManagementService albumService;
 
-    /** Album publiczny z jednym plikiem widocznym i jednym ukrytym. */
+    /** Public album with one visible and one hidden file. */
     private Album albumWithVisibleAndHiddenFile() {
         User admin = User.create("Admin", new Email("admin@photodrive.pl"),
                 new HashedPassword("hashed"), Role.ADMIN);
@@ -62,22 +63,28 @@ class PublicAlbumControllerTest {
     }
 
     @Test
+    @DisplayName("Portfolio counts only visible photos, so hidden ones do not inflate the number")
     void shouldListPublicAlbumsWithVisiblePhotoCountOnly() throws Exception {
+        // Given
         given(albumService.getAllPublicAlbums()).willReturn(List.of(albumWithVisibleAndHiddenFile()));
 
+        // When / Then
         mockMvc.perform(get("/api/public/album/all"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "public, max-age=30, must-revalidate"))
                 .andExpect(jsonPath("$[0].name").value("portfolio-sluby"))
-                // liczy TYLKO widoczne — ukryte zdjęcie nie może podbijać licznika
+                // counts ONLY visible photos - a hidden one must not inflate the number
                 .andExpect(jsonPath("$[0].photoCount").value(1));
     }
 
     @Test
+    @DisplayName("Listing a portfolio album by name exposes only visible photos")
     void shouldNotLeakHiddenPhotosWhenListingByAlbumName() throws Exception {
+        // Given
         given(albumService.getPublicAlbumByName("portfolio-sluby"))
                 .willReturn(albumWithVisibleAndHiddenFile());
 
+        // When / Then
         mockMvc.perform(get("/api/public/album/by-name/portfolio-sluby"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photos.length()").value(1))
@@ -85,10 +92,13 @@ class PublicAlbumControllerTest {
     }
 
     @Test
+    @DisplayName("Listing a portfolio album by id exposes only visible photos")
     void shouldNotLeakHiddenPhotosWhenListingById() throws Exception {
+        // Given
         Album album = albumWithVisibleAndHiddenFile();
         given(albumService.getPublicAlbum(any(AlbumId.class))).willReturn(album);
 
+        // When / Then
         mockMvc.perform(get("/api/public/album/{id}/photos", album.getAlbumId().value()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -96,7 +106,9 @@ class PublicAlbumControllerTest {
     }
 
     @Test
+    @DisplayName("Portfolio photo is served inline with a long cache lifetime")
     void shouldServePublicPhoto() throws Exception {
+        // Given
         Album album = albumWithVisibleAndHiddenFile();
         given(albumService.getPublicPhoto(any(), anyString()))
                 .willReturn(new FileResource(new ByteArrayResource("bytes".getBytes()) {
@@ -106,6 +118,7 @@ class PublicAlbumControllerTest {
                     }
                 }, "image/jpeg"));
 
+        // When / Then
         mockMvc.perform(get("/api/public/album/{id}/photo/{name}", album.getAlbumId().value(), "widoczne.jpg"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("image/jpeg"))
@@ -113,10 +126,13 @@ class PublicAlbumControllerTest {
     }
 
     @Test
+    @DisplayName("A private album returns 404 on the public endpoint")
     void shouldReturn404ForNonPublicAlbum() throws Exception {
+        // Given
         given(albumService.getPublicAlbumByName("prywatny"))
                 .willThrow(new AlbumNotFoundException("Public album not found"));
 
+        // When / Then
         mockMvc.perform(get("/api/public/album/by-name/prywatny"))
                 .andExpect(status().isNotFound());
     }

@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Magazyn tymczasowy przyjmuje bajty uploadu, zanim transakcja się zacommituje.
- * Handler zapisu (BEFORE_COMMIT) polega na exists/getFile/delete.
+ * Temporary storage holds the uploaded bytes until the transaction commits.
+ * The BEFORE_COMMIT storage handler relies on exists/getFile/delete.
  */
 class FileSystemTemporaryStorageTest {
 
@@ -32,10 +32,12 @@ class FileSystemTemporaryStorageTest {
     }
 
     @Test
-    @DisplayName("Zapisany plik tymczasowy da się odczytać i skasować")
+    @DisplayName("A temporary file can be saved, read back and deleted")
     void shouldSaveReadAndDeleteTemporaryFile() throws IOException {
+        // When
         String tempId = storage.saveTemporary(new ByteArrayInputStream("zdjecie".getBytes()));
 
+        // Then
         assertThat(tempId).isNotBlank();
         assertThat(storage.exists(tempId)).isTrue();
 
@@ -48,33 +50,40 @@ class FileSystemTemporaryStorageTest {
     }
 
     @Test
-    @DisplayName("Katalog tymczasowy powstaje, gdy jeszcze nie istnieje")
+    @DisplayName("The temporary directory is created when it does not exist")
     void shouldCreateTempDirectoryIfMissing() {
+        // Given
         Path nested = tempDir.resolve("glebiej/temp");
 
+        // When
         new FileSystemTemporaryStorage(nested.toString());
 
+        // Then
         assertThat(Files.isDirectory(nested)).isTrue();
     }
 
     @Test
-    @DisplayName("Nieistniejący plik tymczasowy zgłasza błąd zamiast zwracać pustkę")
+    @DisplayName("Reading a missing temporary file fails loudly instead of returning nothing")
     void shouldThrowWhenTemporaryFileMissing() {
+        // When / Then
         assertThatThrownBy(() -> storage.getFile("nie-ma-takiego"))
                 .isInstanceOf(StorageException.class);
     }
 
     @Test
-    @DisplayName("Kasowanie nieistniejącego pliku jest bezpieczne (idempotentne)")
+    @DisplayName("Deleting a missing temporary file is harmless")
     void shouldIgnoreDeleteOfMissingFile() {
+        // When
         storage.delete("nie-ma-takiego");
 
+        // Then
         assertThat(storage.exists("nie-ma-takiego")).isFalse();
     }
 
     @Test
-    @DisplayName("Path traversal w tempId jest odrzucany")
+    @DisplayName("Path traversal in the temporary file id is rejected")
     void shouldRejectPathTraversal() {
+        // When / Then
         assertThatThrownBy(() -> storage.exists("../../etc/passwd"))
                 .isInstanceOf(StorageException.class);
 
@@ -83,10 +92,12 @@ class FileSystemTemporaryStorageTest {
     }
 
     @Test
-    @DisplayName("Katalog nie jest plikiem tymczasowym")
+    @DisplayName("A directory is not mistaken for a temporary file")
     void shouldNotTreatDirectoryAsTemporaryFile() throws IOException {
+        // When
         Files.createDirectory(tempDir.resolve("podkatalog"));
 
+        // Then
         assertThat(storage.exists("podkatalog")).isFalse();
     }
 }

@@ -1,5 +1,6 @@
 package pl.photodrive.core.application.service;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,6 +19,7 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class WatermarkManagementServiceTest {
@@ -29,64 +31,92 @@ class WatermarkManagementServiceTest {
     @InjectMocks private WatermarkManagementService service;
 
     @Test
+    @DisplayName("Uploading a logo stores it and wipes the watermark cache, so old renderings disappear")
     void shouldStorePngAndClearCacheOnUpload() throws IOException {
+        // Given
         byte[] png = validPng();
 
+        // When
         service.uploadWatermark(png);
 
-        verify(watermarkStore).put(png);
-        verify(fileStoragePort).clearWatermarkCache();
+        // Then
+        then(watermarkStore).should().put(png);
+        then(fileStoragePort).should().clearWatermarkCache();
     }
 
     @Test
+    @DisplayName("Only a PNG is accepted as the platform logo")
     void shouldRejectNonPngUpload() throws IOException {
-        // Poprawny obraz, ale JPEG — logo musi być PNG (przezroczystość)
+        // Given
+        // A valid image, but JPEG - the logo must be PNG for transparency
         BufferedImage img = new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(img, "jpg", baos);
 
+        // When
         assertThrows(FileException.class, () -> service.uploadWatermark(baos.toByteArray()));
-        verify(watermarkStore, never()).put(any());
+
+        // Then
+        then(watermarkStore).should(never()).put(any());
     }
 
     @Test
+    @DisplayName("A file that claims to be a PNG but cannot be decoded is rejected")
     void shouldRejectUndecodablePng() {
-        // Magic PNG, ale dalej śmieci — ImageIO nie zdekoduje
+        // Given
+        // PNG magic bytes followed by garbage - ImageIO cannot decode it
         byte[] fake = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3, 4, 5};
 
+        // When
         assertThrows(FileException.class, () -> service.uploadWatermark(fake));
-        verify(watermarkStore, never()).put(any());
+
+        // Then
+        then(watermarkStore).should(never()).put(any());
     }
 
     @Test
+    @DisplayName("Logo larger than the size limit is rejected")
     void shouldRejectTooLargeUpload() {
+        // Given
         byte[] huge = new byte[3 * 1024 * 1024];
         huge[0] = (byte) 0x89;
         huge[1] = 'P';
         huge[2] = 'N';
         huge[3] = 'G';
 
+        // When
         assertThrows(FileException.class, () -> service.uploadWatermark(huge));
-        verify(watermarkStore, never()).put(any());
+
+        // Then
+        then(watermarkStore).should(never()).put(any());
     }
 
     @Test
+    @DisplayName("Logo cannot be deleted while photos still carry the watermark flag")
     void shouldBlockDeleteWhenWatermarkInUse() {
-        when(fileRepository.countWithWatermark()).thenReturn(5L);
+        // Given
+        given(fileRepository.countWithWatermark()).willReturn(5L);
 
+        // When
         assertThrows(AlbumException.class, () -> service.deleteWatermark());
-        verify(watermarkStore, never()).delete();
-        verify(fileStoragePort, never()).clearWatermarkCache();
+
+        // Then
+        then(watermarkStore).should(never()).delete();
+        then(fileStoragePort).should(never()).clearWatermarkCache();
     }
 
     @Test
+    @DisplayName("Unused logo can be deleted and the cache is wiped with it")
     void shouldDeleteAndClearCacheWhenNotInUse() {
-        when(fileRepository.countWithWatermark()).thenReturn(0L);
+        // Given
+        given(fileRepository.countWithWatermark()).willReturn(0L);
 
+        // When
         service.deleteWatermark();
 
-        verify(watermarkStore).delete();
-        verify(fileStoragePort).clearWatermarkCache();
+        // Then
+        then(watermarkStore).should().delete();
+        then(fileStoragePort).should().clearWatermarkCache();
     }
 
     private byte[] validPng() throws IOException {

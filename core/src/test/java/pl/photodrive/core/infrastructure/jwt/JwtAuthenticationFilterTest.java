@@ -3,6 +3,7 @@ package pl.photodrive.core.infrastructure.jwt;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -29,8 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.*;
 
 class JwtAuthenticationFilterTest {
 
@@ -56,48 +56,59 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void renewsCookieWhenTokenIsPastHalfLife() throws Exception {
+    @DisplayName("Session cookie is renewed once the token is past half of its life, so activity extends the session")
+    void shouldRenewCookieWhenTokenIsPastHalfLife() throws Exception {
+        // Given
         // 20 min remaining < 30 min threshold -> renew
         stubDecode(now.plus(Duration.ofMinutes(20)));
-        when(tokenEncoder.createAccessToken(any(), any(), any(), any())).thenReturn("fresh.jwt");
-        when(cookieWriter.accessTokenCookie(any(), any()))
-                .thenReturn(ResponseCookie.from("pd_at", "fresh.jwt").build());
+        given(tokenEncoder.createAccessToken(any(), any(), any(), any())).willReturn("fresh.jwt");
+        given(cookieWriter.accessTokenCookie(any(), any())).willReturn(ResponseCookie.from("pd_at", "fresh.jwt").build());
 
+        // When
         MockHttpServletResponse response = invokeWithCookie("old.jwt");
 
-        verify(tokenEncoder).createAccessToken(any(), any(), any(), any());
+        // Then
+        then(tokenEncoder).should().createAccessToken(any(), any(), any(), any());
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE))
                 .anyMatch(h -> h.contains("pd_at="));
     }
 
     @Test
-    void doesNotRenewWhenTokenHasPlentyOfLife() throws Exception {
+    @DisplayName("Fresh token is not renewed on every request")
+    void shouldNotRenewCookieWhenTokenHasPlentyOfLife() throws Exception {
+        // Given
         // 50 min remaining > 30 min threshold -> no renew
         stubDecode(now.plus(Duration.ofMinutes(50)));
 
+        // When
         MockHttpServletResponse response = invokeWithCookie("old.jwt");
 
-        verify(tokenEncoder, never()).createAccessToken(any(), any(), any(), any());
+        // Then
+        then(tokenEncoder).should(never()).createAccessToken(any(), any(), any(), any());
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
     }
 
     @Test
-    void doesNotRenewForBearerHeaderTokens() throws Exception {
+    @DisplayName("Bearer tokens are not renewed; renewal applies to cookie sessions only")
+    void shouldNotRenewCookieForBearerTokens() throws Exception {
+        // Given
         // near expiry, but token comes from Authorization header (API client) -> no renew
         stubDecode(now.plus(Duration.ofMinutes(5)));
 
         MockHttpServletRequest request = baseRequest();
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer api.jwt");
         MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
         filter.doFilter(request, response, mock(FilterChain.class));
 
-        verify(tokenEncoder, never()).createAccessToken(any(), any(), any(), any());
+        // Then
+        then(tokenEncoder).should(never()).createAccessToken(any(), any(), any(), any());
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
     }
 
     private void stubDecode(Instant expiresAt) {
-        when(tokenDecoder.parse(anyString()))
-                .thenReturn(new AuthenticatedUser(userId, Set.of(Role.ADMIN), expiresAt));
+        given(tokenDecoder.parse(anyString())).willReturn(new AuthenticatedUser(userId, Set.of(Role.ADMIN), expiresAt));
     }
 
     private MockHttpServletRequest baseRequest() {

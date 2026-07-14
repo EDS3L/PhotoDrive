@@ -1,6 +1,7 @@
 package pl.photodrive.core.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -24,8 +25,7 @@ import java.time.Duration;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -54,6 +54,7 @@ class AuthControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Successful login sets the HttpOnly session cookie")
     void shouldReturn200WithCookieOnSuccessfulLogin() throws Exception {
         // Given
         AccessToken token = new AccessToken("jwt.token.here", Duration.ofMinutes(15));
@@ -72,6 +73,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("Wrong credentials return 401")
     void shouldReturn401WhenCredentialsInvalid() throws Exception {
         // Given
         given(authManagerService.login(any())).willThrow(new LoginFailedException("Invalid credentials!"));
@@ -86,8 +88,9 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("Blank login payload is rejected by validation")
     void shouldReturn400WhenLoginRequestBodyIsBlank() throws Exception {
-        // When / Then — empty email and password should fail @Valid
+        // When / Then - empty email and password should fail @Valid
         String body = objectMapper.writeValueAsString(Map.of("email", "", "password", ""));
 
         mockMvc.perform(post("/api/auth/login")
@@ -101,6 +104,7 @@ class AuthControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Logout clears the session cookie")
     void shouldReturn200OnLogout() throws Exception {
         // Given
         given(tokenCookieWriter.deleteAccessTokenCookie())
@@ -116,6 +120,7 @@ class AuthControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Requesting an authorization code returns 200")
     void shouldReturn200WhenCreatingPasswordToken() throws Exception {
         // When / Then
         mockMvc.perform(post("/api/auth/create/passwordToken/user@example.com"))
@@ -123,10 +128,12 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("Unknown email also returns 200, so accounts cannot be enumerated")
     void shouldReturn200WhenUserNotFoundForPasswordTokenToAvoidEnumeration() throws Exception {
+        // When / Then
         mockMvc.perform(post("/api/auth/create/passwordToken/unknown@example.com"))
                 .andExpect(status().isOk());
 
-        verify(tokenManagementService).createToken("unknown@example.com");
+        then(tokenManagementService).should().createToken("unknown@example.com");
     }
 }

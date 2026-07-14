@@ -20,11 +20,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 /**
- * Handlery zdarzeń to mechanizm spójności plik↔baza: operacje plikowe biegną
- * BEFORE_COMMIT (żeby porażka wycofała transakcję), a maile AFTER_COMMIT.
- * Testujemy, że porażka operacji plikowej NAPRAWDĘ wybucha (a nie jest łykana).
+ * Event handlers are the file-to-database consistency mechanism: file operations run
+ * BEFORE_COMMIT (so a failure rolls the transaction back), mails run AFTER_COMMIT.
+ * These tests prove that a failed file operation really does blow up, instead of being swallowed.
  */
 @ExtendWith(MockitoExtension.class)
 class AlbumStructureEventHandlerTest {
@@ -39,145 +40,177 @@ class AlbumStructureEventHandlerTest {
     private AlbumStructureEventHandler handler;
 
     @Test
-    @DisplayName("Utworzenie albumu admina zakłada folder w storage")
+    @DisplayName("Creating an admin album creates its storage folder")
     void shouldCreateAdminAlbumFolder() {
+        // When
         handler.handleAdminAlbumCreated(new AdminAlbumCreated("portfolio-sluby", "admin@photodrive.dev"));
 
-        verify(fileStoragePort).createAdminAlbum("portfolio-sluby");
+        // Then
+        then(fileStoragePort).should().createAdminAlbum("portfolio-sluby");
     }
 
     @Test
-    @DisplayName("Porażka storage przy albumie admina przerywa transakcję")
+    @DisplayName("Failure to create the admin album folder aborts the transaction")
     void shouldThrowWhenAdminAlbumFolderFails() {
-        doThrow(new RuntimeException("disk full")).when(fileStoragePort).createAdminAlbum(anyString());
+        // Given
+        willThrow(new RuntimeException("disk full")).given(fileStoragePort).createAdminAlbum(anyString());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handleAdminAlbumCreated(
                 new AdminAlbumCreated("portfolio", "admin@photodrive.dev")))
                 .isInstanceOf(StorageOperationException.class);
     }
 
     @Test
-    @DisplayName("Utworzenie albumu klienta zakłada folder pod fotografem")
+    @DisplayName("Creating a client album creates its folder under the photographer")
     void shouldCreateClientAlbumFolder() {
+        // When
         handler.handlePhotographCreateAlbum(new PhotographCreateAlbum("foto@photodrive.dev", "sesja-anny"));
 
-        verify(fileStoragePort).createClientAlbum("sesja-anny", "foto@photodrive.dev");
+        // Then
+        then(fileStoragePort).should().createClientAlbum("sesja-anny", "foto@photodrive.dev");
     }
 
     @Test
-    @DisplayName("Porażka storage przy albumie klienta przerywa transakcję")
+    @DisplayName("Failure to create the client album folder aborts the transaction")
     void shouldThrowWhenClientAlbumFolderFails() {
-        doThrow(new RuntimeException("boom")).when(fileStoragePort).createClientAlbum(anyString(), anyString());
+        // Given
+        willThrow(new RuntimeException("boom")).given(fileStoragePort).createClientAlbum(anyString(), anyString());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handlePhotographCreateAlbum(
                 new PhotographCreateAlbum("foto@photodrive.dev", "sesja")))
                 .isInstanceOf(StorageOperationException.class);
     }
 
     @Test
-    @DisplayName("Usunięcie albumu kasuje folder")
+    @DisplayName("Removing an album deletes its folder from storage")
     void shouldDeleteAlbumFolder() {
+        // When
         handler.handlePhotographDeleteAlbum(new PhotographRemoveAlbum("foto@photodrive.dev/sesja"));
 
-        verify(fileStoragePort).deleteFolder("foto@photodrive.dev/sesja");
+        // Then
+        then(fileStoragePort).should().deleteFolder("foto@photodrive.dev/sesja");
     }
 
     @Test
-    @DisplayName("Porażka kasowania folderu jest zgłaszana")
+    @DisplayName("Failure to delete the album folder is reported, not swallowed")
     void shouldThrowWhenFolderDeleteFails() {
-        doThrow(new RuntimeException("locked")).when(fileStoragePort).deleteFolder(anyString());
+        // Given
+        willThrow(new RuntimeException("locked")).given(fileStoragePort).deleteFolder(anyString());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handlePhotographDeleteAlbum(new PhotographRemoveAlbum("path")))
                 .isInstanceOf(StorageOperationException.class);
     }
 
     @Test
-    @DisplayName("Zmiana nazwy pliku przenosi plik w storage")
+    @DisplayName("Renaming a file renames it on disk as well")
     void shouldRenameFile() {
+        // When
         handler.handleRenameFile(new FileRenamedInAlbum(
                 "foto/sesja",
                 FileName.of("stara.jpg"),
                 FileName.of("nowa.jpg")));
 
-        verify(fileStoragePort).renameFile("foto/sesja", "stara.jpg", "nowa.jpg");
+        // Then
+        then(fileStoragePort).should().renameFile("foto/sesja", "stara.jpg", "nowa.jpg");
     }
 
     @Test
-    @DisplayName("Porażka zmiany nazwy przerywa transakcję (plik i baza nie rozjadą się)")
+    @DisplayName("Failed rename aborts the transaction, so disk and database stay consistent")
     void shouldThrowWhenRenameFails() {
-        doThrow(new RuntimeException("io")).when(fileStoragePort).renameFile(anyString(), anyString(), anyString());
+        // Given
+        willThrow(new RuntimeException("io")).given(fileStoragePort).renameFile(anyString(), anyString(), anyString());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handleRenameFile(new FileRenamedInAlbum(
                 "p", FileName.of("a.jpg"), FileName.of("b.jpg"))))
                 .isInstanceOf(StorageOperationException.class);
     }
 
     @Test
-    @DisplayName("Usunięcie pliku kasuje go ze storage")
+    @DisplayName("Removing a file deletes it from disk")
     void shouldRemoveFile() {
+        // When
         handler.handleRemoveFile(new FileRemovedFromAlbum("foto/sesja", "zdjecie.jpg"));
 
-        verify(fileStoragePort).deleteFile("foto/sesja", "zdjecie.jpg");
+        // Then
+        then(fileStoragePort).should().deleteFile("foto/sesja", "zdjecie.jpg");
     }
 
     @Test
-    @DisplayName("Porażka usuwania pliku jest zgłaszana")
+    @DisplayName("Failure to delete the file is reported, not swallowed")
     void shouldThrowWhenFileDeleteFails() {
-        doThrow(new RuntimeException("io")).when(fileStoragePort).deleteFile(anyString(), anyString());
+        // Given
+        willThrow(new RuntimeException("io")).given(fileStoragePort).deleteFile(anyString(), anyString());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handleRemoveFile(new FileRemovedFromAlbum("p", "f.jpg")))
                 .isInstanceOf(StorageOperationException.class);
     }
 
     @Test
-    @DisplayName("Ustawienie TTD wysyła maila z datą i godziną")
+    @DisplayName("Setting TTD mails the client with the date and time filled in")
     void shouldSendTtdMail() {
-        when(mailSenderPort.loadResourceAsString("templates/email/ttd-set.html"))
-                .thenReturn("<p>{{date}} {{time}}</p>");
+        // Given
+        given(mailSenderPort.loadResourceAsString("templates/email/ttd-set.html")).willReturn("<p>{{date}} {{time}}</p>");
 
+        // When
         handler.handleTtdSet(new TtdSet(Instant.now(), "klient@photodrive.dev"));
 
-        verify(mailSenderPort).send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
+        // Then
+        then(mailSenderPort).should().send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
                 !body.contains("{{date}}") && !body.contains("{{time}}")));
     }
 
     @Test
-    @DisplayName("Wygasły album kasuje swój folder")
+    @DisplayName("An expired album has its folder deleted")
     void shouldRemoveExpiredAlbumFolder() {
+        // When
         handler.handleRemoveExpiredAlbum(new ExpiredAlbumRemoved(new AlbumPath("foto/sesja")));
 
-        verify(fileStoragePort).deleteFolder("foto/sesja");
+        // Then
+        then(fileStoragePort).should().deleteFolder("foto/sesja");
     }
 
     @Test
-    @DisplayName("Zmiana widoczności wysyła maila z liczbą plików")
+    @DisplayName("Revealing photos mails the client the number of files")
     void shouldSendVisibilityMailWithFileCount() {
-        when(mailSenderPort.loadResourceAsString("templates/email/files-visible-status.html"))
-                .thenReturn("<p>{{fileCount}}</p>");
+        // Given
+        given(mailSenderPort.loadResourceAsString("templates/email/files-visible-status.html")).willReturn("<p>{{fileCount}}</p>");
 
+        // When
         handler.handleChangeFileVisibility(new FileVisibleStatusChanged(new Email("klient@photodrive.dev"), 7));
 
-        verify(mailSenderPort).send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
+        // Then
+        then(mailSenderPort).should().send(eq("klient@photodrive.dev"), anyString(), argThat(body ->
                 body.contains("7") && !body.contains("{{fileCount}}")));
     }
 
     @Test
-    @DisplayName("Przeniesienie pliku między albumami rusza plik w storage")
+    @DisplayName("Swapping a file between albums moves it on disk")
     void shouldSwapFile() {
+        // When
         handler.handleSwapFile(new FileSwaped(
                 new AlbumPath("foto/zrodlo"),
                 new AlbumPath("foto/cel"),
                 FileName.of("zdjecie.jpg")));
 
-        verify(fileStoragePort).swapFile("foto/zrodlo", "foto/cel", "zdjecie.jpg");
+        // Then
+        then(fileStoragePort).should().swapFile("foto/zrodlo", "foto/cel", "zdjecie.jpg");
     }
 
     @Test
-    @DisplayName("Operacje plikowe nie wysyłają maili (rozdział faz transakcji)")
-    void fileOperationsShouldNotSendMail() {
+    @DisplayName("File operations send no mail, because they run before commit")
+    void shouldNotSendMailFromFileOperations() {
+        // Given
         handler.handleAdminAlbumCreated(new AdminAlbumCreated("a", "admin@photodrive.dev"));
+
+        // When
         handler.handleRemoveFile(new FileRemovedFromAlbum("p", "f.jpg"));
 
-        verifyNoInteractions(mailSenderPort);
+        // Then
+        then(mailSenderPort).shouldHaveNoInteractions();
     }
 }

@@ -1,6 +1,7 @@
 package pl.photodrive.core.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,8 +32,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -90,6 +91,7 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin creates a user and the start password is generated server-side")
     void shouldAddUserWhenCalledByAdmin() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -106,11 +108,12 @@ class UserManagementServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        verify(userRepository).save(any());
-        verify(eventPublisher, atLeastOnce()).publishEvent(any(Object.class));
+        then(userRepository).should().save(any());
+        then(eventPublisher).should(atLeastOnce()).publishEvent(any(Object.class));
     }
 
     @Test
+    @DisplayName("Email must be unique")
     void shouldThrowWhenEmailAlreadyTaken() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -125,6 +128,7 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Client cannot create users")
     void shouldThrowWhenClientTriesToAddUser() {
         // Given
         User clientUser = User.create("Client", new Email("client@photodrive.pl"),
@@ -145,6 +149,7 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("User changes his own password")
     void shouldChangePasswordSuccessfully() {
         // Given
         String currentRaw = "OldPass1!";
@@ -165,7 +170,7 @@ class UserManagementServiceTest {
 
         // When / Then
         assertThatCode(() -> service.changePassword(cmd)).doesNotThrowAnyException();
-        verify(userRepository).save(user);
+        then(userRepository).should().save(user);
     }
 
     // -----------------------------------------------------------------------
@@ -173,6 +178,7 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin can change another user's email")
     void shouldAllowAdminToChangeAnotherUsersEmail() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -187,6 +193,7 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Non-admin cannot change another user's email")
     void shouldThrowWhenNonAdminTriesToChangeAnotherUsersEmail() {
         // Given - photographerUser tries to change adminUser's email
         AuthenticatedUser auth = new AuthenticatedUser(
@@ -202,6 +209,7 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("User can change his own email")
     void shouldAllowUserToChangeOwnEmail() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -219,6 +227,7 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin can read the full user list")
     void shouldReturnAllUsersForAdmin() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -232,6 +241,7 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Non-admin gets no user list")
     void shouldReturnEmptyListWhenNonAdminCallsGetAllUsers() {
         // Given
         stubCurrentUserAs(photographerUser);
@@ -246,6 +256,7 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin can list only the active users")
     void shouldReturnOnlyActiveUsersForAdmin() {
         // Given
         stubCurrentUserAs(adminUser);
@@ -266,8 +277,9 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Admin grants a role")
     void shouldAddRoleToUser() {
-        // Given — Photographer can receive ADMIN role
+        // Given - Photographer can receive ADMIN role
         given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
         given(userRepository.save(any())).willReturn(photographerUser);
 
@@ -275,13 +287,14 @@ class UserManagementServiceTest {
         User result = service.addRole(new RoleCommand(photographerUser.getId().value(), Role.ADMIN));
 
         // Then
-        verify(userRepository).save(photographerUser);
+        then(userRepository).should().save(photographerUser);
         assertThat(result).isNotNull();
     }
 
     @Test
+    @DisplayName("Admin revokes a role")
     void shouldRemoveRoleFromUser() {
-        // Given — give photographer ADMIN role first so it has 2 roles, then remove PHOTOGRAPHER
+        // Given - give photographer ADMIN role first so it has 2 roles, then remove PHOTOGRAPHER
         photographerUser.addRole(Role.ADMIN);
         given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
         given(userRepository.save(any())).willReturn(photographerUser);
@@ -290,7 +303,7 @@ class UserManagementServiceTest {
         User result = service.removeRole(new RoleCommand(photographerUser.getId().value(), Role.PHOTOGRAPHER));
 
         // Then
-        verify(userRepository).save(photographerUser);
+        then(userRepository).should().save(photographerUser);
         assertThat(result).isNotNull();
     }
 
@@ -299,10 +312,11 @@ class UserManagementServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Photographer reads the clients assigned to him")
     void shouldReturnAssignedUsersForPhotographer() {
         // Given
         stubCurrentUserAs(photographerUser);
-        // photographerUser has no assigned users by default — result is empty list
+        // photographerUser has no assigned users by default - result is empty list
         given(userRepository.findAll()).willReturn(List.of(photographerUser));
 
         // When

@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pl.photodrive.core.application.service.AlbumManagementService;
 
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AlbumSchedulerTest {
@@ -20,10 +20,12 @@ class AlbumSchedulerTest {
     private AlbumScheduler scheduler;
 
     @Test
-    @DisplayName("Cron kasowania wygasłych albumów deleguje do serwisu")
+    @DisplayName("The nightly cron delegates expired album removal to the service")
     void shouldDelegateExpiredAlbumRemoval() {
+        // When
         scheduler.scheduledRemoveExpiredAlbums();
 
-        verify(albumManagementService).removeExpiredAlbum();
+        // Then
+        then(albumManagementService).should().removeExpiredAlbum();
     }
 }

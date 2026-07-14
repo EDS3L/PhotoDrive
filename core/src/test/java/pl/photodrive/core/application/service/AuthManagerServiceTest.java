@@ -1,6 +1,7 @@
 package pl.photodrive.core.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,8 +31,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthManagerServiceTest {
@@ -78,6 +79,7 @@ class AuthManagerServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Successful login returns an access token")
     void shouldReturnAccessTokenOnSuccessfulLogin() {
         // Given
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
@@ -94,6 +96,7 @@ class AuthManagerServiceTest {
     }
 
     @Test
+    @DisplayName("Login fails for an unknown account")
     void shouldThrowWhenUserNotFound() {
         // Given
         given(userRepository.findByEmail(any())).willReturn(Optional.empty());
@@ -104,6 +107,7 @@ class AuthManagerServiceTest {
     }
 
     @Test
+    @DisplayName("Deactivated account cannot log in")
     void shouldThrowWhenUserIsInactive() {
         // Given
         User inactiveAdmin = User.create("Admin", new Email("admin@photodrive.pl"),
@@ -119,6 +123,7 @@ class AuthManagerServiceTest {
     }
 
     @Test
+    @DisplayName("Login fails on a wrong password")
     void shouldThrowWhenPasswordDoesNotMatch() {
         // Given
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
@@ -130,9 +135,10 @@ class AuthManagerServiceTest {
     }
 
     @Test
+    @DisplayName("First login with the generated password succeeds; the forced change is enforced afterwards")
     void shouldReturnAccessTokenEvenWhenChangePasswordFlagIsSet() {
-        // Given — użytkownik z flagą „zmień hasło" MUSI móc się zalogować hasłem startowym;
-        // wymuszenie zmiany hasła realizuje front (bramka wg /user/me), nie backend.
+        // Given - a user with the "change password" flag MUST still be able to log in with the
+        // generated password; the forced change is enforced by the frontend gate, not the backend.
         photographer.setChangePasswordOnNextLogin(true);
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordHasher.matches(any(), any())).willReturn(true);
@@ -150,6 +156,7 @@ class AuthManagerServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
+    @DisplayName("Password is reset with a valid authorization code")
     void shouldChangePasswordWithValidToken() {
         // Given
         UUID tokenUUID = UUID.randomUUID();
@@ -170,11 +177,12 @@ class AuthManagerServiceTest {
 
         // When / Then
         assertThatCode(() -> service.remindPassword(cmd)).doesNotThrowAnyException();
-        verify(passwordTokenRepository).delete(passwordToken);
-        verify(userRepository).save(photographer);
+        then(passwordTokenRepository).should().delete(passwordToken);
+        then(userRepository).should().save(photographer);
     }
 
     @Test
+    @DisplayName("Password reset fails when no code was ever issued")
     void shouldThrowWhenPasswordTokenNotFound() {
         // Given
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
@@ -182,27 +190,29 @@ class AuthManagerServiceTest {
 
         RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", UUID.randomUUID(), "NewPass9!");
 
-        // When / Then — generyczny komunikat (anty-enumeracja), nie ujawnia stanu tokenu
+        // When / Then - a generic message that does not reveal the token state (anti-enumeration)
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Nieprawidłowy lub wygasły");
     }
 
     @Test
+    @DisplayName("Reset returns the same error for a known and an unknown email, so accounts cannot be enumerated")
     void shouldNotRevealWhetherEmailExistsOnRemindPassword() {
-        // Given — nieznany email (konto nie istnieje)
+        // Given - an unknown email (no such account)
         given(userRepository.findByEmail(any())).willReturn(Optional.empty());
 
         RemindPasswordCommand cmd = new RemindPasswordCommand("ghost@photodrive.pl", UUID.randomUUID(), "NewPass9!");
 
-        // When / Then — DOKŁADNIE ta sama odpowiedź co przy znanym emailu bez tokenu,
-        // więc atakujący nie odróżni istniejącego konta od nieistniejącego.
+        // When / Then - EXACTLY the same response as for a known email without a token,
+        // so an attacker cannot tell an existing account from a missing one.
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Nieprawidłowy lub wygasły");
     }
 
     @Test
+    @DisplayName("Expired authorization code is rejected")
     void shouldThrowWhenTokenIsExpired() {
         // Given
         UUID tokenUUID = UUID.randomUUID();
@@ -224,6 +234,7 @@ class AuthManagerServiceTest {
     }
 
     @Test
+    @DisplayName("Wrong authorization code is rejected")
     void shouldThrowWhenTokenDoesNotMatch() {
         // Given
         UUID correctToken = UUID.randomUUID();
@@ -240,7 +251,7 @@ class AuthManagerServiceTest {
 
         RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", wrongToken, "NewPass9!");
 
-        // When / Then — generyczny komunikat (anty-enumeracja)
+        // When / Then - a generic message (anti-enumeration)
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Nieprawidłowy lub wygasły");

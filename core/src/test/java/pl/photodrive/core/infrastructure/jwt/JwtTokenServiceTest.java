@@ -7,6 +7,7 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.vo.UserId;
@@ -28,7 +29,9 @@ class JwtTokenServiceTest {
     private static final byte[] SECRET = "01234567890123456789012345678901".getBytes(StandardCharsets.UTF_8);
 
     @Test
+    @DisplayName("Issued access token can be parsed back into its claims")
     void shouldCreateAndParseAccessToken() throws Exception {
+        // Given
         JWSSigner signer = new MACSigner(SECRET);
         JwtTokenService service = new JwtTokenService(signer, new JWSVerifierProviderImpl(signer));
         UUID userUuid = UUID.randomUUID();
@@ -36,7 +39,10 @@ class JwtTokenServiceTest {
 
         String token = service.createAccessToken(new UserId(userUuid), Set.of(Role.ADMIN), now, Duration.ofMinutes(15));
 
+        // When
         var authenticated = service.parse(token);
+
+        // Then
         assertThat(authenticated.userId().value()).isEqualTo(userUuid);
         assertThat(authenticated.roles()).containsExactly(Role.ADMIN);
         assertThat(authenticated.expiresAt())
@@ -45,22 +51,28 @@ class JwtTokenServiceTest {
     }
 
     @Test
+    @DisplayName("Token signed with an unknown key id is rejected")
     void shouldRejectTokenWithUnknownKeyId() throws Exception {
+        // Given
         JWSSigner signer = new MACSigner(SECRET);
         JwtTokenService service = new JwtTokenService(signer, new JWSVerifierProviderImpl(signer));
         String token = signToken(signer, "CeVeMe", "old-key");
 
+        // When / Then
         assertThatThrownBy(() -> service.parse(token))
                 .isInstanceOf(InvalidTokenException.class)
                 .hasMessageContaining("Unknown key");
     }
 
     @Test
+    @DisplayName("Token without the expected issuer is rejected")
     void shouldRejectTokenWithoutIssuer() throws Exception {
+        // Given
         JWSSigner signer = new MACSigner(SECRET);
         JwtTokenService service = new JwtTokenService(signer, new JWSVerifierProviderImpl(signer));
         String token = signToken(signer, null, "key-2025-11");
 
+        // When / Then
         assertThatThrownBy(() -> service.parse(token))
                 .isInstanceOf(InvalidTokenException.class)
                 .hasMessageContaining("Invalid issuer");

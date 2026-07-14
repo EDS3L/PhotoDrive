@@ -20,11 +20,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;
 
 /**
- * Zapis pliku biegnie BEFORE_COMMIT: plik jedzie z magazynu tymczasowego na dysk
- * docelowy, a dopiero potem commituje się metadana w bazie. Każda porażka MUSI
- * wybuchnąć, inaczej w bazie zostałby rekord bez pliku.
+ * Saving a file runs BEFORE_COMMIT: the bytes move from temporary storage to the target
+ * disk, and only then is the metadata committed. Every failure MUST blow up,
+ * otherwise the database would keep a row with no file behind it.
  */
 @ExtendWith(MockitoExtension.class)
 class FileStorageEventHandlerTest {
@@ -43,41 +44,48 @@ class FileStorageEventHandlerTest {
     }
 
     @Test
-    @DisplayName("Plik jedzie z magazynu tymczasowego na dysk, a temp jest sprzątany")
+    @DisplayName("Upload moves the file from temporary storage to disk and cleans the temporary copy")
     void shouldMoveFileFromTempToStorage() throws IOException {
+        // Given
         InputStream data = new ByteArrayInputStream("bytes".getBytes());
-        when(temporaryStoragePort.exists("temp-123")).thenReturn(true);
-        when(temporaryStoragePort.getFile("temp-123")).thenReturn(data);
+        given(temporaryStoragePort.exists("temp-123")).willReturn(true);
+        given(temporaryStoragePort.getFile("temp-123")).willReturn(data);
 
+        // When
         handler.handleFileAddedToAlbum(event());
 
-        verify(fileStoragePort).saveFile("foto/sesja", "zdjecie.jpg", data);
-        verify(temporaryStoragePort).delete("temp-123");
+        // Then
+        then(fileStoragePort).should().saveFile("foto/sesja", "zdjecie.jpg", data);
+        then(temporaryStoragePort).should().delete("temp-123");
     }
 
     @Test
-    @DisplayName("Brak pliku tymczasowego przerywa transakcję (brak sieroty w bazie)")
+    @DisplayName("Missing temporary file aborts the transaction, so no orphan row is committed")
     void shouldThrowWhenTemporaryFileMissing() throws IOException {
-        when(temporaryStoragePort.exists("temp-123")).thenReturn(false);
+        // Given
+        given(temporaryStoragePort.exists("temp-123")).willReturn(false);
 
+        // When / Then
         assertThatThrownBy(() -> handler.handleFileAddedToAlbum(event()))
                 .isInstanceOf(StorageOperationException.class)
                 .hasMessageContaining("temp-123");
 
-        verify(fileStoragePort, never()).saveFile(anyString(), anyString(), any());
-        verify(temporaryStoragePort, never()).delete(anyString());
+        then(fileStoragePort).should(never()).saveFile(anyString(), anyString(), any());
+        then(temporaryStoragePort).should(never()).delete(anyString());
     }
 
     @Test
-    @DisplayName("Błąd zapisu na dysk przerywa transakcję, a temp NIE jest kasowany")
+    @DisplayName("Failed disk write aborts the transaction and keeps the temporary file")
     void shouldThrowAndKeepTempWhenSaveFails() throws IOException {
-        when(temporaryStoragePort.exists("temp-123")).thenReturn(true);
-        when(temporaryStoragePort.getFile("temp-123")).thenReturn(new ByteArrayInputStream(new byte[0]));
-        doThrow(new IOException("disk full")).when(fileStoragePort).saveFile(anyString(), anyString(), any());
+        // Given
+        given(temporaryStoragePort.exists("temp-123")).willReturn(true);
+        given(temporaryStoragePort.getFile("temp-123")).willReturn(new ByteArrayInputStream(new byte[0]));
+        willThrow(new IOException("disk full")).given(fileStoragePort).saveFile(anyString(), anyString(), any());
 
+        // When / Then
         assertThatThrownBy(() -> handler.handleFileAddedToAlbum(event()))
                 .isInstanceOf(StorageOperationException.class);
 
-        verify(temporaryStoragePort, never()).delete(anyString());
+        then(temporaryStoragePort).should(never()).delete(anyString());
     }
 }

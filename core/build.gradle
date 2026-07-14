@@ -44,6 +44,23 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 	finalizedBy jacocoTestReport
+
+	// Domyślnie Gradle milczy o testach, dopóki któryś nie padnie — a wtedy nie widać
+	// ani co przeszło, ani ile tego było. Wypisujemy @DisplayName każdego testu, dzięki
+	// czemu przebieg czyta się jak specyfikacja zachowań, a nie jak "BUILD SUCCESSFUL".
+	testLogging {
+		events = ['passed', 'skipped', 'failed']
+		exceptionFormat = 'full'
+		showStackTraces = true
+	}
+
+	// Podsumowanie na koniec (Gradle nie ma go z pudełka).
+	afterSuite { desc, result ->
+		if (!desc.parent) {
+			println "\nTesty: ${result.testCount} | zaliczone: ${result.successfulTestCount} | " +
+					"niezaliczone: ${result.failedTestCount} | pominięte: ${result.skippedTestCount}"
+		}
+	}
 }
 
 jar {

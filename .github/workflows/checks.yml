@@ -14,7 +14,7 @@ on:
         type: boolean
         default: true
       frontend:
-        description: Uruchom lint + build frontu
+        description: Uruchom testy (Vitest) + lint + build frontu
         type: boolean
         default: true
 
@@ -43,7 +43,7 @@ jobs:
         run: ./gradlew check --no-daemon
 
   frontend-checks:
-    name: Frontend — lint & build
+    name: Frontend — testy, lint & build
     if: ${{ inputs.frontend }}
     runs-on: ubuntu-latest
     steps:
@@ -63,6 +63,12 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: npm run lint
+
+      # Vitest + React Testing Library (jsdom). Czerwony test blokuje deploy tak samo
+      # jak czerwony test backendu — inaczej testy frontu byłyby tylko dekoracją.
+      - name: Run tests
+        working-directory: frontend
+        run: npm run test
 
       - name: Build
         working-directory: frontend

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Raport pokrycia testów (Vitest + v8) — generowany, nie trzymamy go w repo
+coverage
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

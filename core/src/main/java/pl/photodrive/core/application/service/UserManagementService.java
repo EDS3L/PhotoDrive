@@ -11,6 +11,7 @@ import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.application.port.user.UserUniquenessChecker;
 import pl.photodrive.core.application.event.UserCredentialsNotification;
+import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.model.Role;
 import pl.photodrive.core.domain.model.User;
@@ -49,11 +50,11 @@ public class UserManagementService {
         boolean isPhotographer = roles.contains(Role.PHOTOGRAPHER);
 
         if (!isAdmin && !isPhotographer) {
-            throw new UserException("Only admins or photographer can add user");
+            throw new ApplicationSecurityException("Only admins or photographer can add user");
         }
 
         if (isPhotographer && !isAdmin && cmd.role() != Role.CLIENT) {
-            throw new UserException("Photographers can only create clients");
+            throw new ApplicationSecurityException("Photographers can only create clients");
         }
 
         // Hasło startowe generowane serwerowo — twórca konta go nie zna, a użytkownik
@@ -187,7 +188,7 @@ public class UserManagementService {
         List<UserId> presentUsers = new ArrayList<>();
 
         if (!authorisedUser.getRoles().contains(Role.ADMIN)) {
-            throw new UserException("Only admins can remove users");
+            throw new ApplicationSecurityException("Only admins can remove users");
         }
 
         usersToDisconnect.forEach(user -> {

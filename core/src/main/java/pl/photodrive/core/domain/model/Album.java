@@ -3,6 +3,7 @@ package pl.photodrive.core.domain.model;
 import lombok.extern.slf4j.Slf4j;
 import pl.photodrive.core.domain.event.album.*;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.util.FileNamingPolicy;
 import pl.photodrive.core.domain.vo.*;
@@ -54,21 +55,21 @@ public class Album {
         }
 
         if (isPhotograph && !photographId.equals(user.getId().value())) {
-            throw new AlbumException("Photographer can only set TTD on own albums");
+            throw new DomainSecurityException("Photographer can only set TTD on own albums");
         }
 
         if (isAdmin || isPhotograph) {
             this.ttd = ttd;
             this.registerEvent(new TtdSet(ttd, email));
         } else {
-            throw new AlbumException("Access denied!");
+            throw new DomainSecurityException("Access denied!");
         }
 
     }
 
     public static Album createForAdmin(String albumName, User admin) {
         if (!admin.getRoles().contains(Role.ADMIN)) {
-            throw new AlbumException("Only administrators can create admin albums");
+            throw new DomainSecurityException("Only administrators can create admin albums");
         }
 
         Album album = new Album(AlbumId.newId(),
@@ -85,7 +86,7 @@ public class Album {
     public static Album createForClient(String albumName, User photographer, User client) {
 
         if (!photographer.getRoles().contains(Role.PHOTOGRAPHER)) {
-            throw new AlbumException("Only photographers can create client albums");
+            throw new DomainSecurityException("Only photographers can create client albums");
         }
         if (!client.getRoles().contains(Role.CLIENT)) {
             throw new AlbumException("Album must be assigned to a client");
@@ -115,14 +116,14 @@ public class Album {
         }
 
         if (!(currentUser.getRoles().contains(Role.PHOTOGRAPHER) || currentUser.getRoles().contains(Role.ADMIN))) {
-            throw new AlbumException("Only admin or photographer can delete albums");
+            throw new DomainSecurityException("Only admin or photographer can delete albums");
         }
 
         boolean isOwner = albumDelete.getPhotographId().equals(currentUser.getId().value());
         boolean isAdmin = currentUser.getRoles().contains(Role.ADMIN);
 
         if (!(isOwner || isAdmin)) {
-            throw new AlbumException("Only admin or album owner can delete the album");
+            throw new DomainSecurityException("Only admin or album owner can delete the album");
         }
 
         if (!this.photos.isEmpty()) {
@@ -135,7 +136,7 @@ public class Album {
     public void removeFiles(FileId fileId, User user) {
 
         if (!canManageFiles(user)) {
-            throw new AlbumException("Only admin or album owner can remove the file");
+            throw new DomainSecurityException("Only admin or album owner can remove the file");
         }
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
@@ -214,7 +215,7 @@ public class Album {
         }
 
         if (!canManageFiles(user)) {
-            throw new AlbumException("Only admin or album owner can rename the file");
+            throw new DomainSecurityException("Only admin or album owner can rename the file");
         }
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
@@ -242,7 +243,7 @@ public class Album {
 
     public void changeFileVisibleStatus(List<FileId> fileIdList, boolean isVisible, User user, Email userEmail) {
         if (!canManageFiles(user)) {
-            throw new AlbumException("User is not allowed to change file visibility");
+            throw new DomainSecurityException("User is not allowed to change file visibility");
         }
 
         int changedCount = 0;
@@ -274,7 +275,7 @@ public class Album {
     // żadnych operacji plikowych ani nie rejestruje zdarzeń.
     public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList, boolean watermarkConfigured) {
         if (!canManageFiles(user)) {
-            throw new AlbumException("User is not allowed to change file visibility");
+            throw new DomainSecurityException("User is not allowed to change the watermark");
         }
 
         if (hasWatermark && !watermarkConfigured) {
@@ -321,7 +322,7 @@ public class Album {
         } else if (currentUser.getRoles().contains(Role.PHOTOGRAPHER)) {
             return this.getPhotographId().equals(currentUser.getId().value());
         } else if (currentUser.getRoles().contains(Role.CLIENT)) {
-            if(!visible) throw new AlbumException("Access denied!");
+            if(!visible) throw new DomainSecurityException("Access denied!");
             return this.getClientId().equals(currentUser.getId().value());
         }
         return false;
@@ -337,7 +338,7 @@ public class Album {
 
     private File removeFileForSwap(User currentUser, AlbumPath targetAlbumPath, FileId targetFileId) {
         if (!canManageFiles(currentUser)) {
-            throw new AlbumException("Only admin or album owner can swap the file");
+            throw new DomainSecurityException("Only admin or album owner can swap the file");
         }
 
         if(photos.get(targetFileId) == null) {
@@ -368,7 +369,7 @@ public class Album {
 
     public void makePublic(User admin) {
         if (!admin.getRoles().contains(Role.ADMIN)) {
-            throw new AlbumException("Only administrators can change album visibility");
+            throw new DomainSecurityException("Only administrators can change album visibility");
         }
         if (!isAdminAlbum()) {
             throw new AlbumException("Only admin albums can be made public");
@@ -380,7 +381,7 @@ public class Album {
 
     public void makePrivate(User admin) {
         if (!admin.getRoles().contains(Role.ADMIN)) {
-            throw new AlbumException("Only administrators can change album visibility");
+            throw new DomainSecurityException("Only administrators can change album visibility");
         }
         if (!isAdminAlbum()) {
             throw new AlbumException("Only admin albums can be made private");
@@ -408,7 +409,7 @@ public class Album {
         } else if (isClient && clientId.equals(user.getId().value())) {
             return photographEmail + "/" + this.name;
         } else {
-            throw new AlbumException("Access denied!");
+            throw new DomainSecurityException("Access denied!");
         }
     }
 

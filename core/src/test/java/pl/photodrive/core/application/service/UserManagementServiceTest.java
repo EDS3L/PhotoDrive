@@ -15,6 +15,7 @@ import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.AuthenticatedUser;
 import pl.photodrive.core.application.port.user.CurrentUser;
 import pl.photodrive.core.application.port.user.UserUniquenessChecker;
+import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
@@ -138,10 +139,28 @@ class UserManagementServiceTest {
 
         AddUserCommand cmd = new AddUserCommand("X", "x@photodrive.pl", Role.PHOTOGRAPHER);
 
+        // When / Then - a denial, not a broken business rule: it must reach the client as 403
+        assertThatThrownBy(() -> service.addUser(cmd))
+                .isInstanceOf(ApplicationSecurityException.class)
+                .hasMessageContaining("Only admins or photographer");
+    }
+
+    @Test
+    @DisplayName("Photographer cannot mint an admin account, so account creation never escalates privileges")
+    void shouldDenyPhotographerCreatingPrivilegedAccount() {
+        // Given
+        User photographerUser = User.create("Photographer", new Email("photographer@photodrive.pl"),
+                new HashedPassword("h"), Role.PHOTOGRAPHER);
+        stubCurrentUserAs(photographerUser);
+        given(userUniquenessChecker.isEmailTaken(any())).willReturn(false);
+
+        AddUserCommand cmd = new AddUserCommand("Escalated", "escalated@photodrive.pl", Role.ADMIN);
+
         // When / Then
         assertThatThrownBy(() -> service.addUser(cmd))
-                .isInstanceOf(UserException.class)
-                .hasMessageContaining("Only admins or photographer");
+                .isInstanceOf(ApplicationSecurityException.class)
+                .hasMessageContaining("Photographers can only create clients");
+        then(userRepository).should(never()).save(any());
     }
 
     // -----------------------------------------------------------------------
@@ -246,9 +265,9 @@ class UserManagementServiceTest {
         // Given
         stubCurrentUserAs(photographerUser);
 
-        // When / Then
+        // When / Then - a denial, not a broken business rule: it must reach the client as 403
         assertThatThrownBy(() -> service.getAllUsers())
-                .isInstanceOf(UserException.class);
+                .isInstanceOf(DomainSecurityException.class);
     }
 
     // -----------------------------------------------------------------------

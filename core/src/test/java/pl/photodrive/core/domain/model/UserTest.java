@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pl.photodrive.core.domain.service.PasswordHasher;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.HashedPassword;
@@ -299,7 +300,30 @@ class UserTest {
     @DisplayName("Client cannot activate other users")
     void shouldThrowWhenClientTriesToActivateUser() {
         // When & Then
-        assertThrows(UserException.class, () -> photographer.activeUser(true, client));
+        assertThrows(DomainSecurityException.class, () -> photographer.activeUser(true, client));
+    }
+
+    @Test
+    @DisplayName("Photographer cannot activate accounts, so the domain matches the ADMIN-only endpoint")
+    void shouldDenyPhotographerActivatingAnotherUser() {
+        // Given - the account is inactive, so only the authorization check can stop the call
+        User target = User.create("Target", new Email("target@photodrive.pl"), HASHED_PASSWORD, Role.CLIENT);
+        target.deactivateUser(false, admin);
+
+        // When / Then
+        assertThrows(DomainSecurityException.class, () -> target.activeUser(true, photographer));
+        assertFalse(target.isActive());
+    }
+
+    @Test
+    @DisplayName("Photographer cannot deactivate accounts either — activation is reserved for the admin")
+    void shouldDenyPhotographerDeactivatingAnotherUser() {
+        // Given
+        User target = User.create("Target", new Email("target2@photodrive.pl"), HASHED_PASSWORD, Role.CLIENT);
+
+        // When / Then
+        assertThrows(DomainSecurityException.class, () -> target.deactivateUser(false, photographer));
+        assertTrue(target.isActive());
     }
 
     @Test
@@ -328,7 +352,7 @@ class UserTest {
     @DisplayName("Only an admin can assign clients to a photographer")
     void shouldThrowWhenNonAdminTriesToAssignUsers() {
         // When & Then
-        assertThrows(UserException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 photographer.assignUsers(List.of(client.getId()), photographer)
         );
     }
@@ -447,7 +471,7 @@ class UserTest {
     @DisplayName("Non-admin may not read the full user list")
     void shouldThrowForNonAdminHasAccessToReadAllUsers() {
         // When / Then
-        assertThrows(UserException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 photographer.hasAccessToReadAllUsers(photographer)
         );
     }
@@ -473,7 +497,7 @@ class UserTest {
     @DisplayName("Only a photographer can list his assigned clients")
     void shouldThrowWhenNonPhotographerCallsGetPhotographUsers() {
         // When / Then
-        assertThrows(UserException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 photographer.getPhotographUsers(admin)
         );
     }
@@ -485,7 +509,7 @@ class UserTest {
         User anotherPhotographer = User.create("Other", new Email("other@photodrive.pl"), HASHED_PASSWORD, Role.PHOTOGRAPHER);
 
         // When/Then - anotherPhotographer tries to read photographer's list
-        assertThrows(UserException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 photographer.getPhotographUsers(anotherPhotographer)
         );
     }

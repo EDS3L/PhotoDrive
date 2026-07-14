@@ -1,0 +1,8 @@
+# Nadpisania dla produkcji (profil `prod` = SPRING_PROFILES_ACTIVE w docker-compose.prod.yml).
+# Trzymamy tu tylko to, co MA się różnić na prodzie — reszta zostaje z application.yml.
+app:
+  csrf:
+    # Poza produkcją localhost jest zaufanym originem (front dev na :5173/:3000).
+    # Na produkcji localhost to nie nasz front, tylko cokolwiek działa lokalnie u użytkownika,
+    # więc furtka jest zamknięta — i w filtrze anty-CSRF, i w CORS.
+    allow-localhost-origins: false

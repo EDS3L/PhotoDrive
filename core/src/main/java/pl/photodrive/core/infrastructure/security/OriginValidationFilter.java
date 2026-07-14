@@ -24,14 +24,17 @@ public class OriginValidationFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
     private final Set<String> allowedOrigins;
+    private final boolean allowLocalhostOrigins;
 
     public OriginValidationFilter(@Value("${app.base-url:http://localhost:8080}") String baseUrl,
-                                  @Value("${app.csrf.allowed-origins:https://photodrive.dev}") String configuredOrigins) {
+                                  @Value("${app.csrf.allowed-origins:https://photodrive.dev}") String configuredOrigins,
+                                  @Value("${app.csrf.allow-localhost-origins:true}") boolean allowLocalhostOrigins) {
         this.allowedOrigins = Stream.concat(Stream.of(baseUrl), Arrays.stream(configuredOrigins.split(",")))
                 .map(String::trim)
                 .map(this::normalizeOrigin)
                 .flatMap(Optional::stream)
                 .collect(Collectors.toUnmodifiableSet());
+        this.allowLocalhostOrigins = allowLocalhostOrigins;
     }
 
     @Override
@@ -74,9 +77,13 @@ public class OriginValidationFilter extends OncePerRequestFilter {
     }
 
     private boolean isAllowed(String origin) {
-        return allowedOrigins.contains(origin) || isLocalDevelopmentOrigin(origin);
+        return allowedOrigins.contains(origin) || (allowLocalhostOrigins && isLocalDevelopmentOrigin(origin));
     }
 
+    // Furtka wyłącznie dla developmentu (front na :5173/:3000 uderza do backendu na :8080).
+    // Na produkcji ZAMKNIĘTA (`application-prod.yml`): tam „localhost" nie jest naszym frontem,
+    // tylko dowolną stroną serwowaną lokalnie u użytkownika — a taki origin przechodził
+    // przez cały filtr anty-CSRF jak zaufany (A10).
     private boolean isLocalDevelopmentOrigin(String origin) {
         try {
             URI uri = URI.create(origin);

@@ -15,6 +15,7 @@ import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
+import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.domain.exception.AlbumNotFoundException;
 import pl.photodrive.core.domain.vo.FileId;
@@ -277,9 +278,9 @@ class AlbumManagementServiceTest {
         // Given
         stubCurrentUserAs(adminUser);
 
-        // When / Then
+        // When / Then - a denial, not a broken business rule: it must reach the client as 403
         assertThatThrownBy(() -> service.getAssignedAlbums())
-                .isInstanceOf(AlbumException.class)
+                .isInstanceOf(ApplicationSecurityException.class)
                 .hasMessageContaining("not assigned");
     }
 
@@ -353,9 +354,9 @@ class AlbumManagementServiceTest {
         // Given
         stubCurrentUserAs(photographerUser);
 
-        // When / Then
+        // When / Then - a denial, not a broken business rule: it must reach the client as 403
         assertThatThrownBy(() -> service.getAllAlbums())
-                .isInstanceOf(AlbumException.class)
+                .isInstanceOf(ApplicationSecurityException.class)
                 .hasMessageContaining("Access denied");
     }
 

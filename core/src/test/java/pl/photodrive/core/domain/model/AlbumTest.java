@@ -7,6 +7,7 @@ import pl.photodrive.core.domain.event.album.FileAddedResult;
 import pl.photodrive.core.domain.event.album.FileAddedToAlbum;
 import pl.photodrive.core.domain.event.album.FileVisibleStatusChanged;
 import pl.photodrive.core.domain.exception.AlbumException;
+import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.exception.FileException;
 import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.FileId;
@@ -52,7 +53,7 @@ class AlbumTest {
     @DisplayName("Only an admin can create an admin (portfolio) album")
     void shouldThrowExceptionWhenPhotographerTriesToCreateAdminAlbum() {
         // When / Then
-        assertThrows(AlbumException.class, () -> Album.createForAdmin("Fake Admin", photographer));
+        assertThrows(DomainSecurityException.class, () -> Album.createForAdmin("Fake Admin", photographer));
     }
 
     @Test
@@ -99,7 +100,7 @@ class AlbumTest {
         Album album = Album.createForClient("Secret", photographer, client);
 
         // When & Then
-        assertThrows(AlbumException.class, () -> album.hasAccessToGetFilesFromAlbum(client, false));
+        assertThrows(DomainSecurityException.class, () -> album.hasAccessToGetFilesFromAlbum(client, false));
     }
 
     @Test
@@ -239,6 +240,37 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("A refused date and a refused user are different failures: one is a broken rule, the other a denial")
+    void shouldSeparateBusinessRuleFromAuthorizationDenialOnSetTtd() {
+        // Given - the same call fails for two unrelated reasons
+        Album album = Album.createForClient("TtdSeparation", photographer, client);
+        Instant futureDate = Instant.now().plusSeconds(3600);
+        Instant pastDate = Instant.now().minusSeconds(3600);
+
+        // When / Then - a past date is a broken business rule: fix the input and retry (400)
+        assertThrows(AlbumException.class,
+                () -> album.setTTD(pastDate, photographer, photographer.getEmail().value()));
+
+        // When / Then - a client is simply not allowed to do this, whatever the date (403)
+        assertThrows(DomainSecurityException.class,
+                () -> album.setTTD(futureDate, client, client.getEmail().value()));
+    }
+
+    @Test
+    @DisplayName("Photographer cannot set a TTD on an album that belongs to another photographer")
+    void shouldDenyTtdWhenPhotographerDoesNotOwnTheAlbum() {
+        // Given
+        User otherPhotographer = User.create("Other", new Email("other-ttd@photodrive.pl"), dummyPassword, Role.PHOTOGRAPHER);
+        Album album = Album.createForClient("ForeignTtd", photographer, client);
+        Instant futureDate = Instant.now().plusSeconds(3600);
+
+        // When / Then
+        assertThrows(DomainSecurityException.class,
+                () -> album.setTTD(futureDate, otherPhotographer, otherPhotographer.getEmail().value()));
+        assertNull(album.getTtd());
+    }
+
+    @Test
     @DisplayName("Setting TTD stores the date and notifies the client")
     void shouldSetTTDSuccessfully() {
         // Given - the happy path for TTD
@@ -276,7 +308,7 @@ class AlbumTest {
         Album album = Album.createForClient("ClientTryDelete", photographer, client);
 
         // When & Then
-        assertThrows(AlbumException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 album.removeFolder(album, client, photographer.getEmail().value())
         );
     }
@@ -334,7 +366,7 @@ class AlbumTest {
         album.addFile(file);
 
         // When / Then
-        assertThrows(AlbumException.class, () -> album.removeFiles(fileId, client));
+        assertThrows(DomainSecurityException.class, () -> album.removeFiles(fileId, client));
         assertTrue(album.getPhotos().containsKey(fileId));
     }
 
@@ -382,7 +414,8 @@ class AlbumTest {
         album.addFile(file);
 
         // When / Then
-        assertThrows(AlbumException.class, () -> album.renameFile(file.getFileId(), new FileName("new.jpg"), client));
+        assertThrows(DomainSecurityException.class,
+                () -> album.renameFile(file.getFileId(), new FileName("new.jpg"), client));
         assertEquals(new FileName("photo.jpg"), album.getPhotos().get(file.getFileId()).getFileName());
     }
 
@@ -415,7 +448,7 @@ class AlbumTest {
         album.addFile(file);
 
         // When / Then
-        assertThrows(AlbumException.class, () ->
+        assertThrows(DomainSecurityException.class, () ->
                 album.changeFileVisibleStatus(List.of(file.getFileId()), true, client, client.getEmail()));
         assertFalse(album.getPhotos().get(file.getFileId()).isVisible());
     }
@@ -520,7 +553,7 @@ class AlbumTest {
         album.addFile(file);
 
         // When & Then
-        assertThrows(AlbumException.class,
+        assertThrows(DomainSecurityException.class,
                 () -> album.swapFiles(client, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(fileId)));
     }
 
@@ -534,7 +567,7 @@ class AlbumTest {
         album.addFile(file);
 
         // When & Then - no ownership means refusal (broken-object-level-authorization hardening)
-        assertThrows(AlbumException.class,
+        assertThrows(DomainSecurityException.class,
                 () -> album.swapFiles(otherPhotographer, new pl.photodrive.core.domain.vo.AlbumPath("other/album"), List.of(file.getFileId())));
     }
 

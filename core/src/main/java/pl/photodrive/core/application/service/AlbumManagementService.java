@@ -499,7 +499,7 @@ public class AlbumManagementService {
             return albumRepository.findAll();
         }
 
-        throw new AlbumException("Access denied!");
+        throw new ApplicationSecurityException("Access denied!");
     }
 
     @Transactional(readOnly = true)
@@ -511,7 +511,7 @@ public class AlbumManagementService {
         } else if (loggedUser.hasAccessToReadAssignedAlbums(loggedUser)) {
             return albumRepository.findAllByClientId(loggedUser.getId().value());
         } else {
-            throw new AlbumException("You are not assigned to any album!");
+            throw new ApplicationSecurityException("You are not assigned to any album!");
         }
 
     }
@@ -594,7 +594,7 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
 
         if (!album.hasAccessToGetFilesFromAlbum(loggedUser, cmd.showOnlyVisable()))
-            throw new AlbumException("Access denied!");
+            throw new ApplicationSecurityException("Access denied!");
 
         List<String> urls = new ArrayList<>();
 

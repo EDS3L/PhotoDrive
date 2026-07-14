@@ -22,6 +22,7 @@ import pl.photodrive.core.infrastructure.jwt.JwtAuthenticationFilter;
 import pl.photodrive.core.infrastructure.security.OriginValidationFilter;
 import pl.photodrive.core.infrastructure.security.RateLimitFilter;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -32,6 +33,13 @@ public class WebConfig {
     private String swaggerUser;
     @Value("${SWAGGER_PASSWORD}")
     private String swaggerPassword;
+
+    @Value("${app.csrf.allowed-origins:https://photodrive.dev}")
+    private String allowedOrigins;
+
+    /** Ta sama flaga co w {@link OriginValidationFilter} — na prodzie `false` (`application-prod.yml`). */
+    @Value("${app.csrf.allow-localhost-origins:true}")
+    private boolean allowLocalhostOrigins;
 
 
     @Bean
@@ -121,8 +129,14 @@ public class WebConfig {
     @Bean
     public CorsConfigurationSource corsConfig() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("https://photodrive.dev"));
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://localhost"));
+        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList());
+        // Localhost jako dozwolony origin tylko poza produkcją — patrz OriginValidationFilter.
+        if (allowLocalhostOrigins) {
+            configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://localhost"));
+        }
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "content-disposition"));
         configuration.setExposedHeaders(List.of("Authorization"));

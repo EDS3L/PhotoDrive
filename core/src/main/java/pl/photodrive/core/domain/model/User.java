@@ -134,7 +134,7 @@ public class User {
 
     public void assignUsers(List<UserId> assignedUsers, User user) {
         if (!this.roles.contains(Role.PHOTOGRAPHER)) throw new UserException("Users can only assigned to Photograph");
-        if(!user.roles.contains(Role.ADMIN)) throw new UserException("Access denied!");
+        if(!user.roles.contains(Role.ADMIN)) throw new DomainSecurityException("Access denied!");
         this.assignedUsers = assignedUsers;
     }
 
@@ -181,9 +181,9 @@ public class User {
     }
 
     public List<UserId> getPhotographUsers(User currentUser) {
-        if (!currentUser.getRoles().contains(Role.PHOTOGRAPHER)) throw new UserException("Access denied!");
+        if (!currentUser.getRoles().contains(Role.PHOTOGRAPHER)) throw new DomainSecurityException("Access denied!");
         if (!currentUser.getId().equals(this.getId()))
-            throw new UserException("Cannot access unassigned customer list!");
+            throw new DomainSecurityException("Cannot access unassigned customer list!");
 
         return this.assignedUsers;
     }
@@ -204,7 +204,7 @@ public class User {
         boolean isAdmin = currentUser.getRoles().contains(Role.ADMIN);
 
         if (!isAdmin) {
-            throw new UserException("Access denied!");
+            throw new DomainSecurityException("Access denied!");
         } else {
             return true;
         }
@@ -212,9 +212,12 @@ public class User {
     }
 
 
+    // Aktywacja i dezaktywacja kont jest zastrzeżona dla ADMINA — tak jak endpointy
+    // /activateUser i /deactivateUser w WebConfig. Wcześniej domena przepuszczała tu
+    // fotografa, więc jedyną ochroną była warstwa webowa (4.2).
     private void hasAccessToSetActive(User user) {
-        if (!(user.getRoles().contains(Role.ADMIN) || user.getRoles().contains(Role.PHOTOGRAPHER))) {
-            throw new UserException("Access denied!");
+        if (!user.getRoles().contains(Role.ADMIN)) {
+            throw new DomainSecurityException("Only admins can activate or deactivate users");
         }
     }
 

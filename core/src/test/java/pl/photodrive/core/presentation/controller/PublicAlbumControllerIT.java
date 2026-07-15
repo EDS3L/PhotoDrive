@@ -112,9 +112,11 @@ class PublicAlbumControllerIT extends IntegrationTest {
     @Test
     @DisplayName("A photo the admin never revealed stays out of the portfolio, whatever size is asked for")
     void shouldRefuseHiddenPhotoOnThePublicEndpoint() throws Exception {
-        // Given - uploaded but never made visible
+        // Given - admin uploads are visible by default (B.5), so to test the hidden path the admin
+        // must explicitly hide the photo again before it can be treated as withdrawn from portfolio
         UUID albumId = createAdminAlbum("portfolio-ukryte");
         uploadPhoto(albumId, "ukryte.jpg");
+        setVisible(albumId, photoId(albumId), false);
         setPublic(albumId);
 
         // When / Then
@@ -125,9 +127,9 @@ class PublicAlbumControllerIT extends IntegrationTest {
     // --- helpers -----------------------------------------------------------
 
     private UUID publishedAlbumWithPhoto(String albumName, String fileName) throws Exception {
+        // No explicit setVisible: uploads to an admin (portfolio) album are visible at once (B.5).
         UUID albumId = createAdminAlbum(albumName);
         uploadPhoto(albumId, fileName);
-        setVisible(albumId, photoId(albumId));
         setPublic(albumId);
         return albumId;
     }
@@ -153,9 +155,9 @@ class PublicAlbumControllerIT extends IntegrationTest {
                 .andExpect(status().isAccepted());
     }
 
-    private void setVisible(UUID albumId, UUID fileId) throws Exception {
+    private void setVisible(UUID albumId, UUID fileId, boolean visible) throws Exception {
         mockMvc.perform(patch("/api/album/{albumId}/files/setVisible", albumId)
-                        .param("visible", "true")
+                        .param("visible", String.valueOf(visible))
                         .cookie(fixtures.authCookie(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

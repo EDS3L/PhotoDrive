@@ -84,6 +84,34 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("A photo uploaded to an admin (portfolio) album is visible at once, so it reaches the site without a manual reveal")
+    void shouldMakeUploadedFileVisibleInAdminAlbum() {
+        // Given - an admin album is the portfolio: no client to hide raw shots from
+        Album album = Album.createForAdmin("Portfolio", admin);
+        File file = File.create(new FileName("okladka.jpg"), 100L, "image/jpeg");
+
+        // When
+        album.addFile(file);
+
+        // Then
+        assertTrue(album.getPhotos().get(file.getFileId()).isVisible());
+    }
+
+    @Test
+    @DisplayName("A photo uploaded to a client album stays hidden, so the photographer still curates before revealing")
+    void shouldKeepUploadedFileHiddenInClientAlbum() {
+        // Given - a client album keeps the curate-then-reveal default
+        Album album = Album.createForClient("Sesja", photographer, client);
+        File file = File.create(new FileName("surowe.jpg"), 100L, "image/jpeg");
+
+        // When
+        album.addFile(file);
+
+        // Then
+        assertFalse(album.getPhotos().get(file.getFileId()).isVisible());
+    }
+
+    @Test
     @DisplayName("Admin can list files of any album")
     void shouldGrantAccessToAdminAlways() {
         // Given

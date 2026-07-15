@@ -180,6 +180,13 @@ public class Album {
         photos.put(file.getFileId(), file);
 
         if (isAdminAlbum()) {
+            // Album admina = portfolio (jedyny, który może stać się publiczny) — nie ma klienta,
+            // przed którym trzeba chować surowe ujęcia. Zdjęcia są więc widoczne od razu i trafiają
+            // na stronę bez ręcznego przełączania po każdym uploadzie (B.5). Album klienta zachowuje
+            // odwrotny default: fotograf najpierw kuratoruje, potem odsłania (patrz File.create).
+            if (!file.isVisible()) {
+                file.setViable();
+            }
             return new FileAddedResult(file, new FileAddedToAlbum(file.getFileId(), file.getFileName(), this.name));
         } else {
             return new FileAddedResult(file,

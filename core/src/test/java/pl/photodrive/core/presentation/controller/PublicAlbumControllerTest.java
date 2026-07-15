@@ -57,9 +57,10 @@ class PublicAlbumControllerTest {
 
         File visible = File.create(new FileName("widoczne.jpg"), 10L, "image/jpeg");
         File hidden = File.create(new FileName("ukryte.jpg"), 10L, "image/jpeg");
+        // Admin-album uploads are visible by default (B.5), so the "hidden" one is hidden explicitly.
         album.addFile(visible);
         album.addFile(hidden);
-        album.changeFileVisibleStatus(List.of(visible.getFileId()), true, admin, admin.getEmail());
+        album.changeFileVisibleStatus(List.of(hidden.getFileId()), false, admin, admin.getEmail());
         album.pullDomainEvents();
         return album;
     }

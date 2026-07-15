@@ -57,6 +57,7 @@ export default function AdminUsers() {
 	const [detailUser, setDetailUser] = useState<UserInfo | null>(null);
 	const [assignOpen, setAssignOpen] = useState(false);
 	const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+	const [assignSearch, setAssignSearch] = useState('');
 
 	const isPhotographer = detailUser?.roles.includes('PHOTOGRAPHER') ?? false;
 
@@ -74,6 +75,17 @@ export default function AdminUsers() {
 				!assignedIds.has(u.id),
 		);
 	}, [users, assignedClients]);
+
+	// Szukajka w modalu przypisywania (B.10): filtruje po nazwie i e-mailu — przy większej
+	// liczbie klientów lista bez wyszukiwania jest bezużyteczna.
+	const filteredAvailableClients = useMemo(() => {
+		const q = assignSearch.trim().toLowerCase();
+		if (!q) return availableClients;
+		return availableClients.filter(
+			(c) =>
+				c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
+		);
+	}, [availableClients, assignSearch]);
 
 	// New user form
 	const [newName, setNewName] = useState('');
@@ -417,6 +429,7 @@ export default function AdminUsers() {
 											size='sm'
 											onClick={() => {
 												setSelectedClientIds([]);
+												setAssignSearch('');
 												setAssignOpen(true);
 											}}
 										>
@@ -496,8 +509,20 @@ export default function AdminUsers() {
 							Brak dostępnych klientów do przypisania
 						</p>
 					) : (
-						<div className='space-y-2 max-h-64 overflow-y-auto'>
-							{availableClients.map((client) => {
+						<>
+							<SearchInput
+								value={assignSearch}
+								onChange={setAssignSearch}
+								placeholder='Szukaj po nazwie lub e-mailu...'
+								className='mb-4'
+							/>
+							{filteredAvailableClients.length === 0 ? (
+								<p className='text-sm text-muted'>
+									Brak klientów pasujących do „{assignSearch}”
+								</p>
+							) : (
+								<div className='space-y-2 max-h-64 overflow-y-auto'>
+									{filteredAvailableClients.map((client) => {
 								const selected = selectedClientIds.includes(client.id);
 								return (
 									<label
@@ -526,8 +551,10 @@ export default function AdminUsers() {
 										</div>
 									</label>
 								);
-							})}
-						</div>
+									})}
+								</div>
+							)}
+						</>
 					)}
 				</div>
 				<div className='px-6 py-4 border-t border-border flex justify-end gap-3'>

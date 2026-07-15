@@ -1,5 +1,7 @@
 .env
 .env.*
+# ...ale szablon bez sekretów śledzimy (wyjątek MUSI być po regule `.env.*`).
+!.env.example
 stitch/
 stitchMd/
 

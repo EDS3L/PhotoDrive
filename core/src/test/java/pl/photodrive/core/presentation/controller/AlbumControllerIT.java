@@ -142,10 +142,10 @@ class AlbumControllerIT extends IntegrationTest {
         // When - the same name arrives again
         upload(album, photographer, photo("foto.jpg"));
 
-        // Then - both photos survive; the newcomer gets a suffix (backend format: "foto (1).jpg")
+        // Then - both photos survive; the newcomer gets the "_1" suffix (same format the front
+        // proposes in the collision dialog, so the two never disagree — B.31)
         List<String> names = fileNames(album, photographer);
-        assertThat(names).hasSize(2).contains("foto.jpg");
-        assertThat(names).anyMatch(name -> !name.equals("foto.jpg"));
+        assertThat(names).hasSize(2).containsExactlyInAnyOrder("foto.jpg", "foto_1.jpg");
     }
 
     @Test

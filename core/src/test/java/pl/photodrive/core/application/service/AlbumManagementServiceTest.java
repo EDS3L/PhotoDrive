@@ -426,10 +426,11 @@ class AlbumManagementServiceTest {
         service.addFilesToAlbum(new AddFileToAlbumCommand(album.getAlbumId().value(),
                 List.of(new FileUpload(FileName.of("foto.jpg"), 10L, "image/jpeg", "t1"))));
 
-        // The backend resolves a collision with a " (1)" suffix, NOT "_1" (see FileNamingPolicy).
+        // The backend resolves a collision with a "_1" suffix — the SAME format the front proposes
+        // in the collision dialog, so a skipped dialog does not produce a different name (B.31).
         assertThat(album.getPhotos().values())
                 .extracting(f -> f.getFileName().value())
-                .containsExactly("foto (1).jpg");
+                .containsExactly("foto_1.jpg");
     }
 
     @Test

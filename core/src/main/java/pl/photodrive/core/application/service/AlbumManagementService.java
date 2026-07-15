@@ -17,7 +17,6 @@ import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
-import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.file.PlatformWatermark;
@@ -148,7 +147,7 @@ public class AlbumManagementService {
         User user = getUser(currentUser.requireAuthenticated().userId());
 
         if (!album.canAccess(user.getId(), user.getRoles())) {
-            throw new SecurityException("User has no access to this album");
+            throw new ApplicationSecurityException("User has no access to this album");
         }
 
         List<File> files = new ArrayList<>();
@@ -186,7 +185,7 @@ public class AlbumManagementService {
         }
 
         if (isClient(user) && files.stream().anyMatch(file -> !file.isVisible())) {
-            throw new SecurityException("User has no access to hidden files");
+            throw new ApplicationSecurityException("User has no access to hidden files");
         }
 
         List<String> existingFileNames = files.stream().map(f -> f.getFileName().value()).toList();
@@ -271,11 +270,11 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
 
         if (!album.canRead(user.getId(), user.getRoles())) {
-            throw new SecurityException("User has no access to this album");
+            throw new ApplicationSecurityException("User has no access to this album");
         }
 
         if (!album.canReadFile(user, cmd.fileName())) {
-            throw new SecurityException("User has no access to this file");
+            throw new ApplicationSecurityException("User has no access to this file");
         }
 
         User photographer = getUser(new UserId(album.getPhotographId()));
@@ -687,7 +686,7 @@ public class AlbumManagementService {
     private void checkUserHasRole(CurrentUser currentUser, Role requiredRole) {
         User user = getUser(currentUser.requireAuthenticated().userId());
         if (!user.getRoles().contains(requiredRole)) {
-            throw new SecurityException("User does not have required role: " + requiredRole);
+            throw new ApplicationSecurityException("User does not have required role: " + requiredRole);
         }
     }
 
@@ -712,13 +711,13 @@ public class AlbumManagementService {
 
     private void validateAccess(Album album, User user) {
         if (!album.canAccess(user.getId(), user.getRoles())) {
-            throw new SecurityException("User has no access to this album");
+            throw new ApplicationSecurityException("User has no access to this album");
         }
     }
 
     private void validateReadAccess(Album album, User user) {
         if (!album.canRead(user.getId(), user.getRoles())) {
-            throw new SecurityException("User has no access to this album");
+            throw new ApplicationSecurityException("User has no access to this album");
         }
     }
 

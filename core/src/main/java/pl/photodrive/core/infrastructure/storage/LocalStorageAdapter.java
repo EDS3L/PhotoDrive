@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
-import pl.photodrive.core.application.exception.SecurityException;
+import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.infrastructure.exception.StorageException;
 
@@ -215,7 +215,7 @@ public class LocalStorageAdapter implements FileStoragePort {
         try {
             Path targetPath = filePath.resolveSibling(newName);
             if (!targetPath.normalize().startsWith(baseDirectory)) {
-                throw new SecurityException("Path traversal attempt in rename: " + newName);
+                throw new ApplicationSecurityException("Path traversal attempt in rename: " + newName);
             }
 
             Files.move(filePath, targetPath);
@@ -286,7 +286,7 @@ public class LocalStorageAdapter implements FileStoragePort {
     public void deleteFolder(String albumPath) {
         Path folderPath = baseDirectory.resolve(albumPath).normalize();
         if (!folderPath.startsWith(baseDirectory)) {
-            throw new SecurityException("Path traversal attempt detected: " + albumPath);
+            throw new ApplicationSecurityException("Path traversal attempt detected: " + albumPath);
         }
         if (!Files.exists(folderPath)) {
             log.warn("Folder not found, cannot delete: {}", folderPath);
@@ -316,7 +316,7 @@ public class LocalStorageAdapter implements FileStoragePort {
         Path cacheDir = baseDirectory.resolve(WATERMARK_CACHE_DIR).normalize();
         Path cacheFile = cacheDir.resolve(cacheKey + "-" + variant + "." + extension).normalize();
         if (!cacheFile.startsWith(baseDirectory)) {
-            throw new SecurityException("Invalid watermark cache key");
+            throw new ApplicationSecurityException("Invalid watermark cache key");
         }
 
         try {
@@ -383,7 +383,7 @@ public class LocalStorageAdapter implements FileStoragePort {
         Path cacheDir = baseDirectory.resolve(PUBLIC_CACHE_DIR).normalize();
         Path cacheFile = cacheDir.resolve(cacheKey + "." + extension).normalize();
         if (!cacheFile.startsWith(baseDirectory)) {
-            throw new SecurityException("Invalid public cache key");
+            throw new ApplicationSecurityException("Invalid public cache key");
         }
 
         try {
@@ -680,7 +680,7 @@ public class LocalStorageAdapter implements FileStoragePort {
         Path normalized = resolved.normalize();
 
         if (!normalized.startsWith(baseDirectory)) {
-            throw new SecurityException("Invalid path: path traversal detected");
+            throw new ApplicationSecurityException("Invalid path: path traversal detected");
         }
         return normalized;
     }

@@ -16,7 +16,6 @@ import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
-import pl.photodrive.core.application.exception.SecurityException;
 import pl.photodrive.core.domain.exception.AlbumNotFoundException;
 import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.application.port.file.FileStoragePort;
@@ -124,7 +123,7 @@ class AlbumManagementServiceTest {
 
         // When / Then - not owning the target album means refusal
         assertThatThrownBy(() -> service.swapFile(cmd))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(ApplicationSecurityException.class);
     }
 
     // -----------------------------------------------------------------------
@@ -449,7 +448,7 @@ class AlbumManagementServiceTest {
 
         // When / Then
         assertThatThrownBy(() -> service.addFilesToAlbum(cmd))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(ApplicationSecurityException.class);
     }
 
     // =======================================================================
@@ -468,7 +467,7 @@ class AlbumManagementServiceTest {
 
         // When / Then
         assertThatThrownBy(() -> service.downloadFilesAsZip(cmd))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(ApplicationSecurityException.class)
                 .hasMessageContaining("hidden");
     }
 
@@ -652,7 +651,7 @@ class AlbumManagementServiceTest {
 
         // When / Then
         assertThatThrownBy(() -> service.getFilePath(cmd))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(ApplicationSecurityException.class);
     }
 
     @Test
@@ -667,7 +666,7 @@ class AlbumManagementServiceTest {
 
         // When / Then
         assertThatThrownBy(() -> service.getFilePath(cmd))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(ApplicationSecurityException.class);
     }
 
     @Test

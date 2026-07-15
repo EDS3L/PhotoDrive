@@ -95,7 +95,9 @@ public class WebConfig {
                         .requestMatchers("/api/user/*/changePassword").authenticated()
                         .requestMatchers("/api/user/*/changeEmail").authenticated()
                         .requestMatchers("/api/user/me").authenticated()
-                        .requestMatchers("/api/user/getAssignedUsers").hasAnyRole("ADMIN", "PHOTOGRAPHER")
+                        // Lista klientów należy do fotografa; admin ma osobny endpoint (/{id}/assignedUsers).
+                        // Odmowa pada już na filtrze web (obrona w głąb), a nie dopiero w domenie (A13).
+                        .requestMatchers("/api/user/getAssignedUsers").hasRole("PHOTOGRAPHER")
                         .requestMatchers("/api/auth/**", "/api/public/**", "/favicon.ico", "/error").permitAll()
                         .anyRequest().authenticated()
                 )

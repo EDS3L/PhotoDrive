@@ -37,10 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * czy wejście jest otwarte, czy zatrzaśnięte — na żywym torze HTTP (filtry + Spring Security
  * + reguły domeny), a nie na mockach.
  *
- * <p>Macierz jest <b>efektywna</b>: opisuje, kto realnie przejdzie, a nie tylko co deklaruje
- * {@code WebConfig}. Bywa, że warstwa webowa jest luźniejsza od domeny — np.
- * {@code /api/user/getAssignedUsers} przepuszcza admina, ale domena odsyła go z kwitkiem, bo
- * lista klientów należy do fotografa. Test pilnuje właśnie tego, co widzi klient API.
+ * <p>Macierz jest <b>efektywna</b>: opisuje, kto realnie przejdzie przez web I domenę, a nie tylko
+ * co deklaruje jedna warstwa. Dla {@code /api/user/getAssignedUsers} obie warstwy są zgodne — przez
+ * bramkę przechodzi tylko fotograf (dedykowany test niżej pilnuje, że admin jest odrzucany już na
+ * filtrze web, zanim żądanie dotknie domeny — A13). Test patrzy na to, co widzi klient API.
  *
  * <p>Druga część klasy pilnuje rozróżnienia z A10: <b>odmowa autoryzacji to 403, nie 400</b>.
  * Wcześniej „nie wolno ci" było nieodróżnialne od „popraw dane" — obie ścieżki wracały jako 400.
@@ -171,6 +171,28 @@ class SecurityAuthorizationIT extends IntegrationTest {
                         .isEqualTo(403);
             }
         }
+    }
+
+    // =======================================================================
+    // A13 — odmowa pada na warstwie web, nie dopiero w domenie
+    // =======================================================================
+
+    @Test
+    @DisplayName("An admin is turned away from the photographer's client list at the web filter, before the domain is consulted")
+    void shouldDenyAdminAssignedUsersAtTheWebLayer() throws Exception {
+        // Given - admin ma własny endpoint na listy klientów (/{id}/assignedUsers); ten należy do fotografa.
+        // When
+        MvcResult result = mockMvc.perform(get("/api/user/getAssignedUsers")
+                        .cookie(fixtures.authCookie(admin)))
+                .andExpect(status().isForbidden())
+                .andReturn();
+
+        // Then - to odmowa z filtra Spring Security (accessDeniedHandler → {"error":"Forbidden"}),
+        // a NIE z domeny (DomainSecurityException → ApiException z kodem SECURITY_EXCEPTION). Gdyby
+        // WebConfig znów wpuścił admina na tę ścieżkę, 403 przyszłoby z domeny i to rozróżnienie by padło.
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).contains("Forbidden");
+        assertThat(body).doesNotContain("SECURITY_EXCEPTION");
     }
 
     // =======================================================================

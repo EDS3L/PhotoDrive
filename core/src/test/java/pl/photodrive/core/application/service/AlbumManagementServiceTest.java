@@ -731,9 +731,84 @@ class AlbumManagementServiceTest {
         UUID id = album.getAlbumId().value();
 
         // When / Then - the file exists but is hidden, so it is not reachable publicly
-        assertThatThrownBy(() -> service.getPublicPhoto(id, "ukryte.jpg"))
+        assertThatThrownBy(() -> service.getPublicPhoto(id, "ukryte.jpg", null))
                 .isInstanceOf(AlbumException.class)
                 .hasMessageContaining("File not found");
+    }
+
+    @Test
+    @DisplayName("A guest asking for a huge photo gets the capped variant, so the original never leaves the server")
+    void shouldCapPublicPhotoWhenGuestAsksForMoreThanTheLimit() {
+        // Given - a visible photo in a public album and a guest asking for print resolution
+        Album album = publicAlbumWithVisibleFile("foto.jpg");
+        UUID id = album.getAlbumId().value();
+
+        // When
+        service.getPublicPhoto(id, "foto.jpg", 9999);
+
+        // Then - the request is a wish, the limit is the law
+        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(),
+                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION), isNull());
+    }
+
+    @Test
+    @DisplayName("A guest asking for no size at all still gets a variant, never the untouched original")
+    void shouldServeCappedVariantWhenGuestAsksForNoSize() {
+        // Given
+        Album album = publicAlbumWithVisibleFile("foto.jpg");
+        UUID id = album.getAlbumId().value();
+
+        // When
+        service.getPublicPhoto(id, "foto.jpg", null);
+
+        // Then
+        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(),
+                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION), isNull());
+    }
+
+    @Test
+    @DisplayName("A size below the limit is honoured, so the portfolio grid can ask for light thumbnails")
+    void shouldHonourRequestedSizeBelowThePublicLimit() {
+        // Given
+        Album album = publicAlbumWithVisibleFile("foto.jpg");
+        UUID id = album.getAlbumId().value();
+
+        // When
+        service.getPublicPhoto(id, "foto.jpg", 800);
+
+        // Then
+        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(), eq(800), isNull());
+    }
+
+    @Test
+    @DisplayName("A watermarked portfolio photo is served watermarked, and its cache key follows the logo version")
+    void shouldServeWatermarkedPublicPhotoWithVersionedCacheKey() {
+        // Given
+        Album album = publicAlbumWithVisibleFile("foto.jpg");
+        File file = onlyFile(album);
+        album.changeWatermarkStatus(adminUser, true, List.of(file.getFileId()), true);
+        byte[] logo = new byte[]{1, 2, 3};
+        given(watermarkStore.get()).willReturn(Optional.of(
+                new pl.photodrive.core.application.port.file.PlatformWatermark(logo, Instant.ofEpochMilli(1234))));
+
+        // When
+        service.getPublicPhoto(album.getAlbumId().value(), "foto.jpg", 800);
+
+        // Then - the logo travels to storage, and the key carries fileId + logo version + size,
+        // so swapping the logo cannot serve a stale watermark
+        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"),
+                eq(file.getFileId().value() + "-wm1234-800"), eq(800), eq(logo));
+    }
+
+    /** Publiczny album (admina) z jednym widocznym zdjęciem — tak wygląda kafelek portfolio. */
+    private Album publicAlbumWithVisibleFile(String fileName) {
+        Album album = Album.createForAdmin("Portfolio", adminUser);
+        album.addFile(File.create(new FileName(fileName), 10L, "image/jpeg"));
+        album.changeFileVisibleStatus(List.of(onlyFile(album).getFileId()), true, adminUser, adminUser.getEmail());
+        album.makePublic(adminUser);
+        album.pullDomainEvents();
+        given(albumRepository.findPublicByAlbumId(album.getAlbumId())).willReturn(Optional.of(album));
+        return album;
     }
 
     // =======================================================================

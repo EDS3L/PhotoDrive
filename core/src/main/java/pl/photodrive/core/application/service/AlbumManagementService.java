@@ -79,6 +79,13 @@ public class AlbumManagementService {
     @Value("${ORG_MAX_SIZE}")
     private long orgMaxSize;
 
+    /**
+     * Twardy limit dłuższego boku zdjęcia serwowanego BEZ logowania (A9). Gość ogląda portfolio
+     * w dobrej jakości, ale nie pobierze pliku do druku — oryginał (6000+ px) nigdy nie opuszcza
+     * serwera przez publiczny endpoint.
+     */
+    public static final int PUBLIC_MAX_DIMENSION = 2560;
+
     @Transactional
     public Album createAdminAlbum(CreateAlbumCommand cmd) {
         checkUserHasRole(currentUser, Role.ADMIN);
@@ -553,8 +560,15 @@ public class AlbumManagementService {
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
+    /**
+     * Zdjęcie dla strony publicznej — zawsze wariant przeskalowany, NIGDY oryginał (A9).
+     *
+     * <p>{@code requestedWidth} jest tylko życzeniem: serwer i tak zacina je na
+     * {@link #PUBLIC_MAX_DIMENSION}. Limit dotyczy <b>dłuższego boku</b>, nie samej szerokości —
+     * inaczej pionowy kadr (2560 szerokości = 3840 wysokości) obchodziłby ograniczenie.
+     */
     @Transactional(readOnly = true)
-    public FileResource getPublicPhoto(UUID albumIdValue, String fileName) {
+    public FileResource getPublicPhoto(UUID albumIdValue, String fileName, Integer requestedWidth) {
         AlbumId albumId = new AlbumId(albumIdValue);
         Album album = albumRepository.findPublicByAlbumId(albumId)
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
@@ -563,7 +577,46 @@ public class AlbumManagementService {
             throw new AlbumException("File not found");
         }
 
-        return getFileResource(fileName, resolveAlbumStoragePath(album), null, null, watermarkedFileId(album, fileName));
+        File file = album.getPhotos().values().stream()
+                .filter(photo -> photo.isVisible() && photo.getFileName().value().equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new AlbumException("File not found"));
+
+        int maxDimension = clampToPublicLimit(requestedWidth);
+
+        byte[] watermarkImage = null;
+        String watermarkPart = "clean";
+        if (file.isHasWatermark()) {
+            Optional<PlatformWatermark> watermark = watermarkStore.get();
+            if (watermark.isPresent()) {
+                watermarkImage = watermark.get().image();
+                watermarkPart = "wm" + watermark.get().updatedAt().toEpochMilli();
+            } else {
+                log.warn("Public file {} flagged as watermarked but no platform watermark configured — serving clean",
+                        fileName);
+            }
+        }
+
+        String cacheKey = file.getFileId().value() + "-" + watermarkPart + "-" + maxDimension;
+        Resource resource = fileStoragePort.getOrCreatePublicPhoto(resolveAlbumStoragePath(album),
+                fileName,
+                cacheKey,
+                maxDimension,
+                watermarkImage);
+
+        return new FileResource(resource, publicContentType(fileName));
+    }
+
+    /** Żądanie większe od limitu — albo brak żądania — ląduje na limicie. Obejść się tego nie da. */
+    static int clampToPublicLimit(Integer requestedWidth) {
+        if (requestedWidth == null || requestedWidth <= 0) {
+            return PUBLIC_MAX_DIMENSION;
+        }
+        return Math.min(requestedWidth, PUBLIC_MAX_DIMENSION);
+    }
+
+    private String publicContentType(String fileName) {
+        return fileName.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
     }
 
     @Transactional(readOnly = true)

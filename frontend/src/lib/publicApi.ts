@@ -28,6 +28,26 @@ export function getPublicPhotosByAlbumName(
 		.then((res) => res.data);
 }
 
-export function getPublicPhotoUrl(albumId: string, fileName: string): string {
-	return `/api/public/album/${albumId}/photo/${encodeURIComponent(fileName)}`;
+/**
+ * Rozmiary wariantów zdjęć na stronie publicznej. Backend i tak zacina dłuższy bok na 2560 px
+ * (A9) — te wartości mówią tylko, ile NAPRAWDĘ potrzebujemy, żeby nie ciągnąć zbyt dużych plików.
+ */
+export const PUBLIC_PHOTO_SIZE = {
+	/**
+	 * Kafelek w siatce portfolio. Uwaga: kafelek jest KWADRATOWY (`object-cover`), a zdjęcia są
+	 * poziome — przeglądarka kadruje, więc realnie wypełnia go KRÓTSZY bok. Przy 4:3 i limicie
+	 * 1200 na dłuższym boku krótszy ma 900 px, co starcza na ekran o podwójnej gęstości.
+	 * Mniejsza wartość (800) była widocznie rozmyta, bo obraz był powiększany do rozmiaru kafelka.
+	 */
+	tile: 1200,
+	/** Duże zdjęcie (strona główna, sekcje „o mnie") — ma wyglądać świetnie na dużym ekranie. */
+	full: 2048,
+} as const;
+
+export function getPublicPhotoUrl(
+	albumId: string,
+	fileName: string,
+	width: number = PUBLIC_PHOTO_SIZE.full,
+): string {
+	return `/api/public/album/${albumId}/photo/${encodeURIComponent(fileName)}?width=${width}`;
 }

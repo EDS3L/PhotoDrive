@@ -48,6 +48,10 @@ public class LocalStorageAdapter implements FileStoragePort {
     // można skasować w każdej chwili; NIE wymaga synchronizacji z bazą ani obsługi
     // przy rename/swap/delete (osierocone wpisy są nieszkodliwe).
     private static final String WATERMARK_CACHE_DIR = ".cache/watermark";
+    // Cache wariantów dla strony publicznej (A9) — tak samo jednorazowego użytku:
+    // klucz niesie fileId + wersję loga + rozmiar, więc osierocone wpisy są nieszkodliwe.
+    private static final String PUBLIC_CACHE_DIR = ".cache/public";
+    private static final int THUMBNAIL_WIDTH = 600;
 
     // Pełnowymiarowa kompozycja to dekod całego zdjęcia (~100-200 MB RAM dla 24MP) —
     // na słabym VPS ograniczamy do jednej naraz; miniatury (600px) są tanie i idą bez limitu.
@@ -145,16 +149,13 @@ public class LocalStorageAdapter implements FileStoragePort {
                 BufferedImage image = ImageIO.read(targetFile.toFile());
                 if (image == null) return;
 
-                int originalWidth = image.getWidth();
-                int originalHeight = image.getHeight();
-                int finalWidth = 600;
-                int finalHeight = (int) (((double) finalWidth / originalWidth) * originalHeight);
+                int finalWidth = THUMBNAIL_WIDTH;
+                int finalHeight = Math.max(1,
+                        (int) (((double) finalWidth / image.getWidth()) * image.getHeight()));
 
-                BufferedImage resizedImage = new BufferedImage(finalWidth, finalHeight, BufferedImage.TYPE_INT_RGB);
-                Graphics2D g2d = resizedImage.createGraphics();
-                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g2d.drawImage(image, 0, 0, finalWidth, finalHeight, null);
-                g2d.dispose();
+                // To samo skalowanie schodkowe co przy wariantach publicznych — miniatura z jednego
+                // skoku bilinearnego była miękka (patrz scaleTo).
+                BufferedImage resizedImage = scaleTo(image, finalWidth, finalHeight);
 
                 String format = lowerName.endsWith(".png") ? "png" : "jpg";
 
@@ -372,6 +373,137 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         drawWatermark(image, watermarkImage);
 
+        writeToCacheAtomically(image, cacheFile, extension);
+        log.info("Composed watermarked variant into cache: {}", cacheFile.getFileName());
+    }
+
+    @Override
+    public Resource getOrCreatePublicPhoto(String albumPath, String fileName, String cacheKey, int maxDimension, byte[] watermarkPng) {
+        String extension = fileName.toLowerCase().endsWith(".png") ? "png" : "jpg";
+        Path cacheDir = baseDirectory.resolve(PUBLIC_CACHE_DIR).normalize();
+        Path cacheFile = cacheDir.resolve(cacheKey + "." + extension).normalize();
+        if (!cacheFile.startsWith(baseDirectory)) {
+            throw new SecurityException("Invalid public cache key");
+        }
+
+        try {
+            if (Files.exists(cacheFile)) {
+                return new UrlResource(cacheFile.toUri());
+            }
+
+            Path original = resolveAndValidate(albumPath, fileName);
+            // Mały wariant można wyprodukować z gotowej miniatury (600px) — dekod pełnego
+            // 24MP zdjęcia jest drogi, a kafelki portfolio i tak nie potrzebują więcej.
+            Path source = original;
+            if (maxDimension <= THUMBNAIL_WIDTH) {
+                Path thumbSource = original.getParent().resolve(THUMB_DIR).resolve(fileName);
+                if (Files.exists(thumbSource)) {
+                    source = thumbSource;
+                }
+            }
+            if (!Files.isRegularFile(source)) {
+                throw new StorageException("File not found: " + albumPath + "/" + fileName);
+            }
+
+            // Semafor tylko dla drogiej ścieżki (dekod oryginału) — wariant z miniatury jest tani
+            // i nie ma powodu ustawiać za nim w kolejce całej siatki portfolio.
+            boolean fromOriginal = source.equals(original);
+            if (fromOriginal) {
+                FULL_COMPOSE_PERMIT.acquireUninterruptibly();
+            }
+            try {
+                // Ktoś mógł zbudować wariant, gdy czekaliśmy na semafor.
+                if (Files.exists(cacheFile)) {
+                    return new UrlResource(cacheFile.toUri());
+                }
+                writePublicVariant(source, cacheFile, extension, maxDimension, watermarkPng);
+            } finally {
+                if (fromOriginal) {
+                    FULL_COMPOSE_PERMIT.release();
+                }
+            }
+
+            return new UrlResource(cacheFile.toUri());
+        } catch (IOException e) {
+            throw new StorageException("Failed to create public photo variant: " + fileName, e);
+        }
+    }
+
+    private void writePublicVariant(Path source, Path cacheFile, String extension, int maxDimension, byte[] watermarkPng) throws IOException {
+        BufferedImage image = ImageIO.read(source.toFile());
+        if (image == null) {
+            throw new StorageException("Failed to read image: " + source.getFileName());
+        }
+
+        BufferedImage variant = downscale(image, maxDimension);
+
+        if (watermarkPng != null && watermarkPng.length > 0) {
+            BufferedImage watermarkImage = ImageIO.read(new ByteArrayInputStream(watermarkPng));
+            if (watermarkImage == null) {
+                throw new StorageException("Failed to read watermark image");
+            }
+            // Znak wodny nakładamy PO zmniejszeniu — kafle liczą się względem szerokości obrazu,
+            // więc wynik wygląda tak samo jak na oryginale.
+            drawWatermark(variant, watermarkImage);
+        }
+
+        writeToCacheAtomically(variant, cacheFile, extension);
+        log.info("Created public variant ({}px) in cache: {}", maxDimension, cacheFile.getFileName());
+    }
+
+    /** Skalowanie po DŁUŻSZYM boku; obraz mniejszy od limitu zostaje bez zmian (nigdy nie powiększamy). */
+    private BufferedImage downscale(BufferedImage image, int maxDimension) {
+        int longEdge = Math.max(image.getWidth(), image.getHeight());
+        if (longEdge <= maxDimension) {
+            return image;
+        }
+
+        double scale = (double) maxDimension / longEdge;
+        int width = Math.max(1, (int) Math.round(image.getWidth() * scale));
+        int height = Math.max(1, (int) Math.round(image.getHeight() * scale));
+
+        return scaleTo(image, width, height);
+    }
+
+    /**
+     * Skalowanie <b>schodkowe, po połowie</b> — nie jednym skokiem.
+     *
+     * <p>Powód: {@code drawImage} z BILINEAR próbkuje tylko sąsiedztwo 2×2 piksela źródła, więc
+     * skok 4000→800 po prostu WYRZUCA 95% pikseli — wynik jest miękki i aliasowany (drobne wzory
+     * zamieniają się w szum). Zmniejszanie o połowę na krok uśrednia pełny obszar i daje ostry
+     * obraz. Ostatni krok dochodzi do dokładnego rozmiaru docelowego.
+     */
+    private BufferedImage scaleTo(BufferedImage image, int targetWidth, int targetHeight) {
+        BufferedImage current = image;
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        while (width / 2 >= targetWidth && height / 2 >= targetHeight) {
+            width = Math.max(targetWidth, width / 2);
+            height = Math.max(targetHeight, height / 2);
+            current = redraw(current, width, height);
+        }
+
+        if (width != targetWidth || height != targetHeight) {
+            current = redraw(current, targetWidth, targetHeight);
+        }
+
+        return current;
+    }
+
+    private BufferedImage redraw(BufferedImage source, int width, int height) {
+        BufferedImage target = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = target.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.drawImage(source, 0, 0, width, height, null);
+        g2d.dispose();
+        return target;
+    }
+
+    /** Zapis przez plik tymczasowy + move, żeby współbieżny odczyt nie zobaczył połowicznego pliku. */
+    private void writeToCacheAtomically(BufferedImage image, Path cacheFile, String extension) throws IOException {
         Files.createDirectories(cacheFile.getParent());
         Path tempFile = Files.createTempFile(cacheFile.getParent(), "compose-", ".tmp");
         try {
@@ -385,7 +517,6 @@ public class LocalStorageAdapter implements FileStoragePort {
             deleteQuietly(tempFile);
             throw e;
         }
-        log.info("Composed watermarked variant into cache: {}", cacheFile.getFileName());
     }
 
     @Override

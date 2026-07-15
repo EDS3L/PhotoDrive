@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { PUBLIC_PHOTO_SIZE } from '@/lib/publicApi';
 import { placeholder } from '@/lib/placeholder';
 import { PageHeader } from '@/shared/components/layout/PageHeader';
 import { PhotoGrid, PhotoGridItem } from '@/shared/components/PhotoGrid';
@@ -28,7 +29,11 @@ export default function PortfolioPage() {
 	const [visibleCount, setVisibleCount] = useState(6);
 
 	const albumName = categoryAlbumMap[active];
-	const { data: apiPhotos } = usePublicAlbumPhotos(albumName);
+	// Kafelki: siatka pokazuje kilkanaście zdjęć naraz, więc liczy się waga, nie ostatni piksel.
+	const { data: apiPhotos } = usePublicAlbumPhotos(
+		albumName,
+		PUBLIC_PHOTO_SIZE.tile,
+	);
 
 	const photos =
 		apiPhotos?.map((p) => ({ id: p.fileId, src: p.url, alt: p.fileName })) ??

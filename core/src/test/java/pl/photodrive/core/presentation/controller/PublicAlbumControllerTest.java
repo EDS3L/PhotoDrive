@@ -28,6 +28,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -110,19 +112,41 @@ class PublicAlbumControllerTest {
     void shouldServePublicPhoto() throws Exception {
         // Given
         Album album = albumWithVisibleAndHiddenFile();
-        given(albumService.getPublicPhoto(any(), anyString()))
-                .willReturn(new FileResource(new ByteArrayResource("bytes".getBytes()) {
-                    @Override
-                    public String getFilename() {
-                        return "widoczne.jpg";
-                    }
-                }, "image/jpeg"));
+        stubPhotoResponse();
 
         // When / Then
         mockMvc.perform(get("/api/public/album/{id}/photo/{name}", album.getAlbumId().value(), "widoczne.jpg"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("image/jpeg"))
                 .andExpect(header().string("Cache-Control", "public, max-age=86400"));
+
+        // Then - no size asked for: the service decides, and it caps (A9)
+        then(albumService).should().getPublicPhoto(any(), eq("widoczne.jpg"), isNull());
+    }
+
+    @Test
+    @DisplayName("The requested photo size reaches the service, which is what lets the grid ask for thumbnails")
+    void shouldPassRequestedWidthToTheService() throws Exception {
+        // Given
+        Album album = albumWithVisibleAndHiddenFile();
+        stubPhotoResponse();
+
+        // When / Then
+        mockMvc.perform(get("/api/public/album/{id}/photo/{name}", album.getAlbumId().value(), "widoczne.jpg")
+                        .param("width", "800"))
+                .andExpect(status().isOk());
+
+        then(albumService).should().getPublicPhoto(any(), eq("widoczne.jpg"), eq(800));
+    }
+
+    private void stubPhotoResponse() {
+        given(albumService.getPublicPhoto(any(), anyString(), any()))
+                .willReturn(new FileResource(new ByteArrayResource("bytes".getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return "widoczne.jpg";
+                    }
+                }, "image/jpeg"));
     }
 
     @Test

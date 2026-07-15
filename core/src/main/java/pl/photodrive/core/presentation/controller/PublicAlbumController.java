@@ -65,9 +65,16 @@ public class PublicAlbumController {
                 .body(photos);
     }
 
+    /**
+     * {@code width} to życzenie klienta co do rozmiaru — serwer i tak zacina je na twardym limicie
+     * (`AlbumManagementService.PUBLIC_MAX_DIMENSION`), więc przez ten endpoint nie da się pobrać
+     * oryginału. Brak parametru = wariant o maksymalnym dozwolonym rozmiarze.
+     */
     @GetMapping("/{albumId}/photo/{fileName}")
-    public ResponseEntity<Resource> getPublicPhoto(@PathVariable UUID albumId, @PathVariable String fileName) {
-        FileResource fileResponse = albumService.getPublicPhoto(albumId, fileName);
+    public ResponseEntity<Resource> getPublicPhoto(@PathVariable UUID albumId,
+                                                   @PathVariable String fileName,
+                                                   @RequestParam(required = false) Integer width) {
+        FileResource fileResponse = albumService.getPublicPhoto(albumId, fileName, width);
         String contentDisposition = ContentDisposition.inline()
                 .filename(fileResponse.resource().getFilename(), StandardCharsets.UTF_8)
                 .build()

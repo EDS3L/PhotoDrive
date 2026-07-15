@@ -258,7 +258,154 @@ class LocalStorageAdapterTest {
         assertFalse(Files.exists(baseDirectory.resolve(".cache/watermark/file1-100-full.jpg")));
     }
 
+    // ---------- public variants (A9) ----------
+
+    @Test
+    @DisplayName("Public variant is scaled by its LONGEST edge, so a portrait crop cannot smuggle out full resolution")
+    void shouldScalePublicVariantByLongestEdge() throws IOException {
+        // Given - a tall photo: capping the WIDTH alone would still leave 2x the height
+        writeImage(sourceAlbum.resolve("photo.jpg"), 1000, 2000);
+
+        // When
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-500", 500, null);
+
+        // Then - the long edge lands exactly on the limit and the aspect ratio survives
+        BufferedImage variant = readImage(resource);
+        assertEquals(500, variant.getHeight());
+        assertEquals(250, variant.getWidth());
+    }
+
+    @Test
+    @DisplayName("Public variant lands in the cache and the original on disk stays untouched")
+    void shouldCachePublicVariantWithoutTouchingOriginal() throws IOException {
+        // Given
+        Path original = sourceAlbum.resolve("photo.jpg");
+        writeImage(original, 2000, 1500);
+        byte[] originalBytes = Files.readAllBytes(original);
+
+        // When
+        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+
+        // Then
+        assertTrue(Files.exists(baseDirectory.resolve(".cache/public/file1-clean-800.jpg")));
+        assertArrayEquals(originalBytes, Files.readAllBytes(original));
+    }
+
+    @Test
+    @DisplayName("A photo smaller than the limit is served as it is, never blown up")
+    void shouldNotUpscalePublicVariantSmallerThanTheLimit() throws IOException {
+        // Given
+        writeImage(sourceAlbum.resolve("photo.jpg"), 200, 150);
+
+        // When
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-2560", 2560, null);
+
+        // Then
+        BufferedImage variant = readImage(resource);
+        assertEquals(200, variant.getWidth());
+        assertEquals(150, variant.getHeight());
+    }
+
+    @Test
+    @DisplayName("Second request reuses the cached public variant instead of re-encoding the photo")
+    void shouldServeCachedPublicVariantOnSecondCall() throws IOException {
+        // Given
+        writeImage(sourceAlbum.resolve("photo.jpg"), 2000, 1500);
+        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+
+        // Swap the cache content for a marker: the second read must hit the cache, not rebuild
+        byte[] marker = {7, 7, 7};
+        Files.write(baseDirectory.resolve(".cache/public/file1-clean-800.jpg"), marker);
+
+        // When
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+
+        // Then
+        assertArrayEquals(marker, readBytes(resource));
+    }
+
+    @Test
+    @DisplayName("A small public variant is built from the thumbnail, so the portfolio grid never decodes originals")
+    void shouldBuildSmallPublicVariantFromThumbnail() throws IOException {
+        // Given - the thumbnail is deliberately narrower than the original
+        writeImage(sourceAlbum.resolve("photo.jpg"), 2000, 1500);
+        Path thumbDir = Files.createDirectories(sourceAlbum.resolve(".thumbnails"));
+        writeImage(thumbDir.resolve("photo.jpg"), 100, 75);
+
+        // When
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-600", 600, null);
+
+        // Then - 100px proves the thumbnail was the source (the original would have given 600)
+        assertEquals(100, readImage(resource).getWidth());
+    }
+
+    @Test
+    @DisplayName("Watermarked public variant differs from the clean one, so the logo really reaches the portfolio")
+    void shouldWatermarkPublicVariantWhenLogoIsGiven() throws IOException {
+        // Given
+        writeImage(sourceAlbum.resolve("photo.jpg"), 800, 600);
+
+        // When
+        var clean = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+        var watermarked = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-wm1-800", 800, watermarkPng());
+
+        // Then - same geometry, different pixels
+        assertEquals(readImage(clean).getWidth(), readImage(watermarked).getWidth());
+        assertFalse(java.util.Arrays.equals(readBytes(clean), readBytes(watermarked)));
+    }
+
+    @Test
+    @DisplayName("Downscaling averages the pixels it drops, so fine detail does not collapse into noise")
+    void shouldDownscalePublicVariantWithoutAliasing() throws IOException {
+        // Given - fine vertical stripes, 1 black column in every 3. Their true average is 170.
+        // Scaled in ONE bilinear jump the sampler only looks at a 2x2 neighbourhood of the source
+        // and throws the other 250 pixels away, so the result depends on WHERE the sample lands -
+        // the stripes turn into banding. Averaging every dropped pixel (halving step by step) must
+        // land on the real average instead.
+        // PNG on purpose: JPEG would smear the pattern by itself and the test would measure nothing.
+        writeStripes(sourceAlbum.resolve("photo.png"), 1600, 1600);
+
+        // When
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.png", "file1-clean-100", 100, null);
+
+        // Then
+        BufferedImage variant = readImage(resource);
+        int worstDeviation = 0;
+        for (int x = 10; x < 90; x++) {
+            for (int y = 10; y < 90; y++) {
+                int blue = variant.getRGB(x, y) & 0xFF; // obraz jest szary, jeden kanał wystarczy
+                worstDeviation = Math.max(worstDeviation, Math.abs(blue - 170));
+            }
+        }
+        assertTrue(worstDeviation < 25,
+                "Detail turned into banding instead of being averaged: worst deviation " + worstDeviation);
+    }
+
+    @Test
+    @DisplayName("Asking for a public variant of a missing file fails instead of serving nothing")
+    void shouldThrowWhenPublicVariantSourceIsMissing() {
+        // When / Then
+        assertThrows(StorageException.class,
+                () -> adapter.getOrCreatePublicPhoto("source-album", "missing.jpg", "x-clean-800", 800, null));
+    }
+
     // ---------- helpers ----------
+
+    /**
+     * Pionowe pasy o okresie 3 (1 czarna kolumna na 3) w bezstratnym PNG — średnia = 170.
+     * Szachownica się tu nie nadaje: KAŻDE okno 2×2 zawiera dokładnie połowę czerni, więc nawet
+     * najgorsze skalowanie trafia w idealną szarość i test nic nie mierzy (sprawdzone).
+     */
+    private void writeStripes(Path path, int width, int height) throws IOException {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        for (int x = 0; x < width; x++) {
+            int color = (x % 3 == 0) ? 0x000000 : 0xFFFFFF;
+            for (int y = 0; y < height; y++) {
+                img.setRGB(x, y, color);
+            }
+        }
+        ImageIO.write(img, "png", path.toFile());
+    }
 
     private void writeImage(Path path, int width, int height) throws IOException {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);

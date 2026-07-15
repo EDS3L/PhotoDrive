@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCurrentUser } from '../api/clientZoneApi';
+import { redirectNonClientToPanel } from '../lib/rolePanelRedirect';
 import { useAuthStore } from '@/app/store/authStore';
 
 /**
@@ -23,6 +24,8 @@ export function useClientSession() {
 
 	useEffect(() => {
 		if (query.data) {
+			// F5 w strefie klienta na koncie admina/fotografa (np. wklejony URL) → do panelu (B.8).
+			if (redirectNonClientToPanel(query.data.roles)) return;
 			setSession({
 				email: query.data.email,
 				userId: query.data.id,

@@ -1,10 +1,9 @@
-import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 export function EquipmentSection() {
-	const { data: photos } = usePublicAlbumPhotos('about-equipment');
-	const equipUrl =
-		photos?.[0]?.url ?? placeholder(1920, 800, 'Sprzęt — obiektyw');
+	const { data: slots } = useSiteSlots();
+	const equipUrl = slots?.ABOUT_EQUIPMENT ?? placeholder(1920, 800, 'Sprzęt — obiektyw');
 
 	return (
 		<section className='relative py-24 overflow-hidden'>

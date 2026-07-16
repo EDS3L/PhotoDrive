@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { getPublicPhotoUrl, PUBLIC_PHOTO_SIZE } from './publicApi';
+import {
+	getPublicPhotoUrl,
+	getSiteSlotPhotoUrl,
+	PUBLIC_PHOTO_SIZE,
+} from './publicApi';
 
 describe('getPublicPhotoUrl', () => {
 	it('Every public photo URL carries a size, so the portfolio never requests the untouched original', () => {
@@ -28,5 +32,18 @@ describe('getPublicPhotoUrl', () => {
 
 		// Then
 		expect(url).toContain('zdj%C4%99cie%20%C5%9Blubne.jpg');
+	});
+});
+
+describe('getSiteSlotPhotoUrl', () => {
+	it('Two versions of the same slot give two different URLs, so an immutable-cached photo cannot survive a swap', () => {
+		// Given / When
+		const before = getSiteSlotPhotoUrl('HOME_HERO', 111);
+		const after = getSiteSlotPhotoUrl('HOME_HERO', 222);
+
+		// Then
+		expect(before).not.toBe(after);
+		expect(before).toContain('v=111');
+		expect(after).toContain('v=222');
 	});
 });

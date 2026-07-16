@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
-import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 export function CTASection() {
-	const { data: photos } = usePublicAlbumPhotos('home-cta');
-	const ctaUrl = photos?.[0]?.url ?? placeholder(1920, 600, 'CTA background');
+	const { data: slots } = useSiteSlots();
+	const ctaUrl = slots?.HOME_CTA ?? placeholder(1920, 600, 'CTA background');
 
 	return (
 		<section className='relative py-24 overflow-hidden'>

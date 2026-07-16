@@ -51,3 +51,37 @@ export function getPublicPhotoUrl(
 ): string {
 	return `/api/public/album/${albumId}/photo/${encodeURIComponent(fileName)}?width=${width}`;
 }
+
+/**
+ * Sloty strony wizytówki: pojedyncze zdjęcia sekcji (hero, „o mnie"...), wgrywane przez
+ * admina w panelu „Strona wizytówka". Slot to NIE album — patrz SiteSlot w backendzie.
+ */
+export type SiteSlotKey =
+	| 'HOME_HERO'
+	| 'HOME_INTRO'
+	| 'HOME_CTA'
+	| 'ABOUT_BIO'
+	| 'ABOUT_EQUIPMENT';
+
+export interface PublicSiteSlotDto {
+	slot: SiteSlotKey;
+	version: number;
+}
+
+/** Tylko skonfigurowane sloty — sekcja bez wpisu pokazuje swój placeholder. */
+export function getPublicSiteSlots(): Promise<PublicSiteSlotDto[]> {
+	return publicClient
+		.get<PublicSiteSlotDto[]>('/site/slots')
+		.then((res) => res.data);
+}
+
+/**
+ * URL zdjęcia slotu. Wersja (updatedAt) jest częścią URL-a, bo serwer wysyła
+ * `immutable` — podmiana zdjęcia zmienia URL i to ONA unieważnia cache przeglądarki.
+ */
+export function getSiteSlotPhotoUrl(
+	slot: SiteSlotKey,
+	version: number,
+): string {
+	return `/api/public/site/photo/${slot}?v=${version}`;
+}

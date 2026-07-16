@@ -1,9 +1,9 @@
-import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 export function IntroSection() {
-	const { data: photos } = usePublicAlbumPhotos('home-intro');
-	const introUrl = photos?.[0]?.url ?? placeholder(600, 800, 'Fotograf');
+	const { data: slots } = useSiteSlots();
+	const introUrl = slots?.HOME_INTRO ?? placeholder(600, 800, 'Fotograf');
 
 	return (
 		<section className='max-w-7xl mx-auto px-6 py-24'>

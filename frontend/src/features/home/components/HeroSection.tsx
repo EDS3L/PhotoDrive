@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 export function HeroSection() {
-	const { data: photos } = usePublicAlbumPhotos('home-hero');
-	const heroUrl = photos?.[0]?.url ?? placeholder(1920, 1080, 'Hero — ślub');
+	const { data: slots } = useSiteSlots();
+	const heroUrl = slots?.HOME_HERO ?? placeholder(1920, 1080, 'Hero — ślub');
 
 	return (
 		<section className='relative h-dvh flex items-center justify-center overflow-hidden'>

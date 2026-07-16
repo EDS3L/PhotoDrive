@@ -1,9 +1,9 @@
-import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 export function BioSection() {
-	const { data: photos } = usePublicAlbumPhotos('about-bio');
-	const bioUrl = photos?.[0]?.url ?? placeholder(600, 800, 'Fotograf portret');
+	const { data: slots } = useSiteSlots();
+	const bioUrl = slots?.ABOUT_BIO ?? placeholder(600, 800, 'Fotograf portret');
 
 	return (
 		<section className='max-w-7xl mx-auto px-6 py-24'>

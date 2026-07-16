@@ -16,6 +16,10 @@ export interface AlbumDto {
 	ttd: string | null;
 	files: FileDto[];
 	isPublic: boolean;
+	/** Etykieta zakładki portfolio (pełny Unicode); null → strona pokazuje name. */
+	displayName: string | null;
+	/** Kolejność zakładki portfolio na stronie publicznej. */
+	displayOrder: number;
 }
 
 export interface LoginRequest {

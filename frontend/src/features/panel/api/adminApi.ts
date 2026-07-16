@@ -91,6 +91,18 @@ export async function setAlbumPublic(
 	});
 }
 
+/** Etykieta (Unicode) i kolejność zakładki portfolio; pusta etykieta = wróć do nazwy technicznej. */
+export async function setAlbumDisplay(
+	albumId: string,
+	displayName: string | null,
+	displayOrder: number,
+): Promise<void> {
+	await apiClient.patch(`/album/${albumId}/display`, {
+		displayName,
+		displayOrder,
+	});
+}
+
 export async function setAlbumTtd(albumId: string, ttd: string): Promise<void> {
 	await apiClient.patch(`/album/${albumId}/setTtd`, { ttd });
 }

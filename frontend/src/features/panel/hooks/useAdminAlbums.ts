@@ -5,6 +5,7 @@ import {
 	getAllAlbumsWithoutTtd,
 	createAdminAlbum,
 	setAlbumPublic,
+	setAlbumDisplay,
 	setAlbumTtd,
 	deleteAlbum,
 	removeFiles,
@@ -32,6 +33,23 @@ export function useAdminAlbumsWithoutTtd() {
 export function useCreateAdminAlbum() {
 	return useMutation({
 		mutationFn: (name: string) => createAdminAlbum(name),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['panel', 'admin-albums'] });
+		},
+	});
+}
+
+export function useSetAlbumDisplay() {
+	return useMutation({
+		mutationFn: ({
+			albumId,
+			displayName,
+			displayOrder,
+		}: {
+			albumId: string;
+			displayName: string | null;
+			displayOrder: number;
+		}) => setAlbumDisplay(albumId, displayName, displayOrder),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['panel', 'admin-albums'] });
 		},

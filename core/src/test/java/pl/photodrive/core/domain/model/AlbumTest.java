@@ -843,4 +843,70 @@ class AlbumTest {
         assertFalse(album.hasVisibleFile("hidden.jpg"));
         assertFalse(album.hasVisibleFile("missing.jpg"));
     }
+
+    // -----------------------------------------------------------------------
+    // changeDisplaySettings — prezentacja zakładki portfolio
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Tab label accepts full Unicode, because it is presentation text and never becomes a disk path")
+    void shouldAcceptPolishCharactersInDisplayName() {
+        // Given - the album NAME stays ASCII (it is a path); the label is what visitors read
+        Album album = Album.createForAdmin("sluby", admin);
+
+        // When
+        album.changeDisplaySettings(admin, "Śluby", 1);
+
+        // Then
+        assertEquals("Śluby", album.getDisplayName());
+        assertEquals(1, album.getDisplayOrder());
+    }
+
+    @Test
+    @DisplayName("Only an administrator can change how a portfolio tab presents itself")
+    void shouldDenyPhotographerChangingDisplaySettings() {
+        // Given
+        Album album = Album.createForAdmin("portfolio", admin);
+
+        // When / Then
+        assertThrows(DomainSecurityException.class,
+                () -> album.changeDisplaySettings(photographer, "Portret", 1));
+    }
+
+    @Test
+    @DisplayName("A client album has no display settings, because it can never become a tab on the public site")
+    void shouldRejectDisplaySettingsOnClientAlbum() {
+        // Given - even the admin cannot do it: the rule is about the album kind, not the caller
+        Album album = Album.createForClient("Session", photographer, client);
+
+        // When / Then
+        assertThrows(AlbumException.class,
+                () -> album.changeDisplaySettings(admin, "Sesja", 1));
+    }
+
+    @Test
+    @DisplayName("A blank label is stored as no label, so the site falls back to the album name instead of showing whitespace")
+    void shouldStoreBlankDisplayNameAsNull() {
+        // Given
+        Album album = Album.createForAdmin("plener", admin);
+        album.changeDisplaySettings(admin, "Plener", 2);
+
+        // When - the admin clears the label
+        album.changeDisplaySettings(admin, "   ", 2);
+
+        // Then
+        assertNull(album.getDisplayName());
+    }
+
+    @Test
+    @DisplayName("A label longer than 100 characters is rejected, so a tab cannot blow up the page layout")
+    void shouldRejectOverlongDisplayName() {
+        // Given
+        Album album = Album.createForAdmin("reportaz", admin);
+        String overlong = "x".repeat(101);
+
+        // When / Then
+        assertThrows(AlbumException.class,
+                () -> album.changeDisplaySettings(admin, overlong, 1));
+    }
 }

@@ -131,6 +131,10 @@ class SecurityAuthorizationIT extends IntegrationTest {
                         """
                         {"name":"MatrixAlbum"}""", Role.PHOTOGRAPHER),
                 endpoint(HttpMethod.PATCH, "/api/album/" + UNKNOWN_ID + "/setPublic?isPublic=true", Role.ADMIN),
+                // Prezentacja zakładki portfolio — para do setPublic, ta sama zasada (tylko admin).
+                endpoint(HttpMethod.PATCH, "/api/album/" + UNKNOWN_ID + "/display",
+                        """
+                        {"displayName":"Śluby","displayOrder":1}""", Role.ADMIN),
 
                 // --- znak wodny ---
                 // Status czyta też fotograf (steruje widocznością akcji w UI); logiem zarządza tylko admin.

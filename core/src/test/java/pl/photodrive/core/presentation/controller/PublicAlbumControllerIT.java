@@ -124,6 +124,44 @@ class PublicAlbumControllerIT extends IntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @DisplayName("Portfolio tabs come back in the admin-chosen order with human labels, so the site never shows raw technical names")
+    void shouldOrderPublicListingByDisplayOrderAndCarryLabels() throws Exception {
+        // Given - alphabetical order (aa < zz) is the OPPOSITE of the chosen display order,
+        // so only a real displayOrder sort can produce the expected sequence
+        UUID second = createAdminAlbum("aa-portrety-it");
+        UUID first = createAdminAlbum("zz-sluby-it");
+        setPublic(first);
+        setPublic(second);
+        setDisplay(first, "Śluby", 1);
+        setDisplay(second, "Portrety", 2);
+
+        // When - an anonymous visitor asks for the portfolio listing
+        MvcResult result = mockMvc.perform(get("/api/public/album/all"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Then - relative order follows displayOrder and the Unicode label rides along
+        var albums = objectMapper.readTree(result.getResponse().getContentAsString());
+        int posFirst = -1;
+        int posSecond = -1;
+        String labelFirst = null;
+        for (int i = 0; i < albums.size(); i++) {
+            String name = albums.get(i).get("name").asText();
+            if ("zz-sluby-it".equals(name)) {
+                posFirst = i;
+                labelFirst = albums.get(i).get("displayName").asText();
+            }
+            if ("aa-portrety-it".equals(name)) {
+                posSecond = i;
+            }
+        }
+        assertThat(posFirst).as("zz-sluby-it must be in the public listing").isNotNegative();
+        assertThat(posSecond).as("aa-portrety-it must be in the public listing").isNotNegative();
+        assertThat(posFirst).as("displayOrder must beat alphabetical order").isLessThan(posSecond);
+        assertThat(labelFirst).isEqualTo("Śluby");
+    }
+
     // --- helpers -----------------------------------------------------------
 
     private UUID publishedAlbumWithPhoto(String albumName, String fileName) throws Exception {
@@ -169,6 +207,15 @@ class PublicAlbumControllerIT extends IntegrationTest {
         mockMvc.perform(patch("/api/album/{albumId}/setPublic", albumId)
                         .param("isPublic", "true")
                         .cookie(fixtures.authCookie(admin)))
+                .andExpect(status().isOk());
+    }
+
+    private void setDisplay(UUID albumId, String displayName, int displayOrder) throws Exception {
+        mockMvc.perform(patch("/api/album/{albumId}/display", albumId)
+                        .cookie(fixtures.authCookie(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"%s","displayOrder":%d}""".formatted(displayName, displayOrder)))
                 .andExpect(status().isOk());
     }
 

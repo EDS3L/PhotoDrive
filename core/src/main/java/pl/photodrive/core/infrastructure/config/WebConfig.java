@@ -88,6 +88,8 @@ public class WebConfig {
                         .requestMatchers("/api/user/*/assignUsers").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/removeUsers").hasRole("ADMIN")
                         .requestMatchers("/api/album/*/setPublic").hasRole("ADMIN")
+                        // Etykieta/kolejność zakładki portfolio — para do setPublic (tylko admin).
+                        .requestMatchers("/api/album/*/display").hasRole("ADMIN")
                         // Status watermarku czyta też fotograf (steruje widocznością akcji w UI);
                         // zarządzanie samym logiem (GET/PUT/DELETE /api/watermark) tylko ADMIN.
                         .requestMatchers("/api/watermark/status").hasAnyRole("ADMIN", "PHOTOGRAPHER")

@@ -25,6 +25,11 @@ public class Album {
     private final UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
     private final AlbumPath albumPath;
+    // Prezentacja portfolio (tylko albumy admina): etykieta zakładki na stronie publicznej
+    // i jej kolejność. displayName to CZYSTY tekst (pełny Unicode, np. „Śluby") — w odróżnieniu
+    // od name nie jest ścieżką ani kluczem, więc nie podlega ograniczeniu ASCII z AlbumPath.
+    private String displayName;
+    private int displayOrder;
 
     public Album(AlbumId albumId, String name, UUID photographId, UUID clientId, Instant ttd, AlbumPath albumPath, boolean isPublic) {
         if (name == null) throw new AlbumException("Album name cannot be null!");
@@ -391,6 +396,40 @@ public class Album {
         photos.putAll(incomingFiles);
     }
 
+
+    /**
+     * Ustawienia prezentacji zakładki portfolio. Tylko admin i tylko album admina —
+     * albumy klientów nigdy nie są zakładkami na stronie, więc etykieta nie ma tam sensu.
+     */
+    public void changeDisplaySettings(User admin, String displayName, int displayOrder) {
+        if (!admin.getRoles().contains(Role.ADMIN)) {
+            throw new DomainSecurityException("Only administrators can change display settings");
+        }
+        if (!isAdminAlbum()) {
+            throw new AlbumException("Only portfolio (admin) albums have display settings");
+        }
+        String trimmed = displayName == null ? null : displayName.trim();
+        if (trimmed != null && trimmed.length() > 100) {
+            throw new AlbumException("Display name cannot be longer than 100 characters");
+        }
+        // Pusta etykieta = brak etykiety (strona pokazuje wtedy techniczną nazwę albumu).
+        this.displayName = (trimmed == null || trimmed.isEmpty()) ? null : trimmed;
+        this.displayOrder = displayOrder;
+    }
+
+    /** Rehydracja z bazy (mapper) — bez reguł, jak {@link #assignPhotosToAlbum}. */
+    public void assignDisplaySettings(String displayName, int displayOrder) {
+        this.displayName = displayName;
+        this.displayOrder = displayOrder;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public int getDisplayOrder() {
+        return displayOrder;
+    }
 
     public void makePublic(User admin) {
         if (!admin.getRoles().contains(Role.ADMIN)) {

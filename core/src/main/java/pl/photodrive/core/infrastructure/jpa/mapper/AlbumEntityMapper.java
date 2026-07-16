@@ -25,6 +25,9 @@ public class AlbumEntityMapper {
                 new AlbumPath(entity.getAlbumPath().getValue()),
                 entity.isPublic());
 
+        album.assignDisplaySettings(entity.getDisplayName(),
+                entity.getDisplayOrder() == null ? 0 : entity.getDisplayOrder());
+
         if (entity.getPhotos() != null && !entity.getPhotos().isEmpty()) {
             Map<FileId, File> domainFiles = new LinkedHashMap<>();
 
@@ -42,7 +45,8 @@ public class AlbumEntityMapper {
     public static AlbumEntity toEntity(Album album) {
         AlbumEntity entity = AlbumEntity.builder().albumId(new AlbumIdEmbeddable(album.getAlbumId().value())).name(album.getName()).photographId(
                 album.getPhotographId()).clientId(album.getClientId()).ttd(album.getTtd()).albumPath(new AlbumPathEmbeddable(
-                album.getAlbumPath().value())).isPublic(album.isPublic()).build();
+                album.getAlbumPath().value())).isPublic(album.isPublic())
+                .displayName(album.getDisplayName()).displayOrder(album.getDisplayOrder()).build();
 
         if (album.getPhotos() != null && !album.getPhotos().isEmpty()) {
             album.getPhotos().forEach((fileId, domainFile) -> {

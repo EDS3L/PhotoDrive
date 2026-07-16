@@ -192,6 +192,16 @@ public class AlbumController {
         return ResponseEntity.ok().build();
     }
 
+    /** Etykieta i kolejność zakładki portfolio na stronie publicznej (tylko albumy admina). */
+    @PatchMapping("{albumId}/display")
+    public ResponseEntity<Void> changeDisplaySettings(@PathVariable UUID albumId,
+                                                      @Valid @RequestBody DisplaySettingsRequest request) {
+        ChangeDisplaySettingsCommand cmd = new ChangeDisplaySettingsCommand(albumId,
+                request.displayName(), request.displayOrder());
+        albumService.changeDisplaySettings(cmd);
+        return ResponseEntity.ok().build();
+    }
+
     @PatchMapping("{albumId}/files/setVisible")
     public ResponseEntity<Void> changeFileVisible(@PathVariable UUID albumId, @RequestParam boolean visible, @Valid @RequestBody ChangeVisibleRequest request) {
         ChangeVisibleCommand cmd = new ChangeVisibleCommand(albumId, request.idList(), visible);
@@ -233,7 +243,9 @@ public class AlbumController {
                 clientView ? null : album.getClientId(),
                 album.getTtd(),
                 mapFiles(album, clientView),
-                album.isPublic());
+                album.isPublic(),
+                album.getDisplayName(),
+                album.getDisplayOrder());
     }
 
     private List<FileDto> mapFiles(Album album, boolean visibleOnly) {

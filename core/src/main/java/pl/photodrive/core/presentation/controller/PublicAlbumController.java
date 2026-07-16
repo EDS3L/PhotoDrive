@@ -32,6 +32,7 @@ public class PublicAlbumController {
                 .map(album -> new PublicAlbumDto(
                         album.getAlbumId().value(),
                         album.getName(),
+                        album.getDisplayName(),
                         (int) album.getPhotos().values().stream().filter(f -> f.isVisible()).count()))
                 .toList();
         return ResponseEntity.ok()

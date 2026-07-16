@@ -548,9 +548,23 @@ public class AlbumManagementService {
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
+    /** Kolejność = kolejność zakładek portfolio na stronie; remis rozstrzyga nazwa (stabilnie). */
     @Transactional(readOnly = true)
     public List<Album> getAllPublicAlbums() {
-        return albumRepository.findAllPublic();
+        return albumRepository.findAllPublic().stream()
+                .sorted(Comparator.comparingInt(Album::getDisplayOrder)
+                        .thenComparing(Album::getName))
+                .toList();
+    }
+
+    @Transactional
+    public void changeDisplaySettings(ChangeDisplaySettingsCommand cmd) {
+        Album album = getAlbum(new AlbumId(cmd.albumId()));
+        User admin = getUser(currentUser.requireAuthenticated().userId());
+
+        album.changeDisplaySettings(admin, cmd.displayName(), cmd.displayOrder());
+
+        albumRepository.save(album);
     }
 
     @Transactional(readOnly = true)

@@ -11,6 +11,8 @@ public record AlbumDto(
         UUID clientId,
         Instant ttd,
         List<FileDto> files,
-        boolean isPublic
+        boolean isPublic,
+        String displayName,
+        int displayOrder
 ) {
 }

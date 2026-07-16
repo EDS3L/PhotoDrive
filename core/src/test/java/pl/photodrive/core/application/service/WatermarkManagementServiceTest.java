@@ -75,6 +75,32 @@ class WatermarkManagementServiceTest {
     }
 
     @Test
+    @DisplayName("An empty upload is rejected before anything reaches the store, so a 0-byte pick cannot wipe the logo")
+    void shouldRejectEmptyUpload() {
+        // Given - what the browser sends when a 0-byte file is picked
+        byte[] empty = new byte[0];
+
+        // When
+        assertThrows(FileException.class, () -> service.uploadWatermark(empty));
+
+        // Then
+        then(watermarkStore).should(never()).put(any());
+    }
+
+    @Test
+    @DisplayName("A file too short to even hold the PNG header is rejected instead of being read past its end")
+    void shouldRejectFileShorterThanPngHeader() {
+        // Given - 2 bytes: the magic-number check must not index past the array
+        byte[] stub = {(byte) 0x89, 'P'};
+
+        // When
+        assertThrows(FileException.class, () -> service.uploadWatermark(stub));
+
+        // Then
+        then(watermarkStore).should(never()).put(any());
+    }
+
+    @Test
     @DisplayName("Logo larger than the size limit is rejected")
     void shouldRejectTooLargeUpload() {
         // Given

@@ -5,6 +5,7 @@ import {
 	FolderOpen,
 	Globe,
 	Droplets,
+	Image,
 	Settings,
 	UserCheck,
 	X,
@@ -45,6 +46,11 @@ const adminNav: NavItem[] = [
 		to: '/admin/public-albums',
 		label: 'Albumy publiczne',
 		icon: <Globe className='w-5 h-5' />,
+	},
+	{
+		to: '/admin/site',
+		label: 'Strona wizytówka',
+		icon: <Image className='w-5 h-5' />,
 	},
 	{
 		to: '/admin/watermark',

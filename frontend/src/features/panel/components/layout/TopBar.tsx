@@ -18,6 +18,7 @@ function buildBreadcrumbs(pathname: string): { label: string; to?: string }[] {
 		users: 'Użytkownicy',
 		albums: 'Albumy',
 		'public-albums': 'Albumy publiczne',
+		site: 'Strona wizytówka',
 		settings: 'Ustawienia',
 		clients: 'Klienci',
 	};

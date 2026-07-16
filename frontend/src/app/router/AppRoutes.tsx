@@ -27,6 +27,9 @@ const AdminAlbumDetail = lazy(
 const AdminPublicAlbums = lazy(
 	() => import('@/features/panel/pages/admin/AdminPublicAlbums'),
 );
+const AdminSitePage = lazy(
+	() => import('@/features/panel/pages/admin/AdminSitePage'),
+);
 const AdminWatermark = lazy(
 	() => import('@/features/panel/pages/admin/AdminWatermark'),
 );
@@ -73,6 +76,7 @@ export function AppRoutes() {
 					<Route path='/admin/albums' element={<AdminAlbums />} />
 					<Route path='/admin/albums/:albumId' element={<AdminAlbumDetail />} />
 					<Route path='/admin/public-albums' element={<AdminPublicAlbums />} />
+					<Route path='/admin/site' element={<AdminSitePage />} />
 					<Route path='/admin/watermark' element={<AdminWatermark />} />
 					<Route path='/admin/settings' element={<AccountPage />} />
 				</Route>

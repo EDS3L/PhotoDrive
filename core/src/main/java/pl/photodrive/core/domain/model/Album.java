@@ -285,6 +285,14 @@ public class Album {
             throw new DomainSecurityException("User is not allowed to change the watermark");
         }
 
+        // Znak wodny tej platformy to KAFELKI po całości — narzędzie do ochrony niedostarczonych
+        // zdjęć klienta, nie do brandowania. Portfolio (album admina) jest wizytówką i ma być
+        // czyste, więc flagi nie da się tu w ogóle podnieść. Zdejmowanie (false) zostaje dozwolone,
+        // żeby dało się wyczyścić flagę zastaną sprzed tej reguły (inaczej blokowałaby usunięcie loga).
+        if (hasWatermark && isAdminAlbum()) {
+            throw new AlbumException("Portfolio albums cannot be watermarked");
+        }
+
         if (hasWatermark && !watermarkConfigured) {
             throw new AlbumException("Platform watermark is not configured — upload a watermark first");
         }
@@ -359,7 +367,17 @@ public class Album {
         return file;
     }
 
-    public void receiveFiles(Map<FileId, File> incomingFiles) {
+    public void receiveFiles(Map<FileId, File> incomingFiles, Album source) {
+        // Zdjęcia przemieszczają się WYŁĄCZNIE między albumami portfolio (admina). Materiał klienta
+        // jest prywatny: do albumu klienta wchodzi tylko uploadem, wychodzi tylko przez usunięcie.
+        // Swap był bowiem furtką, przez którą (a) prywatne zdjęcie klienta lądowało o jeden
+        // `setPublic` od publicznego internetu, (b) plik z flagą hasWatermark wchodził do portfolio
+        // OMIJAJĄC regułę z changeWatermarkStatus — bo receiveFiles przenosi obiekty File ze stanem.
+        // Jeden warunek pokrywa całą macierz: klient→admin, admin→klient i klient→klient odpadają.
+        if (!isAdminAlbum() || !source.isAdminAlbum()) {
+            throw new AlbumException("Photos can only be moved between portfolio albums");
+        }
+
         // Ochrona przed cichym nadpisaniem: przy kolizji nazwy z istniejącym plikiem
         // odrzucamy swap zamiast nadpisać (ATOMIC_MOVE na Linuksie podmienia cel bez błędu).
         Set<String> existingNames = new HashSet<>();

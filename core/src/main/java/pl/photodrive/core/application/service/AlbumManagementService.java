@@ -309,7 +309,7 @@ public class AlbumManagementService {
         for (File file : removedFiles) {
             incomingFiles.put(file.getFileId(), file);
         }
-        targetAlbum.receiveFiles(incomingFiles);
+        targetAlbum.receiveFiles(incomingFiles, album);
 
         albumRepository.save(album);
         albumRepository.save(targetAlbum);
@@ -583,25 +583,15 @@ public class AlbumManagementService {
 
         int maxDimension = clampToPublicLimit(requestedWidth);
 
-        byte[] watermarkImage = null;
-        String watermarkPart = "clean";
-        if (file.isHasWatermark()) {
-            Optional<PlatformWatermark> watermark = watermarkStore.get();
-            if (watermark.isPresent()) {
-                watermarkImage = watermark.get().image();
-                watermarkPart = "wm" + watermark.get().updatedAt().toEpochMilli();
-            } else {
-                log.warn("Public file {} flagged as watermarked but no platform watermark configured — serving clean",
-                        fileName);
-            }
-        }
-
-        String cacheKey = file.getFileId().value() + "-" + watermarkPart + "-" + maxDimension;
+        // Portfolio jest ZAWSZE czyste — flagę hasWatermark ignorujemy tu świadomie. Domena nie
+        // pozwala jej podnieść na albumie admina, a swap nie wniesie pliku z flagą (patrz
+        // Album.receiveFiles), więc ta gałąź to obrona w głąb: nawet flaga wstawiona wprost
+        // w bazie nie przebije się na stronę publiczną. Klucz cache nie ma już wymiaru wm|clean.
+        String cacheKey = file.getFileId().value() + "-" + maxDimension;
         Resource resource = fileStoragePort.getOrCreatePublicPhoto(resolveAlbumStoragePath(album),
                 fileName,
                 cacheKey,
-                maxDimension,
-                watermarkImage);
+                maxDimension);
 
         return new FileResource(resource, publicContentType(fileName));
     }

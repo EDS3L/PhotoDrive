@@ -378,7 +378,7 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
-    public Resource getOrCreatePublicPhoto(String albumPath, String fileName, String cacheKey, int maxDimension, byte[] watermarkPng) {
+    public Resource getOrCreatePublicPhoto(String albumPath, String fileName, String cacheKey, int maxDimension) {
         String extension = fileName.toLowerCase().endsWith(".png") ? "png" : "jpg";
         Path cacheDir = baseDirectory.resolve(PUBLIC_CACHE_DIR).normalize();
         Path cacheFile = cacheDir.resolve(cacheKey + "." + extension).normalize();
@@ -416,7 +416,7 @@ public class LocalStorageAdapter implements FileStoragePort {
                 if (Files.exists(cacheFile)) {
                     return new UrlResource(cacheFile.toUri());
                 }
-                writePublicVariant(source, cacheFile, extension, maxDimension, watermarkPng);
+                writePublicVariant(source, cacheFile, extension, maxDimension);
             } finally {
                 if (fromOriginal) {
                     FULL_COMPOSE_PERMIT.release();
@@ -429,23 +429,13 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
     }
 
-    private void writePublicVariant(Path source, Path cacheFile, String extension, int maxDimension, byte[] watermarkPng) throws IOException {
+    private void writePublicVariant(Path source, Path cacheFile, String extension, int maxDimension) throws IOException {
         BufferedImage image = ImageIO.read(source.toFile());
         if (image == null) {
             throw new StorageException("Failed to read image: " + source.getFileName());
         }
 
         BufferedImage variant = downscale(image, maxDimension);
-
-        if (watermarkPng != null && watermarkPng.length > 0) {
-            BufferedImage watermarkImage = ImageIO.read(new ByteArrayInputStream(watermarkPng));
-            if (watermarkImage == null) {
-                throw new StorageException("Failed to read watermark image");
-            }
-            // Znak wodny nakładamy PO zmniejszeniu — kafle liczą się względem szerokości obrazu,
-            // więc wynik wygląda tak samo jak na oryginale.
-            drawWatermark(variant, watermarkImage);
-        }
 
         writeToCacheAtomically(variant, cacheFile, extension);
         log.info("Created public variant ({}px) in cache: {}", maxDimension, cacheFile.getFileName());

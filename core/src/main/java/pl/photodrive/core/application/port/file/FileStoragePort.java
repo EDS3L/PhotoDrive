@@ -39,14 +39,17 @@ public interface FileStoragePort {
 
     /**
      * Wariant zdjęcia dla strony publicznej: przeskalowany tak, by <b>dłuższy bok</b> nie
-     * przekraczał {@code maxDimension} (nigdy nie powiększa), opcjonalnie z nałożonym znakiem
-     * wodnym. Cache: {@code {storage}/.cache/public/{cacheKey}} — klucz zawiera fileId, wersję
-     * loga i rozmiar, więc wpisy nigdy nie kolidują i można je skasować w każdej chwili.
+     * przekraczał {@code maxDimension} (nigdy nie powiększa). Cache:
+     * {@code {storage}/.cache/public/{cacheKey}} — klucz zawiera fileId i rozmiar, więc wpisy
+     * nigdy nie kolidują i można je skasować w każdej chwili.
      *
      * <p>Sens: gość NIGDY nie dostaje oryginału (A9). Skalowanie „po dłuższym boku", a nie po
      * szerokości, zamyka obejście pionowym kadrem (portret 2560 szerokości = 3840 wysokości).
+     *
+     * <p>Wariant publiczny jest <b>zawsze czysty</b> — portfolio nie bywa watermarkowane
+     * (reguła w {@code Album}), więc ta ścieżka w ogóle nie zna znaku wodnego.
      */
-    Resource getOrCreatePublicPhoto(String albumPath, String fileName, String cacheKey, int maxDimension, byte[] watermarkPng);
+    Resource getOrCreatePublicPhoto(String albumPath, String fileName, String cacheKey, int maxDimension);
 
     void swapFile(String albumPath, String targetPath, String fileName);
 }

@@ -97,6 +97,14 @@ export interface AlbumDetailConfig {
 }
 
 /**
+ * Portfolio = album admina (`photographId === clientId`). Panel dostaje oba pola
+ * (`clientView=false`), więc typ albumu rozpoznajemy bez dodatkowego pola w API.
+ */
+function isPortfolioAlbum(album: AlbumDto): boolean {
+	return album.photographId !== null && album.photographId === album.clientId;
+}
+
+/**
  * Wspólny ekran szczegółów albumu dla panelu admina i fotografa.
  * Oba panele mają identyczny przepływ pracy na zdjęciach (upload, widoczność,
  * watermark, przenoszenie, zmiana nazwy, TTD, usuwanie) — różnią się tylko
@@ -196,6 +204,11 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		() => albums?.filter((a) => a.albumId !== albumId) ?? [],
 		[albums, albumId],
 	);
+
+	// Zdjęcia wędrują wyłącznie między albumami portfolio — album klienta nie jest celem swapa
+	// (domena i tak odrzuca, 400). Admin widzi też albumy klientów, więc bez tego filtra
+	// podsuwalibyśmy mu cele, na które nie wolno przenieść.
+	const swapTargets = useMemo(() => otherAlbums.filter(isPortfolioAlbum), [otherAlbums]);
 
 	const handleUpload = useCallback(
 		(files: FileList | File[]) => {
@@ -317,6 +330,12 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 			: 'clean';
 		return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(version)}`;
 	};
+
+	// Portfolio jest wizytówką: znak wodny (kafelki po całości) chroni NIEDOSTARCZONE zdjęcia
+	// klienta, więc na albumie admina dodawania nie ma. ZDEJMOWANIE zostaje dostępne zawsze —
+	// inaczej flaga zastana sprzed tej reguły nie miałaby jak zniknąć i blokowałaby usunięcie loga.
+	const canAddWatermark = watermarkAvailable && !isPortfolioAlbum(album);
+	const canSwap = isPortfolioAlbum(album);
 
 	const canSetTtd = config.canSetTtd?.(album) ?? true;
 	const expired = album.ttd ? new Date(album.ttd) < new Date() : false;
@@ -509,7 +528,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									Ukryj
 								</Button>
 							)}
-							{watermarkAvailable && canWatermarkSelected && (
+							{canAddWatermark && canWatermarkSelected && (
 								<Button
 									variant='ghost'
 									size='sm'
@@ -529,14 +548,16 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									Usuń watermark
 								</Button>
 							)}
-							<Button
-								variant='ghost'
-								size='sm'
-								onClick={() => setSwapModal(true)}
-							>
-								<ArrowRightLeft className='w-3.5 h-3.5 mr-1' />
-								Przenieś
-							</Button>
+							{canSwap && (
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => setSwapModal(true)}
+								>
+									<ArrowRightLeft className='w-3.5 h-3.5 mr-1' />
+									Przenieś
+								</Button>
+							)}
 							<Button
 								variant='ghost'
 								size='sm'
@@ -715,7 +736,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								</>
 							)}
 						</button>
-						{(watermarkAvailable || contextMenu.file.hasWatermark) && (
+						{(canAddWatermark || contextMenu.file.hasWatermark) && (
 							<button
 								className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
 								onClick={() => {
@@ -734,17 +755,19 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									: 'Dodaj watermark'}
 							</button>
 						)}
-						<button
-							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
-							onClick={() => {
-								selectOne(contextMenu.file.fileID);
-								setSwapModal(true);
-								setContextMenu(null);
-							}}
-						>
-							<ArrowRightLeft className='w-3.5 h-3.5' />
-							Przenieś do albumu...
-						</button>
+						{canSwap && (
+							<button
+								className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
+								onClick={() => {
+									selectOne(contextMenu.file.fileID);
+									setSwapModal(true);
+									setContextMenu(null);
+								}}
+							>
+								<ArrowRightLeft className='w-3.5 h-3.5' />
+								Przenieś do albumu...
+							</button>
+						)}
 						<div className='border-t border-border my-1' />
 						<button
 							className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2 text-red-400'
@@ -811,7 +834,12 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 						Wybierz album docelowy
 					</p>
 					<div className='space-y-2 max-h-64 overflow-y-auto'>
-						{otherAlbums.map((a) => (
+						{swapTargets.length === 0 && (
+							<p className='text-sm text-muted'>
+								Brak innych albumów portfolio — zdjęcia przenosimy tylko między nimi.
+							</p>
+						)}
+						{swapTargets.map((a) => (
 							<button
 								key={a.albumId}
 								onClick={() => setSwapTarget(a.albumId)}

@@ -360,32 +360,62 @@ class AlbumControllerIT extends IntegrationTest {
     @Test
     @DisplayName("Swapping moves the photo to the target album, in the database and on disk")
     void shouldMoveFileBetweenAlbumsWhenSwapping() throws Exception {
-        // Given - two albums of the same photographer
-        User photographer = fixtures.photographer("foto@photodrive.dev");
-        User client = fixtures.client("klient@photodrive.dev");
-        Album source = createClientAlbum(photographer, client, "Zrodlo");
-        Album target = createClientAlbum(photographer, client, "Cel");
-        upload(source, photographer, photo("zdjecie.jpg"));
-        UUID fileId = fileIdOf(source, photographer, "zdjecie.jpg");
+        // Given - two portfolio albums: the only pair allowed to exchange photos
+        User admin = fixtures.admin("admin@photodrive.dev");
+        Album source = createAdminAlbum(admin, "portfolio-zrodlo");
+        Album target = createAdminAlbum(admin, "portfolio-cel");
+        upload(source, admin, photo("zdjecie.jpg"));
+        UUID fileId = fileIdOf(source, admin, "zdjecie.jpg");
 
         // When
         mockMvc.perform(patch("/api/album/{albumId}/album/{targetId}/swap",
                         source.getAlbumId().value(), target.getAlbumId().value())
-                        .cookie(fixtures.authCookie(photographer))
+                        .cookie(fixtures.authCookie(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fileIdList":["%s"]}""".formatted(fileId)))
                 .andExpect(status().isOk());
 
         // Then - the photo belongs to the target album now...
-        assertThat(fileNames(source, photographer)).isEmpty();
-        assertThat(fileNames(target, photographer)).containsExactly("zdjecie.jpg");
+        assertThat(fileNames(source, admin)).isEmpty();
+        assertThat(fileNames(target, admin)).containsExactly("zdjecie.jpg");
 
         // ...and the file physically moved, instead of being duplicated or left behind
         Album reloadedTarget = loadAlbum(target.getAlbumId());
         Album reloadedSource = loadAlbum(source.getAlbumId());
         assertThat(albumFolder(reloadedTarget).resolve("zdjecie.jpg")).exists();
         assertThat(albumFolder(reloadedSource).resolve("zdjecie.jpg")).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("A client's photo cannot be swapped into the portfolio, so private material never lands one click from the public site")
+    void shouldRejectSwapFromClientAlbumIntoPortfolio() throws Exception {
+        // Given - the admin may manage BOTH albums, so authorization cannot be what stops this:
+        // only the rule itself can. This also pins the wiring — a unit test on the aggregate would
+        // still pass if the service handed `receiveFiles` the wrong album as the source.
+        User admin = fixtures.admin("admin@photodrive.dev");
+        User photographer = fixtures.photographer("foto@photodrive.dev");
+        User client = fixtures.client("klient@photodrive.dev");
+        Album source = createClientAlbum(photographer, client, "Sesja");
+        Album target = createAdminAlbum(admin, "portfolio-sluby");
+        upload(source, photographer, photo("prywatne.jpg"));
+        UUID fileId = fileIdOf(source, photographer, "prywatne.jpg");
+
+        // When
+        mockMvc.perform(patch("/api/album/{albumId}/album/{targetId}/swap",
+                        source.getAlbumId().value(), target.getAlbumId().value())
+                        .cookie(fixtures.authCookie(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileIdList":["%s"]}""".formatted(fileId)))
+                // Then - a broken business rule (400), not an authorization denial (403)
+                .andExpect(status().isBadRequest());
+
+        // ...and the transaction rolled back: the photo is still the client's, in the database and on disk
+        assertThat(fileNames(source, photographer)).containsExactly("prywatne.jpg");
+        assertThat(fileNames(target, admin)).isEmpty();
+        assertThat(albumFolder(loadAlbum(source.getAlbumId())).resolve("prywatne.jpg")).exists();
+        assertThat(albumFolder(loadAlbum(target.getAlbumId())).resolve("prywatne.jpg")).doesNotExist();
     }
 
     @Test

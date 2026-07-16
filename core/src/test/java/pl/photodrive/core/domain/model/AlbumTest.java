@@ -233,6 +233,63 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("A portfolio album refuses a watermark — the tiled mark guards undelivered client photos, it does not brand the showcase")
+    void shouldRejectWatermarkOnPortfolioAlbum() {
+        // Given - an admin album is the public portfolio
+        Album album = Album.createForAdmin("Portfolio", admin);
+        File photo = File.create(new FileName("promo.jpg"), 100L, "image/jpeg");
+        FileId fileId = photo.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, photo);
+        album.assignPhotosToAlbum(photos);
+
+        // When & Then - a broken business rule (400), not an authorization denial
+        assertThrows(AlbumException.class, () ->
+                album.changeWatermarkStatus(admin, true, List.of(fileId), true));
+        assertFalse(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
+    @DisplayName("A watermark flag left on a portfolio album can still be cleared, so it never blocks deleting the platform logo")
+    void shouldAllowClearingWatermarkOnPortfolioAlbum() {
+        // Given - a flag predating the rule, built directly: the domain no longer lets one in
+        Album album = Album.createForAdmin("PortfolioLegacy", admin);
+        File flagged = new File(new FileId(FileId.newId()), new FileName("legacy.jpg"), 100L,
+                "image/jpeg", Instant.now(), true, true);
+        FileId fileId = flagged.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, flagged);
+        album.assignPhotosToAlbum(photos);
+
+        // When - removing is allowed even on a portfolio album
+        album.changeWatermarkStatus(admin, false, List.of(fileId), true);
+
+        // Then
+        assertFalse(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
+    @DisplayName("A client album still accepts a watermark, so the portfolio rule did not disable the feature everywhere")
+    void shouldStillAllowWatermarkOnClientAlbum() {
+        // Given - client proofs are the only place a watermark belongs
+        Album album = Album.createForClient("ClientProofs", photographer, client);
+        File photo = File.create(new FileName("proof.jpg"), 100L, "image/jpeg");
+        FileId fileId = photo.getFileId();
+
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(fileId, photo);
+        album.assignPhotosToAlbum(photos);
+
+        // When
+        album.changeWatermarkStatus(photographer, true, List.of(fileId), true);
+
+        // Then
+        assertTrue(album.getPhotos().get(fileId).isHasWatermark());
+    }
+
+    @Test
     @DisplayName("Storage size is converted from bytes to gigabytes")
     void shouldCalcToGBCorrectly() {
         // Given
@@ -550,25 +607,69 @@ class AlbumTest {
     @Test
     @DisplayName("Swapping removes the files from the source album and hands them to the target")
     void shouldSwapFilesToTargetMapSuccessfully() {
-        // Given
-        Album source = Album.createForClient("Source", photographer, client);
+        // Given - two portfolio albums: the only pair allowed to exchange photos
+        Album source = Album.createForAdmin("Source", admin);
         File file = File.create(new FileName("swap.jpg"), 100L, "image/jpeg");
         FileId fileId = file.getFileId();
         source.addFile(file);
 
-        Album target = Album.createForClient("Target", photographer, client);
+        Album target = Album.createForAdmin("Target", admin);
 
         // When
-        List<File> removedFiles = source.swapFiles(photographer, target.getAlbumPath(), List.of(fileId));
+        List<File> removedFiles = source.swapFiles(admin, target.getAlbumPath(), List.of(fileId));
         java.util.Map<FileId, File> incomingFiles = new java.util.LinkedHashMap<>();
         for (File f : removedFiles) {
             incomingFiles.put(f.getFileId(), f);
         }
-        target.receiveFiles(incomingFiles);
+        target.receiveFiles(incomingFiles, source);
 
         // Then
         assertFalse(source.getPhotos().containsKey(fileId));
         assertTrue(target.getPhotos().containsKey(fileId));
+    }
+
+    @Test
+    @DisplayName("A client's photo cannot be moved into the portfolio, so private material never lands one click away from the public site")
+    void shouldRejectSwapFromClientAlbumIntoPortfolio() {
+        // Given - this was also the backdoor that carried a hasWatermark flag into the portfolio,
+        // bypassing changeWatermarkStatus (receiveFiles moves File objects with their state).
+        Album source = Album.createForClient("ClientSource", photographer, client);
+        Album target = Album.createForAdmin("Portfolio", admin);
+        File file = File.create(new FileName("private.jpg"), 100L, "image/jpeg");
+        source.addFile(file);
+        Map<FileId, File> incoming = Map.of(file.getFileId(), file);
+
+        // When & Then
+        assertThrows(AlbumException.class, () -> target.receiveFiles(incoming, source));
+    }
+
+    @Test
+    @DisplayName("Portfolio photos cannot be pushed into a client album — an admin may look into client folders but never puts anything in")
+    void shouldRejectSwapFromPortfolioIntoClientAlbum() {
+        // Given
+        Album source = Album.createForAdmin("Portfolio", admin);
+        Album target = Album.createForClient("ClientTarget", photographer, client);
+        File file = File.create(new FileName("promo.jpg"), 100L, "image/jpeg");
+        source.addFile(file);
+        Map<FileId, File> incoming = Map.of(file.getFileId(), file);
+
+        // When & Then
+        assertThrows(AlbumException.class, () -> target.receiveFiles(incoming, source));
+    }
+
+    @Test
+    @DisplayName("Photos never travel between two client albums, so one client's session cannot leak into another client's gallery")
+    void shouldRejectSwapBetweenTwoClientAlbums() {
+        // Given - two different clients of the same photographer
+        User otherClient = User.create("Other Client", new Email("client2@photodrive.pl"), dummyPassword, Role.CLIENT);
+        Album source = Album.createForClient("ClientA", photographer, client);
+        Album target = Album.createForClient("ClientB", photographer, otherClient);
+        File file = File.create(new FileName("session.jpg"), 100L, "image/jpeg");
+        source.addFile(file);
+        Map<FileId, File> incoming = Map.of(file.getFileId(), file);
+
+        // When & Then - a misfiled photo is fixed by delete + re-upload, never by moving client material
+        assertThrows(AlbumException.class, () -> target.receiveFiles(incoming, source));
     }
 
     @Test
@@ -602,8 +703,11 @@ class AlbumTest {
     @Test
     @DisplayName("Target album rejects an incoming file whose name is taken, so no photo is silently overwritten")
     void shouldThrowWhenReceivingFileWithDuplicateNameInTarget() {
-        // Given - the target album already holds a file with the same name
-        Album target = Album.createForClient("TargetDup", photographer, client);
+        // Given - BOTH albums are portfolio albums on purpose: only then does the swap rule let the
+        // transfer through, so the NAME COLLISION is what actually decides. With client albums this
+        // test would pass vacuously — receiveFiles would reject the transfer itself.
+        Album source = Album.createForAdmin("SourceDup", admin);
+        Album target = Album.createForAdmin("TargetDup", admin);
         File existing = File.create(new FileName("dup.jpg"), 100L, "image/jpeg");
         target.addFile(existing);
 
@@ -612,7 +716,7 @@ class AlbumTest {
         incomingFiles.put(incoming.getFileId(), incoming);
 
         // When & Then - the name collision is rejected instead of silently overwriting a photo
-        assertThrows(AlbumException.class, () -> target.receiveFiles(incomingFiles));
+        assertThrows(AlbumException.class, () -> target.receiveFiles(incomingFiles, source));
     }
 
     // -----------------------------------------------------------------------

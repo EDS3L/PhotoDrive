@@ -38,6 +38,7 @@ import pl.photodrive.core.domain.vo.HashedPassword;
 import jakarta.servlet.ServletContext;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -748,7 +749,7 @@ class AlbumManagementServiceTest {
 
         // Then - the request is a wish, the limit is the law
         then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(),
-                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION), isNull());
+                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION));
     }
 
     @Test
@@ -763,7 +764,7 @@ class AlbumManagementServiceTest {
 
         // Then
         then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(),
-                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION), isNull());
+                eq(AlbumManagementService.PUBLIC_MAX_DIMENSION));
     }
 
     @Test
@@ -777,27 +778,32 @@ class AlbumManagementServiceTest {
         service.getPublicPhoto(id, "foto.jpg", 800);
 
         // Then
-        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(), eq(800), isNull());
+        then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"), any(), eq(800));
     }
 
     @Test
-    @DisplayName("A watermarked portfolio photo is served watermarked, and its cache key follows the logo version")
-    void shouldServeWatermarkedPublicPhotoWithVersionedCacheKey() {
-        // Given
-        Album album = publicAlbumWithVisibleFile("foto.jpg");
-        File file = onlyFile(album);
-        album.changeWatermarkStatus(adminUser, true, List.of(file.getFileId()), true);
-        byte[] logo = new byte[]{1, 2, 3};
-        given(watermarkStore.get()).willReturn(Optional.of(
-                new pl.photodrive.core.application.port.file.PlatformWatermark(logo, Instant.ofEpochMilli(1234))));
+    @DisplayName("A public photo is served clean even when its file still carries a watermark flag, so the portfolio can never be defaced")
+    void shouldServePublicPhotoCleanEvenWhenFileIsFlaggedAsWatermarked() {
+        // Given - a flag the domain no longer permits on a portfolio album, written straight into the
+        // aggregate to stand in for legacy data. The public path must ignore it (defence in depth).
+        Album album = Album.createForAdmin("Portfolio", adminUser);
+        File flagged = new File(new FileId(FileId.newId()), new FileName("foto.jpg"), 10L,
+                "image/jpeg", Instant.now(), true, true);
+        Map<FileId, File> photos = new HashMap<>();
+        photos.put(flagged.getFileId(), flagged);
+        album.assignPhotosToAlbum(photos);
+        album.makePublic(adminUser);
+        album.pullDomainEvents();
+        given(albumRepository.findPublicByAlbumId(album.getAlbumId())).willReturn(Optional.of(album));
 
         // When
         service.getPublicPhoto(album.getAlbumId().value(), "foto.jpg", 800);
 
-        // Then - the logo travels to storage, and the key carries fileId + logo version + size,
-        // so swapping the logo cannot serve a stale watermark
+        // Then - the cache key has no watermark dimension at all, and the logo is never even loaded
+        // from the store (the public path does not touch the watermark on the anonymous hot path)
         then(fileStoragePort).should().getOrCreatePublicPhoto(any(), eq("foto.jpg"),
-                eq(file.getFileId().value() + "-wm1234-800"), eq(800), eq(logo));
+                eq(flagged.getFileId().value() + "-800"), eq(800));
+        then(watermarkStore).should(never()).get();
     }
 
     /** Publiczny album (admina) z jednym widocznym zdjęciem — tak wygląda kafelek portfolio. */

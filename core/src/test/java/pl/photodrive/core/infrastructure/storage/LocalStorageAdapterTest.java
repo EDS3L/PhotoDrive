@@ -267,7 +267,7 @@ class LocalStorageAdapterTest {
         writeImage(sourceAlbum.resolve("photo.jpg"), 1000, 2000);
 
         // When
-        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-500", 500, null);
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-500", 500);
 
         // Then - the long edge lands exactly on the limit and the aspect ratio survives
         BufferedImage variant = readImage(resource);
@@ -284,10 +284,10 @@ class LocalStorageAdapterTest {
         byte[] originalBytes = Files.readAllBytes(original);
 
         // When
-        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-800", 800);
 
         // Then
-        assertTrue(Files.exists(baseDirectory.resolve(".cache/public/file1-clean-800.jpg")));
+        assertTrue(Files.exists(baseDirectory.resolve(".cache/public/file1-800.jpg")));
         assertArrayEquals(originalBytes, Files.readAllBytes(original));
     }
 
@@ -298,7 +298,7 @@ class LocalStorageAdapterTest {
         writeImage(sourceAlbum.resolve("photo.jpg"), 200, 150);
 
         // When
-        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-2560", 2560, null);
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-2560", 2560);
 
         // Then
         BufferedImage variant = readImage(resource);
@@ -311,14 +311,14 @@ class LocalStorageAdapterTest {
     void shouldServeCachedPublicVariantOnSecondCall() throws IOException {
         // Given
         writeImage(sourceAlbum.resolve("photo.jpg"), 2000, 1500);
-        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+        adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-800", 800);
 
         // Swap the cache content for a marker: the second read must hit the cache, not rebuild
         byte[] marker = {7, 7, 7};
-        Files.write(baseDirectory.resolve(".cache/public/file1-clean-800.jpg"), marker);
+        Files.write(baseDirectory.resolve(".cache/public/file1-800.jpg"), marker);
 
         // When
-        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-800", 800);
 
         // Then
         assertArrayEquals(marker, readBytes(resource));
@@ -333,25 +333,10 @@ class LocalStorageAdapterTest {
         writeImage(thumbDir.resolve("photo.jpg"), 100, 75);
 
         // When
-        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-600", 600, null);
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-600", 600);
 
         // Then - 100px proves the thumbnail was the source (the original would have given 600)
         assertEquals(100, readImage(resource).getWidth());
-    }
-
-    @Test
-    @DisplayName("Watermarked public variant differs from the clean one, so the logo really reaches the portfolio")
-    void shouldWatermarkPublicVariantWhenLogoIsGiven() throws IOException {
-        // Given
-        writeImage(sourceAlbum.resolve("photo.jpg"), 800, 600);
-
-        // When
-        var clean = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-clean-800", 800, null);
-        var watermarked = adapter.getOrCreatePublicPhoto("source-album", "photo.jpg", "file1-wm1-800", 800, watermarkPng());
-
-        // Then - same geometry, different pixels
-        assertEquals(readImage(clean).getWidth(), readImage(watermarked).getWidth());
-        assertFalse(java.util.Arrays.equals(readBytes(clean), readBytes(watermarked)));
     }
 
     @Test
@@ -366,7 +351,7 @@ class LocalStorageAdapterTest {
         writeStripes(sourceAlbum.resolve("photo.png"), 1600, 1600);
 
         // When
-        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.png", "file1-clean-100", 100, null);
+        var resource = adapter.getOrCreatePublicPhoto("source-album", "photo.png", "file1-100", 100);
 
         // Then
         BufferedImage variant = readImage(resource);
@@ -386,7 +371,7 @@ class LocalStorageAdapterTest {
     void shouldThrowWhenPublicVariantSourceIsMissing() {
         // When / Then
         assertThrows(StorageException.class,
-                () -> adapter.getOrCreatePublicPhoto("source-album", "missing.jpg", "x-clean-800", 800, null));
+                () -> adapter.getOrCreatePublicPhoto("source-album", "missing.jpg", "x-800", 800));
     }
 
     // ---------- helpers ----------

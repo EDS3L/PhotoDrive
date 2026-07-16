@@ -12,6 +12,19 @@ export interface PublicPhotoDto {
 	fileName: string;
 }
 
+/** Publiczny album = zakładka portfolio; {@code displayName} null → zakładka pokazuje name. */
+export interface PublicAlbumDto {
+	albumId: string;
+	name: string;
+	displayName: string | null;
+	photoCount: number;
+}
+
+/** Lista przychodzi już posortowana przez backend (displayOrder, potem nazwa). */
+export function getPublicAlbums(): Promise<PublicAlbumDto[]> {
+	return publicClient.get<PublicAlbumDto[]>('/album/all').then((res) => res.data);
+}
+
 export interface PublicAlbumPhotosResponse {
 	albumId: string;
 	name: string;

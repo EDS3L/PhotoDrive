@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { usePublicAlbums } from '@/shared/hooks/usePublicAlbums';
 import { usePublicAlbumPhotos } from '@/shared/hooks/usePublicPhotos';
 import { PUBLIC_PHOTO_SIZE } from '@/lib/publicApi';
 import { placeholder } from '@/lib/placeholder';
@@ -6,44 +7,53 @@ import { PageHeader } from '@/shared/components/layout/PageHeader';
 import { PhotoGrid, PhotoGridItem } from '@/shared/components/PhotoGrid';
 import { Button } from '@/shared/components/ui/Button';
 import { PortfolioTabs } from './components/PortfolioTabs';
-import type { PortfolioCategory } from './types/portfolio.types';
 import { CTASection } from '@/features/home/components/CTASection';
 
-const categoryAlbumMap: Record<PortfolioCategory, string> = {
-	sluby: 'portfolio-sluby',
-	plener: 'portfolio-plener',
-	portret: 'portfolio-portret',
-	reportaz: 'portfolio-reportaz',
-};
-
-function generatePlaceholders(category: string, count: number) {
+function generatePlaceholders(count: number) {
 	return Array.from({ length: count }, (_, i) => ({
-		id: `${category}-${i}`,
-		src: placeholder(600, 600, `${category} ${i + 1}`),
-		alt: `${category} zdjęcie ${i + 1}`,
+		id: `placeholder-${i}`,
+		src: placeholder(600, 600, `Portfolio ${i + 1}`),
+		alt: `Portfolio zdjęcie ${i + 1}`,
 	}));
 }
 
 export default function PortfolioPage() {
-	const [active, setActive] = useState<PortfolioCategory>('sluby');
+	const { data: albums } = usePublicAlbums();
+	const [activeId, setActiveId] = useState<string | null>(null);
 	const [visibleCount, setVisibleCount] = useState(6);
 
-	const albumName = categoryAlbumMap[active];
+	// Zakładki = publiczne albumy Z ZAWARTOŚCIĄ (kolejność i etykiety ustawia panel).
+	// Pusty album nie dostaje zakładki — gość nie może trafić na pustą galerię.
+	const tabs = useMemo(
+		() =>
+			(albums ?? [])
+				.filter((album) => album.photoCount > 0)
+				.map((album) => ({
+					albumId: album.albumId,
+					label: album.displayName ?? album.name,
+					name: album.name,
+				})),
+		[albums],
+	);
+
+	// Zakładka zniknęła (album ukryty/opróżniony w panelu)? Spadamy na pierwszą.
+	const active = tabs.find((tab) => tab.albumId === activeId) ?? tabs[0];
+
 	// Kafelki: siatka pokazuje kilkanaście zdjęć naraz, więc liczy się waga, nie ostatni piksel.
 	const { data: apiPhotos } = usePublicAlbumPhotos(
-		albumName,
+		active?.name ?? '',
 		PUBLIC_PHOTO_SIZE.tile,
 	);
 
 	const photos =
 		apiPhotos?.map((p) => ({ id: p.fileId, src: p.url, alt: p.fileName })) ??
-		generatePlaceholders(active, 9);
+		generatePlaceholders(9);
 
 	const visible = photos.slice(0, visibleCount);
 	const hasMore = visibleCount < photos.length;
 
-	const handleCategoryChange = (category: PortfolioCategory) => {
-		setActive(category);
+	const handleTabChange = (albumId: string) => {
+		setActiveId(albumId);
 		setVisibleCount(6);
 	};
 
@@ -52,7 +62,13 @@ export default function PortfolioPage() {
 			<PageHeader eyebrow='Portfolio' title='Galeria' />
 
 			<div className='max-w-7xl mx-auto px-6 pb-24'>
-				<PortfolioTabs active={active} onChange={handleCategoryChange} />
+				{tabs.length > 0 && (
+					<PortfolioTabs
+						tabs={tabs}
+						activeId={active?.albumId ?? ''}
+						onChange={handleTabChange}
+					/>
+				)}
 
 				<div className='mt-12'>
 					<PhotoGrid columns={3}>

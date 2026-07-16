@@ -136,7 +136,12 @@ class SecurityAuthorizationIT extends IntegrationTest {
                 // Status czyta też fotograf (steruje widocznością akcji w UI); logiem zarządza tylko admin.
                 endpoint(HttpMethod.GET, "/api/watermark/status", Role.ADMIN, Role.PHOTOGRAPHER),
                 endpoint(HttpMethod.GET, "/api/watermark", Role.ADMIN),
-                endpoint(HttpMethod.DELETE, "/api/watermark", Role.ADMIN)
+                endpoint(HttpMethod.DELETE, "/api/watermark", Role.ADMIN),
+
+                // --- sloty strony wizytówki ---
+                // Zarządza tylko admin (upload multipart pokrywa ta sama reguła /api/site/** — jak przy watermarku).
+                endpoint(HttpMethod.GET, "/api/site/slots", Role.ADMIN),
+                endpoint(HttpMethod.DELETE, "/api/site/slots/HOME_HERO", Role.ADMIN)
         );
     }
 

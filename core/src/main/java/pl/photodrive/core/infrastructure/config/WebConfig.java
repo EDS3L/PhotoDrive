@@ -92,6 +92,8 @@ public class WebConfig {
                         // zarządzanie samym logiem (GET/PUT/DELETE /api/watermark) tylko ADMIN.
                         .requestMatchers("/api/watermark/status").hasAnyRole("ADMIN", "PHOTOGRAPHER")
                         .requestMatchers("/api/watermark", "/api/watermark/**").hasRole("ADMIN")
+                        // Sloty strony wizytówki: zarządza tylko admin; odczyt publiczny żyje pod /api/public/site.
+                        .requestMatchers("/api/site/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/changePassword").authenticated()
                         .requestMatchers("/api/user/*/changeEmail").authenticated()
                         .requestMatchers("/api/user/me").authenticated()

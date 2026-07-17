@@ -109,6 +109,49 @@ describe('AdminPublicAlbums', () => {
 		expect(setDisplayMock).toHaveBeenCalledWith('a2', 'Sesje plenerowe', 3);
 	});
 
+	it('A technical name with Polish characters blocks creation with a Polish hint, so the admin never sees the raw backend 400', async () => {
+		// Given
+		getAllAlbumsMock.mockResolvedValue([]);
+		const user = userEvent.setup();
+		renderPage();
+		await screen.findByRole('button', { name: /Nowy album/ });
+
+		// When - the admin tries the natural thing: a Polish album name
+		await user.click(screen.getByRole('button', { name: /Nowy album/ }));
+		await user.type(
+			screen.getByLabelText('Nazwa techniczna (bez polskich znaków)'),
+			'Śluby',
+		);
+
+		// Then - a Polish explanation appears and the submit stays locked
+		expect(
+			screen.getByText(/nie może zawierać polskich znaków/),
+		).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Utwórz album/ })).toBeDisabled();
+		expect(createMock).not.toHaveBeenCalled();
+	});
+
+	it('An ASCII technical name passes the mirror of the backend rule and creation goes through', async () => {
+		// Given
+		getAllAlbumsMock.mockResolvedValue([]);
+		createMock.mockResolvedValue(album({ albumId: 'new-1', name: 'sluby-2026' }));
+		setPublicMock.mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		renderPage();
+		await screen.findByRole('button', { name: /Nowy album/ });
+
+		// When
+		await user.click(screen.getByRole('button', { name: /Nowy album/ }));
+		await user.type(
+			screen.getByLabelText('Nazwa techniczna (bez polskich znaków)'),
+			'sluby-2026',
+		);
+		await user.click(screen.getByRole('button', { name: /Utwórz album/ }));
+
+		// Then
+		expect(createMock).toHaveBeenCalledWith('sluby-2026');
+	});
+
 	it('A cleared label is saved as null, so the tab falls back to the technical name instead of an empty string', async () => {
 		// Given - an album that already has a label
 		getAllAlbumsMock.mockResolvedValue([

@@ -13,6 +13,7 @@ import {
 	useSetAlbumDisplay,
 } from '../../hooks/useAdminAlbums';
 import { toast } from '@/shared/store/toastStore';
+import { albumNameError } from '../../lib/albumName';
 import type { AlbumDto } from '@/shared/types/api';
 
 /**
@@ -213,6 +214,7 @@ export default function AdminPublicAlbums() {
 						placeholder='np. sluby-2026'
 						value={newName}
 						onChange={(e) => setNewName(e.target.value)}
+						error={albumNameError(newName)}
 					/>
 					<p className='text-xs text-muted'>
 						Album zostanie utworzony jako administracyjny i od razu ustawiony
@@ -226,7 +228,11 @@ export default function AdminPublicAlbums() {
 					</Button>
 					<Button
 						onClick={handleCreate}
-						disabled={createMutation.isPending || !newName.trim()}
+						disabled={
+							createMutation.isPending ||
+							!newName.trim() ||
+							albumNameError(newName) !== undefined
+						}
 					>
 						{createMutation.isPending ? (
 							<Loader2 className='w-4 h-4 mr-2 animate-spin' />

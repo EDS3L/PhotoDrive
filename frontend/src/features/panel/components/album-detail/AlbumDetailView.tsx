@@ -37,6 +37,7 @@ import { usePhotoSelection } from '../../hooks/usePhotoSelection';
 import { useUploadWithCollisionCheck } from '../../hooks/useUploadWithCollisionCheck';
 import { useWatermarkStatus } from '../../hooks/useWatermark';
 import { queryClient } from '@/lib/queryClient';
+import { triggerBlobDownload } from '@/lib/downloadBlob';
 import type { AlbumDto, FileDto } from '@/shared/types/api';
 
 type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
@@ -399,16 +400,8 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									fileList: album.files.map((f) => f.fileName),
 								},
 								{
-									onSuccess: (blob) => {
-										const url = URL.createObjectURL(blob);
-										const a = document.createElement('a');
-										a.href = url;
-										a.download = `${album.name}.zip`;
-										document.body.appendChild(a);
-										a.click();
-										document.body.removeChild(a);
-										setTimeout(() => URL.revokeObjectURL(url), 1000);
-									},
+									onSuccess: (blob) =>
+										triggerBlobDownload(blob, `${album.name}.zip`),
 								},
 							);
 						}}

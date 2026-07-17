@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { PhotoGrid, PhotoGridItem } from '@/shared/components/PhotoGrid';
 import { getPhotoUrl, downloadAlbumZip } from '../api/clientZoneApi';
+import { triggerBlobDownload } from '@/lib/downloadBlob';
 import type { AlbumDto } from '@/shared/types/api';
 
 interface AlbumDetailModalProps {
@@ -154,10 +155,11 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 		if (visibleFiles.length === 0) return;
 		setDownloading(true);
 		try {
-			await downloadAlbumZip(
+			const blob = await downloadAlbumZip(
 				album.albumId,
 				visibleFiles.map((f) => f.fileName),
 			);
+			triggerBlobDownload(blob, `${album.name}.zip`);
 		} finally {
 			setDownloading(false);
 		}

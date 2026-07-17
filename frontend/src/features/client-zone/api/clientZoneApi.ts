@@ -81,19 +81,11 @@ export function getDownloadUrl(albumId: string): string {
 export async function downloadAlbumZip(
 	albumId: string,
 	fileNames: string[],
-): Promise<void> {
+): Promise<Blob> {
 	const response = await apiClient.post(
 		`/album/${albumId}/download`,
 		{ fileList: fileNames },
-		{ responseType: 'blob' },
+		{ responseType: 'arraybuffer' },
 	);
-	const blob = new Blob([response.data], { type: 'application/zip' });
-	const url = window.URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = `${albumId}.zip`;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	window.URL.revokeObjectURL(url);
+	return new Blob([response.data], { type: 'application/zip' });
 }

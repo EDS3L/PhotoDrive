@@ -112,7 +112,7 @@ class FileTest {
     }
 
     // -----------------------------------------------------------------------
-    // setViable / setUnviable
+    // setVisible / setHidden
     // -----------------------------------------------------------------------
 
     @Test
@@ -122,7 +122,7 @@ class FileTest {
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
 
         // When
-        file.setViable();
+        file.setVisible();
 
         // Then
         assertThat(file.isVisible()).isTrue();
@@ -133,23 +133,23 @@ class FileTest {
     void shouldThrowWhenSettingVisibleOnAlreadyVisibleFile() {
         // Given
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
-        file.setViable();
+        file.setVisible();
 
         // When / Then
-        assertThatThrownBy(file::setViable)
+        assertThatThrownBy(file::setVisible)
                 .isInstanceOf(FileException.class)
-                .hasMessageContaining("already viable");
+                .hasMessageContaining("already visible");
     }
 
     @Test
     @DisplayName("File can be hidden from the client")
-    void shouldSetFileUnviable() {
+    void shouldSetFileHidden() {
         // Given
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
-        file.setViable();
+        file.setVisible();
 
         // When
-        file.setUnviable();
+        file.setHidden();
 
         // Then
         assertThat(file.isVisible()).isFalse();
@@ -157,14 +157,14 @@ class FileTest {
 
     @Test
     @DisplayName("Hiding an already hidden file is refused (the album layer keeps batches idempotent)")
-    void shouldThrowWhenSettingUnviableOnAlreadyUnviableFile() {
+    void shouldThrowWhenSettingHiddenOnAlreadyHiddenFile() {
         // Given
         File file = File.create(new FileName("photo.jpg"), 100L, "image/jpeg");
 
         // When / Then
-        assertThatThrownBy(file::setUnviable)
+        assertThatThrownBy(file::setHidden)
                 .isInstanceOf(FileException.class)
-                .hasMessageContaining("already unviable");
+                .hasMessageContaining("already hidden");
     }
 
     // -----------------------------------------------------------------------

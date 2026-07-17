@@ -6,12 +6,6 @@ import java.util.Set;
 
 public record FileName(String value) {
 
-    // Jedyne źródło prawdy dla dozwolonych formatów NOWYCH plików. PhotoDrive to platforma
-    // ZDJĘCIOWA (bez wideo). Zawężone do formatów realnie czytanych przez stock ImageIO w
-    // JDK, dla których powstają miniatury i działa resize. webp/heic/tiff/bmp/gif oraz wideo
-    // są świadomie odrzucone (brak wsparcia ImageIO → null → NPE/500). Egzekwowane przez
-    // FileName.of(...) przy uploadzie i przez Album (watermark). Odtwarzanie z bazy
-    // (konstruktor) tej listy NIE egzekwuje — legacy pliki muszą się nadal załadować.
     public static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png");
 
     private static final Set<String> FORBIDDEN_EXTENSIONS = Set.of(".exe",

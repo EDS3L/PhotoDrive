@@ -83,7 +83,7 @@ public class UserManagementService {
     }
 
     @Transactional
-    public void changePassword(ChangePasswordCommand cmd) {
+    public User changePassword(ChangePasswordCommand cmd) {
         UserId userId = new UserId(cmd.userId());
         var authenticatedUser = currentUser.requireAuthenticated();
         boolean isAdmin = authenticatedUser.roles().contains(Role.ADMIN);
@@ -93,7 +93,9 @@ public class UserManagementService {
         User user = getUserForDB(userId);
         user.changePassword(cmd.currentPassword(), cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);
-        userRepository.save(user);
+        // Zwracamy usera, żeby kontroler mógł re-issue'ować czyste cookie po zmianie WŁASNEGO
+        // hasła (zdjęcie flagi wymuszonej zmiany z bieżącej sesji, B.20).
+        return userRepository.save(user);
     }
 
     @Transactional
@@ -122,7 +124,11 @@ public class UserManagementService {
         }
         User user = getUserForDB(userId);
         user.changeEmail(cmd.newEmail());
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        // Zmiana maila fotografa niesie zdarzenie przenoszące folder na dysku (B.33) —
+        // BEFORE_COMMIT, więc porażka przenoszenia wycofa całą transakcję.
+        publishEvents(user);
+        return saved;
     }
 
     @Transactional
@@ -137,7 +143,7 @@ public class UserManagementService {
     }
 
     @Transactional
-    public User deactiveUser(ActivateUserCommand cmd) {
+    public User deactivateUser(ActivateUserCommand cmd) {
         UserId userId = new UserId(cmd.userId());
         User authorisedUser = getUserForDB(currentUser.requireAuthenticated().userId());
 

@@ -180,7 +180,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	// Kolejność widocznych plików napędza „zaznacz wszystkie" i zakres z Shift
 	// — zawsze względem aktualnego filtra widoczności.
 	const orderedIds = useMemo(
-		() => filteredFiles.map((f) => f.fileID),
+		() => filteredFiles.map((f) => f.fileId),
 		[filteredFiles],
 	);
 	const allSelected =
@@ -188,7 +188,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 
 	// B.19: chowamy akcje wsadowe nieadekwatne do zaznaczenia (na bazie idempotencji A4).
 	const selectedFiles =
-		album?.files.filter((f) => selected.has(f.fileID)) ?? [];
+		album?.files.filter((f) => selected.has(f.fileId)) ?? [];
 	const canShowSelected = selectedFiles.some((f) => !f.visible);
 	const canHideSelected = selectedFiles.some((f) => f.visible);
 	const canWatermarkSelected = selectedFiles.some((f) => !f.hasWatermark);
@@ -266,8 +266,8 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const handleSwap = () => {
 		if (!albumId || !swapTarget || selected.size === 0 || !album) return;
 		const files = album.files
-			.filter((f) => selected.has(f.fileID))
-			.map((f) => ({ fileID: f.fileID, fileName: f.fileName }));
+			.filter((f) => selected.has(f.fileId))
+			.map((f) => ({ fileId: f.fileId, fileName: f.fileName }));
 		const targetId = swapTarget;
 		setSwapModal(false);
 		setSwapTarget(null);
@@ -277,7 +277,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const handleRename = () => {
 		if (!albumId || !renameModal || !renameValue.trim()) return;
 		renameMutation.mutate(
-			{ albumId, fileId: renameModal.fileID, newName: renameValue },
+			{ albumId, fileId: renameModal.fileId, newName: renameValue },
 			{ onSuccess: () => setRenameModal(null) },
 		);
 	};
@@ -619,12 +619,12 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				<div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 select-none'>
 					{filteredFiles.map((file) => (
 						<div
-							key={file.fileID}
+							key={file.fileId}
 							className={`relative aspect-square group cursor-pointer ${
 								!file.visible ? 'opacity-50' : ''
-							} ${selected.has(file.fileID) ? 'ring-2 ring-accent' : ''}`}
+							} ${selected.has(file.fileId) ? 'ring-2 ring-accent' : ''}`}
 							onClick={(e) =>
-								batchMode && handleItemClick(file.fileID, orderedIds, e.shiftKey)
+								batchMode && handleItemClick(file.fileId, orderedIds, e.shiftKey)
 							}
 						>
 							<img
@@ -674,12 +674,12 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								<div className='absolute top-2 left-2'>
 									<div
 										className={`w-5 h-5 border flex items-center justify-center ${
-											selected.has(file.fileID)
+											selected.has(file.fileId)
 												? 'bg-accent border-accent'
 												: 'border-white/60 bg-black/30'
 										}`}
 									>
-										{selected.has(file.fileID) && (
+										{selected.has(file.fileId) && (
 											<span className='text-background text-xs'>✓</span>
 										)}
 									</div>
@@ -718,7 +718,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								if (!albumId) return;
 								visibilityMutation.mutate({
 									albumId,
-									fileIds: [contextMenu.file.fileID],
+									fileIds: [contextMenu.file.fileId],
 									visible: !contextMenu.file.visible,
 								});
 								setContextMenu(null);
@@ -743,7 +743,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									if (!albumId) return;
 									watermarkMutation.mutate({
 										albumId,
-										fileIds: [contextMenu.file.fileID],
+										fileIds: [contextMenu.file.fileId],
 										hasWatermark: !contextMenu.file.hasWatermark,
 									});
 									setContextMenu(null);
@@ -759,7 +759,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 							<button
 								className='w-full px-4 py-2 text-sm text-left hover:bg-surface-light flex items-center gap-2'
 								onClick={() => {
-									selectOne(contextMenu.file.fileID);
+									selectOne(contextMenu.file.fileId);
 									setSwapModal(true);
 									setContextMenu(null);
 								}}
@@ -782,7 +782,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 									action: () =>
 										removeMutation.mutate({
 											albumId,
-											fileIds: [file.fileID],
+											fileIds: [file.fileId],
 										}),
 								});
 							}}

@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { toast } from '@/shared/store/toastStore';
 
 export interface SwapFileRef {
-	fileID: string;
+	fileId: string;
 	fileName: string;
 }
 
 export interface RenameEntry {
-	fileID: string;
+	fileId: string;
 	originalName: string;
 	newName: string;
 }
@@ -66,7 +66,7 @@ export function useSwapWithRename(opts: {
 		await swap({
 			sourceAlbumId: context.sourceAlbumId,
 			targetAlbumId: context.targetAlbumId,
-			fileIds: context.files.map((f) => f.fileID),
+			fileIds: context.files.map((f) => f.fileId),
 		});
 	}
 
@@ -90,7 +90,7 @@ export function useSwapWithRename(opts: {
 				const suggested = suggestNonCollidingName(f.fileName, reserved);
 				reserved.add(suggested);
 				return {
-					fileID: f.fileID,
+					fileId: f.fileId,
 					originalName: f.fileName,
 					newName: suggested,
 				};
@@ -104,10 +104,10 @@ export function useSwapWithRename(opts: {
 		}
 	}
 
-	function setNewName(fileID: string, value: string) {
+	function setNewName(fileId: string, value: string) {
 		setRenames(
 			(prev) =>
-				prev?.map((r) => (r.fileID === fileID ? { ...r, newName: value } : r)) ??
+				prev?.map((r) => (r.fileId === fileId ? { ...r, newName: value } : r)) ??
 				null,
 		);
 	}
@@ -119,7 +119,7 @@ export function useSwapWithRename(opts: {
 			for (const r of renames) {
 				await rename({
 					albumId: ctx.sourceAlbumId,
-					fileId: r.fileID,
+					fileId: r.fileId,
 					newName: r.newName,
 				});
 			}

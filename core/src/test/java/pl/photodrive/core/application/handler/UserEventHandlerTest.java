@@ -10,6 +10,7 @@ import pl.photodrive.core.application.event.UserCredentialsNotification;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.mail.MailSenderPort;
 import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
+import pl.photodrive.core.domain.event.user.PhotographerEmailChanged;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.model.Role;
@@ -55,6 +56,17 @@ class UserEventHandlerTest {
 
         // Then
         then(fileStoragePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("A photographer email change moves his storage folder from the old address to the new one (B.33)")
+    void shouldMovePhotographerFolderOnEmailChange() {
+        // When
+        handler.handlePhotographerEmailChanged(
+                new PhotographerEmailChanged("old@photodrive.dev", "new@photodrive.dev"));
+
+        // Then
+        then(fileStoragePort).should().renamePhotographerFolder("old@photodrive.dev", "new@photodrive.dev");
     }
 
     @Test

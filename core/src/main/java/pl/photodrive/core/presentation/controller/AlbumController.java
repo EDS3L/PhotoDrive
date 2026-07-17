@@ -45,6 +45,7 @@ public class AlbumController {
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
+    //do zmiany na pozniej, wieksza ilosc do uploadu plikow
     @Value("${app.upload.max-total-size-bytes:2097152000}")
     private long maxTotalSizeBytes;
 
@@ -62,13 +63,13 @@ public class AlbumController {
                 clientView)).toList());
     }
 
-    @GetMapping("/all/withoutTdd")
+    @GetMapping("/all/withoutTtd")
     public ResponseEntity<List<AlbumDto>> getAllAlbumsWithoutTTD() {
         return ResponseEntity.ok().body(albumService.getAllAlbumsWithoutTTD().stream().map(album -> mapAlbum(album,
                 false)).toList());
     }
 
-    @GetMapping("/allAssignedAlbum/withoutTdd")
+    @GetMapping("/allAssignedAlbum/withoutTtd")
     public ResponseEntity<List<AlbumDto>> getAllAssignedAlbumsWithoutTTD() {
         boolean clientView = albumService.isCurrentUserClient();
         return ResponseEntity.ok().body(albumService.getAssignedAlbumsWithoutTTD().stream().map(album -> mapAlbum(album,
@@ -82,8 +83,8 @@ public class AlbumController {
     }
 
     @GetMapping("{albumId}/file/url/all")
-    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height, @RequestParam(required = false) boolean showOnlyVisable) {
-        GetUrlsCommand cmd = new GetUrlsCommand(albumId, baseUrl, width, height, showOnlyVisable);
+    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height, @RequestParam(required = false) boolean showOnlyVisible) {
+        GetUrlsCommand cmd = new GetUrlsCommand(albumId, baseUrl, width, height, showOnlyVisible);
         return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
     }
 

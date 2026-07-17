@@ -82,7 +82,7 @@ class UserManagementServiceTest {
     }
 
     private void stubCurrentUserAs(User user) {
-        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900));
+        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900), false);
         given(currentUser.requireAuthenticated()).willReturn(auth);
         given(userRepository.findById(user.getId())).willReturn(Optional.of(user));
     }
@@ -176,7 +176,7 @@ class UserManagementServiceTest {
         User user = User.create("U", new Email("u@photodrive.pl"), hashed, Role.PHOTOGRAPHER);
 
         // Stub current user as the owner of the account
-        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900));
+        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900), false);
         given(currentUser.requireAuthenticated()).willReturn(auth);
 
         given(userRepository.findById(user.getId())).willReturn(Optional.of(user));
@@ -216,7 +216,7 @@ class UserManagementServiceTest {
     void shouldThrowWhenNonAdminTriesToChangeAnotherUsersEmail() {
         // Given - photographerUser tries to change adminUser's email
         AuthenticatedUser auth = new AuthenticatedUser(
-                photographerUser.getId(), photographerUser.getRoles(), Instant.now().plusSeconds(900));
+                photographerUser.getId(), photographerUser.getRoles(), Instant.now().plusSeconds(900), false);
         given(currentUser.requireAuthenticated()).willReturn(auth);
 
         ChangeEmailCommand cmd = new ChangeEmailCommand(adminUser.getId().value(), "hacker@photodrive.pl");

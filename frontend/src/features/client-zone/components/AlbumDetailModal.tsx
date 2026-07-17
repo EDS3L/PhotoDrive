@@ -215,7 +215,7 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 				<PhotoGrid columns={4}>
 					{visibleFiles.map((file, idx) => (
 						<PhotoGridItem
-							key={file.fileID}
+							key={file.fileId}
 							src={getPhotoUrl(album.albumId, file.fileName, 600)}
 							alt={file.fileName}
 							onClick={() => setLightboxIndex(idx)}

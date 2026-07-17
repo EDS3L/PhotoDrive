@@ -7,7 +7,7 @@ import pl.photodrive.core.domain.vo.FileName;
 import java.time.Instant;
 
 /**
- * Encja pliku w agregacie {@link Album}. Metody stanu ({@code setViable},
+ * Encja pliku w agregacie {@link Album}. Metody stanu ({@code setVisible},
  * {@code setWaterMark}, ...) celowo RZUCAJĄ na zbędną tranzycję — to strażnik
  * pojedynczej zmiany. Idempotencję operacji wsadowych (mieszane zaznaczenie)
  * zapewnia {@code Album}, pomijając pliki już w stanie docelowym.
@@ -48,13 +48,13 @@ public class File {
         this.fileName = newFileName;
     }
 
-    public void setViable() {
-        if (this.isVisible) throw new FileException("File is already viable");
+    public void setVisible() {
+        if (this.isVisible) throw new FileException("File is already visible");
         this.isVisible = true;
     }
 
-    public void setUnviable() {
-        if (!this.isVisible) throw new FileException("File is already unviable");
+    public void setHidden() {
+        if (!this.isVisible) throw new FileException("File is already hidden");
         this.isVisible = false;
     }
 

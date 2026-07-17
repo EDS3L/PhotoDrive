@@ -43,6 +43,8 @@ class SpringSecurityCurrentUser implements CurrentUser {
         var roles = auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).filter(a -> a.startsWith("ROLE_")).map(
                 a -> a.substring(5)).map(Role::valueOf).collect(Collectors.toUnmodifiableSet());
 
-        return Optional.of(new AuthenticatedUser(userId, roles, Instant.MAX));
+        // Kontekst bieżącego usera służy autoryzacji domenowej — flaga wymuszonej zmiany hasła
+        // (B.20) należy do ścieżki tokenu (filtr), nie tutaj, więc zawsze false.
+        return Optional.of(new AuthenticatedUser(userId, roles, Instant.MAX, false));
     }
 }

@@ -78,6 +78,29 @@ public class LocalStorageAdapter implements FileStoragePort {
     }
 
     @Override
+    public void renamePhotographerFolder(String oldEmail, String newEmail) {
+        Path oldPath = resolveAndValidate(oldEmail);
+        Path newPath = resolveAndValidate(newEmail);
+
+        try {
+            if (!Files.exists(oldPath)) {
+                // Nic do przeniesienia (np. fotograf bez albumów) — nie blokujemy zmiany maila.
+                log.warn("Photographer folder {} does not exist, nothing to rename", oldPath);
+                return;
+            }
+            if (Files.exists(newPath)) {
+                // Kolizja: pod nowym mailem już coś jest — rzucamy, żeby wycofać zmianę maila
+                // zamiast po cichu scalać/nadpisywać cudze zdjęcia.
+                throw new StorageException("Cannot rename photographer folder: target already exists: " + newPath);
+            }
+            Files.move(oldPath, newPath);
+            log.info("Renamed photographer folder {} -> {}", oldPath, newPath);
+        } catch (IOException e) {
+            throw new StorageException("Failed to rename photographer folder", e);
+        }
+    }
+
+    @Override
     public void createClientAlbum(String albumName, String photographerEmail) {
         Path albumPath = resolveAndValidate(photographerEmail, albumName);
 

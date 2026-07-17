@@ -60,7 +60,7 @@ type SwapFn = (vars: {
  * kontrolę nad nazwą, zamiast zwracać błąd w połowie operacji.
  */
 describe('useSwapWithRename', () => {
-	const photo = (fileID: string, fileName: string) => ({ fileID, fileName });
+	const photo = (fileId: string, fileName: string) => ({ fileId, fileName });
 
 	function setup(overrides: {
 		getFileNames?: () => Promise<string[]>;
@@ -125,7 +125,7 @@ describe('useSwapWithRename', () => {
 		expect(swap).not.toHaveBeenCalled();
 		// ...and only the colliding photo needs a decision, with a name that is really free
 		expect(result.current.renames).toEqual([
-			{ fileID: 'f1', originalName: 'foto.jpg', newName: 'foto_2.jpg' },
+			{ fileId: 'f1', originalName: 'foto.jpg', newName: 'foto_2.jpg' },
 		]);
 	});
 

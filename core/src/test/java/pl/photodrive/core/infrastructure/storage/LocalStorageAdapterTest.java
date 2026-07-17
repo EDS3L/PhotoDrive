@@ -116,6 +116,44 @@ class LocalStorageAdapterTest {
                 () -> adapter.swapFile("source-album", "target-album", "missing.jpg"));
     }
 
+    // ---------- Photographer folder rename on email change (B.33) ----------
+
+    @Test
+    @DisplayName("Renaming a photographer folder moves it and its contents to the new email, so his photos follow him (B.33)")
+    void shouldMovePhotographerFolderWithContents() throws IOException {
+        // Given - a photographer folder with an album and a photo inside
+        Path oldFolder = Files.createDirectories(baseDirectory.resolve("old@photodrive.dev").resolve("wesele"));
+        Files.write(oldFolder.resolve("photo.jpg"), new byte[]{1, 2, 3});
+
+        // When
+        adapter.renamePhotographerFolder("old@photodrive.dev", "new@photodrive.dev");
+
+        // Then - the old path is gone and the photo lives under the new email
+        assertFalse(Files.exists(baseDirectory.resolve("old@photodrive.dev")));
+        assertArrayEquals(new byte[]{1, 2, 3},
+                Files.readAllBytes(baseDirectory.resolve("new@photodrive.dev").resolve("wesele").resolve("photo.jpg")));
+    }
+
+    @Test
+    @DisplayName("Renaming when the source folder is absent is a no-op, so an email change is never blocked by a missing folder (B.33)")
+    void shouldSkipRenameWhenSourceFolderMissing() {
+        // When / Then - no source (e.g. photographer with no albums) must not throw
+        assertDoesNotThrow(() -> adapter.renamePhotographerFolder("ghost@photodrive.dev", "new@photodrive.dev"));
+        assertFalse(Files.exists(baseDirectory.resolve("new@photodrive.dev")));
+    }
+
+    @Test
+    @DisplayName("Renaming onto an already existing target fails loudly, so nobody's photos get silently merged over (B.33)")
+    void shouldThrowWhenTargetFolderAlreadyExists() throws IOException {
+        // Given - both the source and a folder already sitting on the target email
+        Files.createDirectories(baseDirectory.resolve("old@photodrive.dev"));
+        Files.createDirectories(baseDirectory.resolve("taken@photodrive.dev"));
+
+        // When / Then
+        assertThrows(StorageException.class,
+                () -> adapter.renamePhotographerFolder("old@photodrive.dev", "taken@photodrive.dev"));
+    }
+
     // ---------- Watermark: composed on the fly, cached by key (fileId-version) ----------
 
     @Test

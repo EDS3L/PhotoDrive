@@ -23,7 +23,7 @@ export async function getAlbumFileNames(albumId: string): Promise<string[]> {
 }
 
 export async function getAllAlbumsWithoutTtd(): Promise<AlbumDto[]> {
-	const response = await apiClient.get<AlbumDto[]>('/album/all/withoutTdd');
+	const response = await apiClient.get<AlbumDto[]>('/album/all/withoutTtd');
 	return response.data;
 }
 

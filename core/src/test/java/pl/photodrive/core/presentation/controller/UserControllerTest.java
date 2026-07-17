@@ -1,7 +1,7 @@
 package pl.photodrive.core.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,10 +10,15 @@ import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAut
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
+import pl.photodrive.core.application.port.token.TokenEncoder;
 import pl.photodrive.core.application.service.UserManagementService;
 import pl.photodrive.core.domain.exception.UserException;
 import pl.photodrive.core.domain.model.Role;
@@ -21,13 +26,18 @@ import pl.photodrive.core.domain.vo.Email;
 import pl.photodrive.core.domain.vo.UserId;
 import pl.photodrive.core.infrastructure.jwt.JwtAuthenticationFilter;
 import pl.photodrive.core.presentation.dto.user.UserDto;
+import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -43,8 +53,24 @@ class UserControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-        @MockitoBean
+    @MockitoBean
     private UserManagementService userService;
+
+    // UserController re-issue'uje cookie po zmianie własnego hasła (B.20) — te zależności
+    // muszą istnieć w kontekście @WebMvcTest, choć w większości testów nie są wołane.
+    @MockitoBean
+    private TokenEncoder tokenEncoder;
+
+    @MockitoBean
+    private TokenCookieWriter tokenCookieWriter;
+
+    @MockitoBean
+    private Clock clock;
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     // -----------------------------------------------------------------------
     // GET /api/user/all
@@ -187,6 +213,51 @@ class UserControllerTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("USER_EXCEPTION"));
+    }
+
+    @Test
+    @DisplayName("Changing your OWN password re-issues a fresh cookie, so the forced-change lock lifts at once instead of waiting for the sliding window (B.20)")
+    void shouldReissueCookieWhenChangingOwnPassword() throws Exception {
+        // Given - the authenticated principal changes their OWN password
+        UUID id = UUID.randomUUID();
+        given(userService.changePassword(any())).willReturn(aUserDomainStub());
+        given(tokenEncoder.createAccessToken(any(), any(), any(), any(), eq(false))).willReturn("clean.jwt");
+        given(tokenCookieWriter.accessTokenCookie(any(), any()))
+                .willReturn(ResponseCookie.from("pd_at", "clean.jwt").build());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(id.toString(), null, List.of()));
+
+        String body = objectMapper.writeValueAsString(
+                Map.of("currentPassword", "OldPass1!", "newPassword", "NewPass2@"));
+
+        // When / Then - a fresh pd_at cookie is set (clean token, mustChangePassword=false)
+        mockMvc.perform(patch("/api/user/{id}/changePassword", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("pd_at=")));
+    }
+
+    @Test
+    @DisplayName("An admin changing SOMEONE ELSE's password gets no cookie re-issue, so their own session is never overwritten with another identity (B.20)")
+    void shouldNotReissueCookieWhenChangingAnotherUsersPassword() throws Exception {
+        // Given - the authenticated admin (one id) changes a DIFFERENT user's password
+        UUID adminId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        given(userService.changePassword(any())).willReturn(aUserDomainStub());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(adminId.toString(), null, List.of()));
+
+        String body = objectMapper.writeValueAsString(
+                Map.of("currentPassword", "OldPass1!", "newPassword", "NewPass2@"));
+
+        // When / Then - no Set-Cookie: the admin's session must stay untouched
+        mockMvc.perform(patch("/api/user/{id}/changePassword", targetId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+        then(tokenEncoder).should(never()).createAccessToken(any(), any(), any(), any(), anyBoolean());
     }
 
     // -----------------------------------------------------------------------

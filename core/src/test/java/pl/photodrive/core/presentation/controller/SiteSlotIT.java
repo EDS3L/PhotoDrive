@@ -91,6 +91,11 @@ class SiteSlotIT extends IntegrationTest {
                 .andExpect(status().isNoContent());
         long firstVersion = slotVersion("HOME_CTA");
 
+        // Wersja to updatedAt w milisekundach — bez tej przerwy dwa uploady mogłyby wpaść
+        // w tę samą milisekundę i wersja by nie drgnęła (flake). Krótkie, deterministyczne
+        // opóźnienie gwarantuje, że Instant.now() drugiego uploadu jest ściśle większy.
+        Thread.sleep(5);
+
         // When - the photo is replaced
         mockMvc.perform(multipart(HttpMethod.PUT, "/api/site/slots/HOME_CTA")
                         .file(new MockMultipartFile("file", "b.jpg", MediaType.IMAGE_JPEG_VALUE,

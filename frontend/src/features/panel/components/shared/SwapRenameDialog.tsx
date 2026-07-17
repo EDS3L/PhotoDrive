@@ -7,7 +7,7 @@ import type { RenameEntry } from '../../hooks/useSwapWithRename';
 interface SwapRenameDialogProps {
 	open: boolean;
 	renames: RenameEntry[];
-	onChange: (fileID: string, value: string) => void;
+	onChange: (fileId: string, value: string) => void;
 	onConfirm: () => void;
 	onCancel: () => void;
 	isPending: boolean;
@@ -42,14 +42,14 @@ export function SwapRenameDialog({
 
 				<div className='space-y-4 max-h-72 overflow-y-auto'>
 					{renames.map((r) => (
-						<div key={r.fileID}>
+						<div key={r.fileId}>
 							<p className='text-xs text-muted mb-1 truncate'>
 								Oryginał: <span className='text-foreground'>{r.originalName}</span>
 							</p>
 							<Input
-								id={`rename-${r.fileID}`}
+								id={`rename-${r.fileId}`}
 								value={r.newName}
-								onChange={(e) => onChange(r.fileID, e.target.value)}
+								onChange={(e) => onChange(r.fileId, e.target.value)}
 							/>
 						</div>
 					))}

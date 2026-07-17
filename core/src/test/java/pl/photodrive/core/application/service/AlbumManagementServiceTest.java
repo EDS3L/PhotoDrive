@@ -96,7 +96,7 @@ class AlbumManagementServiceTest {
     }
 
     private void stubCurrentUserAs(User user) {
-        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900));
+        AuthenticatedUser auth = new AuthenticatedUser(user.getId(), user.getRoles(), Instant.now().plusSeconds(900), false);
         given(currentUser.requireAuthenticated()).willReturn(auth);
         given(userRepository.findById(user.getId())).willReturn(Optional.of(user));
     }

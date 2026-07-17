@@ -1,6 +1,7 @@
 package pl.photodrive.core.infrastructure.jpa.adapter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import pl.photodrive.core.application.port.site.SiteSlot;
 import pl.photodrive.core.application.port.site.SiteSlotImage;
@@ -11,8 +12,10 @@ import pl.photodrive.core.infrastructure.jpa.repository.SiteSlotJpaRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class SiteSlotStoreAdapter implements SiteSlotStorePort {
@@ -27,9 +30,24 @@ public class SiteSlotStoreAdapter implements SiteSlotStorePort {
 
     @Override
     public List<SiteSlotVersion> findVersions() {
+        // Klucze przychodzą Z BAZY — wiersz z kluczem spoza enuma (przemianowana wartość,
+        // ręczna edycja) nie może wywalić CAŁEGO publicznego listingu (500 na stronie głównej).
+        // Nieznany klucz pomijamy z ostrzeżeniem zamiast rzucać.
         return jpa.findAllProjectedBy().stream()
-                .map(view -> new SiteSlotVersion(SiteSlot.valueOf(view.getSlotKey()), view.getUpdatedAt()))
+                .map(view -> parseSlot(view.getSlotKey())
+                        .map(slot -> new SiteSlotVersion(slot, view.getUpdatedAt()))
+                        .orElse(null))
+                .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private Optional<SiteSlot> parseSlot(String key) {
+        try {
+            return Optional.of(SiteSlot.valueOf(key));
+        } catch (IllegalArgumentException e) {
+            log.warn("Ignoring unknown site slot key from database: {}", key);
+            return Optional.empty();
+        }
     }
 
     @Override

@@ -122,7 +122,7 @@ class SecurityAuthorizationIT extends IntegrationTest {
 
                 // --- albumy ---
                 endpoint(HttpMethod.GET, "/api/album/all", Role.ADMIN),
-                endpoint(HttpMethod.GET, "/api/album/all/withoutTdd", Role.ADMIN),
+                endpoint(HttpMethod.GET, "/api/album/all/withoutTtd", Role.ADMIN),
                 endpoint(HttpMethod.GET, "/api/album/getAllAssignedAlbums", Role.PHOTOGRAPHER, Role.CLIENT),
                 endpoint(HttpMethod.POST, "/api/album/admin/create",
                         """

@@ -3,14 +3,23 @@ package pl.photodrive.core.presentation.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import pl.photodrive.core.application.command.user.*;
+import pl.photodrive.core.application.port.token.TokenEncoder;
 import pl.photodrive.core.application.service.UserManagementService;
+import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.presentation.dto.user.*;
 import pl.photodrive.core.presentation.mapper.ApiMappers;
+import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
 
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -22,6 +31,12 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserManagementService userService;
+    private final TokenEncoder tokenEncoder;
+    private final TokenCookieWriter tokenCookieWriter;
+    private final Clock clock;
+
+    @Value("${app.jwt.access-ttl-minutes:60}")
+    private long accessTtlMinutes;
 
     @GetMapping("/me")
     public ResponseEntity<CurrentUserResponse> getCurrentUser() {
@@ -84,8 +99,25 @@ public class UserController {
 
     @PatchMapping("/{id}/changePassword")
     public ResponseEntity<UserDto> changePassword(@Valid @RequestBody PasswordRequest request, @PathVariable UUID id) {
-        userService.changePassword(new ChangePasswordCommand(id, request.currentPassword(), request.newPassword()));
+        User updated = userService.changePassword(new ChangePasswordCommand(id, request.currentPassword(), request.newPassword()));
+
+        // Zmiana WŁASNEGO hasła zdejmuje flagę wymuszonej zmiany, ale bieżący token wciąż ją
+        // niesie (mustChangePassword=true) → filtr blokowałby usera (B.20) aż do slidingu.
+        // Wystawiamy więc świeże, czyste cookie. Admin zmieniający CUDZE hasło re-issue nie dostaje
+        // (nie ruszamy jego sesji cudzą tożsamością).
+        if (isSelf(id)) {
+            Duration ttl = Duration.ofMinutes(accessTtlMinutes);
+            String jwt = tokenEncoder.createAccessToken(updated.getId(), updated.getRoles(), clock.instant(), ttl, false);
+            return ResponseEntity.noContent()
+                    .header(HttpHeaders.SET_COOKIE, tokenCookieWriter.accessTokenCookie(jwt, ttl).toString())
+                    .build();
+        }
         return ResponseEntity.noContent().build();
+    }
+
+    private boolean isSelf(UUID id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && id.toString().equals(auth.getName());
     }
 
     @PatchMapping("/{id}/changeEmail")
@@ -102,7 +134,7 @@ public class UserController {
 
     @PatchMapping("/{id}/deactivateUser")
     public ResponseEntity<UserDto> deactivateUser(@Valid @RequestBody boolean active, @PathVariable UUID id) {
-        var user = userService.deactiveUser(new ActivateUserCommand(id, active));
+        var user = userService.deactivateUser(new ActivateUserCommand(id, active));
         return ResponseEntity.ok().body(ApiMappers.toDto(user));
     }
 

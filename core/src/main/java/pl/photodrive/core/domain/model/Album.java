@@ -190,7 +190,7 @@ public class Album {
             // na stronę bez ręcznego przełączania po każdym uploadzie (B.5). Album klienta zachowuje
             // odwrotny default: fotograf najpierw kuratoruje, potem odsłania (patrz File.create).
             if (!file.isVisible()) {
-                file.setViable();
+                file.setVisible();
             }
             return new FileAddedResult(file, new FileAddedToAlbum(file.getFileId(), file.getFileName(), this.name));
         } else {
@@ -268,10 +268,10 @@ public class Album {
             // Idempotentnie: pomijamy pliki już w docelowym stanie (mieszane zaznaczenie
             // nie może wywalać całej paczki) — File celowo rzuca na zbędną tranzycję.
             if (isVisible && !file.isVisible()) {
-                file.setViable();
+                file.setVisible();
                 changedCount++;
             } else if (!isVisible && file.isVisible()) {
-                file.setUnviable();
+                file.setHidden();
                 changedCount++;
             }
         }

@@ -31,6 +31,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.BDDMockito.*;
 
@@ -84,7 +86,7 @@ class AuthManagerServiceTest {
         // Given
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordHasher.matches(any(), any())).willReturn(true);
-        given(tokenEncoder.createAccessToken(any(), any(), any(), any())).willReturn("jwt.token.here");
+        given(tokenEncoder.createAccessToken(any(), any(), any(), any(), anyBoolean())).willReturn("jwt.token.here");
 
         LoginCommand cmd = new LoginCommand("photo@photodrive.pl", "Pass1!");
 
@@ -135,20 +137,21 @@ class AuthManagerServiceTest {
     }
 
     @Test
-    @DisplayName("First login with the generated password succeeds; the forced change is enforced afterwards")
+    @DisplayName("First login with the generated password succeeds and stamps the forced-change flag into the token, so the server can lock the API until the password is changed (B.20)")
     void shouldReturnAccessTokenEvenWhenChangePasswordFlagIsSet() {
         // Given - a user with the "change password" flag MUST still be able to log in with the
-        // generated password; the forced change is enforced by the frontend gate, not the backend.
+        // generated password; the forced change is then enforced server-side via a token flag (B.20).
         photographer.setChangePasswordOnNextLogin(true);
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordHasher.matches(any(), any())).willReturn(true);
-        given(tokenEncoder.createAccessToken(any(), any(), any(), any())).willReturn("jwt.token.here");
+        given(tokenEncoder.createAccessToken(any(), any(), any(), any(), anyBoolean())).willReturn("jwt.token.here");
 
         // When
         AccessToken token = service.login(new LoginCommand("photo@photodrive.pl", "Pass1!"));
 
-        // Then
+        // Then - login succeeds AND the token is minted with mustChangePassword=true
         assertThat(token.value()).isEqualTo("jwt.token.here");
+        then(tokenEncoder).should().createAccessToken(any(), any(), any(), any(), eq(true));
     }
 
     // -----------------------------------------------------------------------

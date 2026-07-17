@@ -10,6 +10,14 @@ import java.util.Map;
 public interface FileStoragePort {
     void createPhotographerFolder(String photographerEmail);
 
+    /**
+     * Przenosi folder fotografa po zmianie jego maila ({@code {storage}/{oldEmail}} →
+     * {@code {storage}/{newEmail}}). Wołane BEFORE_COMMIT, więc porażka przenoszenia
+     * wycofuje zmianę maila — fotograf nie zostaje z folderem pod starym mailem, a nowymi
+     * ścieżkami w bazie (B.33). Brak folderu źródłowego jest pomijany (nie ma czego przenosić).
+     */
+    void renamePhotographerFolder(String oldEmail, String newEmail);
+
     void createClientAlbum(String albumName, String photographerEmail);
 
     void createAdminAlbum(String albumName);

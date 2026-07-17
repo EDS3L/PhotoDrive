@@ -80,7 +80,7 @@ public class TestFixtures {
      */
     public Cookie authCookie(User user) {
         String token = tokenEncoder.createAccessToken(
-                user.getId(), user.getRoles(), Instant.now(), Duration.ofMinutes(60));
+                user.getId(), user.getRoles(), Instant.now(), Duration.ofMinutes(60), false);
         return new Cookie(COOKIE_NAME, token);
     }
 

@@ -3,6 +3,7 @@ package pl.photodrive.core.domain.model;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import pl.photodrive.core.domain.event.user.PhotographerEmailChanged;
 import pl.photodrive.core.domain.service.PasswordHasher;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.exception.UserException;
@@ -408,6 +409,37 @@ class UserTest {
         assertThrows(UserException.class, () ->
                 photographer.changeEmail("photographer@photodrive.pl")
         );
+    }
+
+    @Test
+    @DisplayName("A photographer changing his email raises a move-folder event carrying both the old and new address, so his photos follow him on disk (B.33)")
+    void shouldRaiseFolderMoveEventWhenPhotographerChangesEmail() {
+        // Given - drop the UserCreated event from construction
+        photographer.pullDomainEvents();
+
+        // When
+        photographer.changeEmail("moved@photodrive.pl");
+
+        // Then - exactly one event, carrying the old address (folder source) and the new (target)
+        List<Object> events = photographer.pullDomainEvents();
+        assertEquals(1, events.size());
+        assertInstanceOf(PhotographerEmailChanged.class, events.get(0));
+        PhotographerEmailChanged event = (PhotographerEmailChanged) events.get(0);
+        assertEquals("photographer@photodrive.pl", event.oldEmail());
+        assertEquals("moved@photodrive.pl", event.newEmail());
+    }
+
+    @Test
+    @DisplayName("A client changing his email raises no move-folder event, because only photographers own a per-email folder (B.33)")
+    void shouldNotRaiseFolderMoveEventWhenNonPhotographerChangesEmail() {
+        // Given - drop the UserCreated event from construction
+        client.pullDomainEvents();
+
+        // When
+        client.changeEmail("moved-client@photodrive.pl");
+
+        // Then - no folder move: a client has no folder of its own
+        assertTrue(client.pullDomainEvents().isEmpty());
     }
 
     // -------------------------------------------------------------------------

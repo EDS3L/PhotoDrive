@@ -9,6 +9,7 @@ import pl.photodrive.core.application.event.UserCredentialsNotification;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.mail.MailSenderPort;
 import pl.photodrive.core.domain.event.user.PasswordTokenCreated;
+import pl.photodrive.core.domain.event.user.PhotographerEmailChanged;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.model.Role;
@@ -27,6 +28,14 @@ public class UserEventHandler {
         if (userCreated.roles().contains(Role.PHOTOGRAPHER)) {
             fileStoragePort.createPhotographerFolder(userCreated.email());
         }
+    }
+
+    // Przeniesienie folderu jest operacją plikową spójną z bazą — BEFORE_COMMIT, żeby jej
+    // porażka wycofała zmianę maila (fotograf nie zostaje z rozjazdem folder↔ścieżki w bazie, B.33).
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handlePhotographerEmailChanged(PhotographerEmailChanged event) {
+        log.info("Photographer email changed {} -> {}, moving storage folder", event.oldEmail(), event.newEmail());
+        fileStoragePort.renamePhotographerFolder(event.oldEmail(), event.newEmail());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

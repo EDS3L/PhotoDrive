@@ -3,6 +3,7 @@ package pl.photodrive.core.domain.model;
 import lombok.extern.slf4j.Slf4j;
 import pl.photodrive.core.domain.exception.DomainSecurityException;
 import pl.photodrive.core.domain.service.PasswordHasher;
+import pl.photodrive.core.domain.event.user.PhotographerEmailChanged;
 import pl.photodrive.core.domain.event.user.UserCreated;
 import pl.photodrive.core.domain.event.user.UserRemindedPassword;
 import pl.photodrive.core.domain.exception.UserException;
@@ -110,7 +111,14 @@ public class User {
         if (this.email.equals(email)) {
             throw new UserException("New email cannot be the same as the current email");
         }
+        String previousEmail = this.email.value();
         this.email = email;
+        // Folder fotografa na dysku wywodzi się z maila — musimy go przenieść, inaczej
+        // po zmianie maila wszystkie ścieżki zdjęć celują w nieistniejący katalog (B.33).
+        // Tylko fotograf ma taki folder (klient trzyma się pod folderem fotografa, admin nie ma).
+        if (this.roles.contains(Role.PHOTOGRAPHER)) {
+            registerEvent(new PhotographerEmailChanged(previousEmail, email.value()));
+        }
     }
 
     public void activeUser(boolean active, User user) {

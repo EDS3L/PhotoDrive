@@ -78,6 +78,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             var authentication = tokenDecoder.parse(source.value());
+
+            // B.20: token z flagą wymuszonej zmiany hasła wpuszcza WYŁĄCZNIE odczyt własnego
+            // profilu i samą zmianę hasła. Reszta API jest zablokowana serwerowo, nie tylko
+            // bramką frontu — surowe żądanie z takim tokenem dostaje 403.
+            if (authentication.mustChangePassword() && !isForcedPasswordChangeAllowed(request)) {
+                sendForbidden(response, "Musisz najpierw zmienić hasło startowe.");
+                return;
+            }
+
             var authorities = authentication.roles().stream()
                     .map(r -> new SimpleGrantedAuthority("ROLE_" + r.name()))
                     .toList();
@@ -115,11 +124,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Duration remaining = Duration.between(now, authentication.expiresAt());
 
         if (remaining.compareTo(ttl.dividedBy(2)) <= 0) {
+            // Sliding zachowuje flagę wymuszonej zmiany hasła — samo przedłużenie sesji nie
+            // może jej zdjąć (zdejmuje ją dopiero zmiana hasła, która re-issue'uje czyste cookie).
             String refreshed = tokenEncoder.createAccessToken(
-                    authentication.userId(), authentication.roles(), now, ttl);
+                    authentication.userId(), authentication.roles(), now, ttl, authentication.mustChangePassword());
             response.addHeader(HttpHeaders.SET_COOKIE,
                     tokenCookieWriter.accessTokenCookie(refreshed, ttl).toString());
         }
+    }
+
+    // Ścieżki dozwolone dla tokenu z wymuszoną zmianą hasła: odczyt własnego profilu
+    // (front renderuje z niego ekran zmiany) i sama zmiana hasła. Logout jest w SKIP_PATHS,
+    // więc filtr go nie dotyka. Wszystko inne → 403.
+    private boolean isForcedPasswordChangeAllowed(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) && PATH_MATCHER.match("/api/user/me", path)) {
+            return true;
+        }
+        return "PATCH".equalsIgnoreCase(method) && PATH_MATCHER.match("/api/user/*/changePassword", path);
+    }
+
+    private void sendForbidden(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(String.format("""
+                {
+                  "status": 403,
+                  "error": "FORBIDDEN",
+                  "message": "%s"
+                }
+                """, message));
     }
 
     private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {

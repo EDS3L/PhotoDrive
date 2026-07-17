@@ -23,6 +23,9 @@ export function usePanelLogin() {
 				throw new Error('ACCESS_DENIED');
 			}
 			setUser(user);
+			// Zasilamy cache ['panel','me'] danymi z logowania — bez tego PanelLayout
+			// (usePanelMe, staleTime: Infinity) po nawigacji odpalał DRUGI GET /user/me (F.1).
+			queryClient.setQueryData(['panel', 'me'], user);
 			// zachowujemy hasło z logowania na wypadek wymuszonej zmiany (pierwsze logowanie)
 			setLoginPassword(data.password);
 		},

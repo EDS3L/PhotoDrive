@@ -28,6 +28,8 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
     private static final String ISSUER = "CeVeMe";
     private static final String KEY_ID = "key-2025-11";
+    // Claim wymuszonej zmiany hasła (B.20). Krótki, bo leci w każdym żądaniu.
+    private static final String MUST_CHANGE_PASSWORD_CLAIM = "mcp";
 
     private final JWSSigner signer;
     private final JWSVerifierProvider verifiers;
@@ -81,7 +83,11 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
             Set<Role> roles = rolesClaim.stream().map(Object::toString).map(Role::valueOf).collect(Collectors.toSet());
 
-            return new AuthenticatedUser(userId, roles, experience);
+            // Brak claimu (tokeny sprzed B.20) traktujemy jako false — nie blokujemy zastanych sesji.
+            Boolean mcp = claims.getBooleanClaim(MUST_CHANGE_PASSWORD_CLAIM);
+            boolean mustChangePassword = mcp != null && mcp;
+
+            return new AuthenticatedUser(userId, roles, experience, mustChangePassword);
         } catch (ExpiredTokenException | InvalidTokenException e) {
             throw e;
         } catch (JOSEException | ParseException e) {
@@ -93,9 +99,11 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
     }
 
     @Override
-    public String createAccessToken(UserId userId, Set<Role> roles, Instant now, Duration ttl) {
+    public String createAccessToken(UserId userId, Set<Role> roles, Instant now, Duration ttl, boolean mustChangePassword) {
         var claims = new JWTClaimsSet.Builder().issuer(ISSUER).subject(userId.value().toString()).claim("roles",
-                roles.stream().map(Enum::name).toList()).issueTime(Date.from(now)).expirationTime(Date.from(now.plus(ttl))).build();
+                roles.stream().map(Enum::name).toList())
+                .claim(MUST_CHANGE_PASSWORD_CLAIM, mustChangePassword)
+                .issueTime(Date.from(now)).expirationTime(Date.from(now.plus(ttl))).build();
 
         var jwsHeader = new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).keyID(KEY_ID).build();
 

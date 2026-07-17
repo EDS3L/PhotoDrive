@@ -65,7 +65,8 @@ public class AuthManagerService {
         String jwt = tokenEncoder.createAccessToken(user.getId(),
                 user.getRoles(),
                 clock.instant(),
-                ttl);
+                ttl,
+                user.isChangePasswordOnNextLogin());
         return new AccessToken(jwt, ttl);
     }
 

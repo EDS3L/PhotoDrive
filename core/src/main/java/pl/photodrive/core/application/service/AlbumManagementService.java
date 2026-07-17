@@ -144,7 +144,7 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
 
         long orgActualSize = fileRepository.countBySizeBytes();
-        log.info("Aktualny rozmiar bayz danych {}", orgActualSize);
+        log.info("Aktualny rozmiar bazy danych {}", orgActualSize);
         User user = getUser(currentUser.requireAuthenticated().userId());
 
         if (!album.canAccess(user.getId(), user.getRoles())) {
@@ -653,7 +653,7 @@ public class AlbumManagementService {
         AlbumId albumId = new AlbumId(cmd.albumId());
         Album album = getAlbum(albumId);
 
-        if (!album.hasAccessToGetFilesFromAlbum(loggedUser, cmd.showOnlyVisable()))
+        if (!album.hasAccessToGetFilesFromAlbum(loggedUser, cmd.showOnlyVisible()))
             throw new ApplicationSecurityException("Access denied!");
 
         List<String> urls = new ArrayList<>();
@@ -661,7 +661,7 @@ public class AlbumManagementService {
         album.getPhotos().values().forEach(file -> {
             String fileName = file.getFileName().value();
             String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
-            if (cmd.showOnlyVisable()) {
+            if (cmd.showOnlyVisible()) {
                 if (file.isVisible()) {
                     addLinksToList(cmd, album, encodedFileName, urls);
                 }

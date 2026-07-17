@@ -74,7 +74,9 @@ export type SiteSlotKey =
 	| 'HOME_INTRO'
 	| 'HOME_CTA'
 	| 'ABOUT_BIO'
-	| 'ABOUT_EQUIPMENT';
+	| 'ABOUT_EQUIPMENT'
+	| 'CLIENT_LOGIN'
+	| 'PANEL_LOGIN';
 
 export interface PublicSiteSlotDto {
 	slot: SiteSlotKey;

@@ -16,5 +16,9 @@ public enum SiteSlot {
     HOME_INTRO,
     HOME_CTA,
     ABOUT_BIO,
-    ABOUT_EQUIPMENT
+    ABOUT_EQUIPMENT,
+    // Lewe panele ekranów logowania (strefa klienta / panel zarządzania). Nowe wartości
+    // dopisujemy NA KOŃCU — panel renderuje listę w kolejności enuma.
+    CLIENT_LOGIN,
+    PANEL_LOGIN
 }

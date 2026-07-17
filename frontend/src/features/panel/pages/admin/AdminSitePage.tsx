@@ -38,6 +38,14 @@ const SLOT_LABELS: Record<string, { label: string; hint: string }> = {
 		label: 'O mnie — tło sekcji o sprzęcie',
 		hint: 'Poziome zdjęcie (np. sprzęt, plener) jako tło sekcji.',
 	},
+	CLIENT_LOGIN: {
+		label: 'Strefa klienta — ekran logowania',
+		hint: 'Pionowe zdjęcie lewego panelu ekranu logowania klienta (proporcje ok. 8:9).',
+	},
+	PANEL_LOGIN: {
+		label: 'Panel — ekran logowania',
+		hint: 'Pionowe zdjęcie lewego panelu ekranu logowania do panelu zarządzania.',
+	},
 };
 
 function slotLabel(slot: string) {

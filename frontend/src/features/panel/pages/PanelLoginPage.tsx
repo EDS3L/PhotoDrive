@@ -8,6 +8,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { usePanelLogin } from '../hooks/usePanelAuth';
 import { usePanelAuthStore } from '../store/panelAuthStore';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 
 const loginSchema = z.object({
@@ -21,6 +22,7 @@ export default function PanelLoginPage() {
 	const navigate = useNavigate();
 	const { isAuthenticated, role } = usePanelAuthStore();
 	const { mutate, isPending, isError, error } = usePanelLogin();
+	const { data: slots } = useSiteSlots();
 
 	const {
 		register,
@@ -48,7 +50,7 @@ export default function PanelLoginPage() {
 			{/* Left — photo panel */}
 			<div className='hidden lg:flex lg:w-1/2 relative items-end p-12'>
 				<img
-					src={placeholder(960, 1080, 'Panel — studio')}
+					src={slots?.PANEL_LOGIN ?? placeholder(960, 1080, 'Panel — studio')}
 					alt=''
 					className='absolute inset-0 w-full h-full object-cover'
 					aria-hidden='true'

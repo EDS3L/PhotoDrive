@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { useLogin } from '../hooks/useLogin';
+import { useSiteSlots } from '@/shared/hooks/useSiteSlots';
 import { placeholder } from '@/lib/placeholder';
 import { useState } from 'react';
 import { requestPasswordToken, resetPassword } from '../api/clientZoneApi';
@@ -31,6 +32,7 @@ type ResetFormData = z.infer<typeof resetSchema>;
 
 export function LoginForm() {
 	const { mutate, isPending, isError } = useLogin();
+	const { data: slots } = useSiteSlots();
 	const [showReset, setShowReset] = useState(false);
 	const [resetEmailSent, setResetEmailSent] = useState(false);
 	const [resetEmail, setResetEmail] = useState('');
@@ -104,7 +106,7 @@ export function LoginForm() {
 			{/* Left — photo panel (hidden on mobile) */}
 			<div className='hidden lg:flex lg:w-1/2 relative items-end p-12'>
 				<img
-					src={placeholder(960, 1080, 'Login — portret')}
+					src={slots?.CLIENT_LOGIN ?? placeholder(960, 1080, 'Login — portret')}
 					alt=''
 					className='absolute inset-0 w-full h-full object-cover'
 					aria-hidden='true'

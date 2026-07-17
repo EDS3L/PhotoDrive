@@ -21,6 +21,7 @@ import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.application.port.file.FileStoragePort;
 import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.application.port.repository.FileRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.AuthenticatedUser;
@@ -691,13 +692,21 @@ class AlbumManagementServiceTest {
     // =======================================================================
 
     @Test
-    @DisplayName("Public albums are listed for the portfolio")
-    void shouldReturnPublicAlbums() {
-        // When
-        given(albumRepository.findAllPublic()).willReturn(List.of());
+    @DisplayName("Portfolio tabs follow the admin-chosen order, with the name breaking ties deterministically")
+    void shouldSortPublicSummariesByDisplayOrderThenName() {
+        // Given - repository returns rows in arbitrary (database) order; zz-sluby has the
+        // LOWEST displayOrder but the alphabetically LAST name, so only a real displayOrder
+        // sort can put it first
+        PublicAlbumSummary first = new PublicAlbumSummary(UUID.randomUUID(), "zz-sluby", "Śluby", 1, 9);
+        PublicAlbumSummary second = new PublicAlbumSummary(UUID.randomUUID(), "aa-portrety", "Portrety", 2, 4);
+        PublicAlbumSummary third = new PublicAlbumSummary(UUID.randomUUID(), "bb-plener", null, 2, 1);
+        given(albumRepository.findAllPublicSummaries()).willReturn(List.of(third, first, second));
 
-        // Then
-        assertThat(service.getAllPublicAlbums()).isEmpty();
+        // When
+        List<PublicAlbumSummary> sorted = service.getPublicAlbumSummaries();
+
+        // Then - displayOrder beats alphabetical order; the tie (2 vs 2) falls back to the name
+        assertThat(sorted).containsExactly(first, second, third);
     }
 
     @Test

@@ -22,6 +22,7 @@ import pl.photodrive.core.application.port.file.FileUniquenessChecker;
 import pl.photodrive.core.application.port.file.PlatformWatermark;
 import pl.photodrive.core.application.port.file.WatermarkStorePort;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.application.port.repository.FileRepository;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.application.port.user.CurrentUser;
@@ -548,12 +549,15 @@ public class AlbumManagementService {
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
-    /** Kolejność = kolejność zakładek portfolio na stronie; remis rozstrzyga nazwa (stabilnie). */
+    /**
+     * Listing portfolio dla gościa — metryczki bez plików (COUNT liczy baza, B.35).
+     * Kolejność = kolejność zakładek na stronie; remis rozstrzyga nazwa (stabilnie).
+     */
     @Transactional(readOnly = true)
-    public List<Album> getAllPublicAlbums() {
-        return albumRepository.findAllPublic().stream()
-                .sorted(Comparator.comparingInt(Album::getDisplayOrder)
-                        .thenComparing(Album::getName))
+    public List<PublicAlbumSummary> getPublicAlbumSummaries() {
+        return albumRepository.findAllPublicSummaries().stream()
+                .sorted(Comparator.comparingInt(PublicAlbumSummary::displayOrder)
+                        .thenComparing(PublicAlbumSummary::name))
                 .toList();
     }
 

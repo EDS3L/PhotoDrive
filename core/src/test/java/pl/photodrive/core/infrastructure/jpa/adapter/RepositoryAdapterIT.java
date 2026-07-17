@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
@@ -69,15 +70,45 @@ class RepositoryAdapterIT extends IntegrationTest {
         inTransaction(() -> albumRepository.save(Album.createForAdmin("prywatny-material", admin)));
 
         // When
-        List<Album> publicAlbums = inTransaction(albumRepository::findAllPublic);
+        List<PublicAlbumSummary> publicAlbums = inTransaction(albumRepository::findAllPublicSummaries);
 
         // Then - the private album must never reach an anonymous visitor
         assertThat(publicAlbums)
-                .extracting(Album::getName)
+                .extracting(PublicAlbumSummary::name)
                 .containsExactly("portfolio-sluby");
         assertThat(inTransaction(() -> albumRepository.findPublicByName("portfolio-sluby"))).isPresent();
         assertThat(inTransaction(() -> albumRepository.findPublicByName("prywatny-material"))).isEmpty();
         assertThat(inTransaction(() -> albumRepository.findPublicByAlbumId(published.getAlbumId()))).isPresent();
+    }
+
+    @Test
+    @DisplayName("The database-computed photo count covers only visible files, so a hidden photo never inflates a portfolio tab")
+    void shouldCountOnlyVisibleFilesInPublicSummaries() {
+        // Given - a published album with one visible and one hidden photo; the count is now
+        // computed by the COUNT subquery (B.35), so ITS filter is what this test pins down
+        User admin = fixtures.admin("admin@photodrive.dev");
+        inTransaction(() -> {
+            Album album = Album.createForAdmin("licznik-widocznych", admin);
+            File visible = File.create(new FileName("widoczne.jpg"), 10L, "image/jpeg");
+            File hidden = File.create(new FileName("ukryte.jpg"), 10L, "image/jpeg");
+            // Admin-album uploads are visible by default (B.5) - hide one explicitly
+            album.addFile(visible);
+            album.addFile(hidden);
+            album.changeFileVisibleStatus(List.of(hidden.getFileId()), false, admin, admin.getEmail());
+            album.makePublic(admin);
+            album.pullDomainEvents();
+            return albumRepository.save(album);
+        });
+
+        // When
+        List<PublicAlbumSummary> summaries = inTransaction(albumRepository::findAllPublicSummaries);
+
+        // Then
+        PublicAlbumSummary summary = summaries.stream()
+                .filter(s -> "licznik-widocznych".equals(s.name()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Album licznik-widocznych is not in the listing"));
+        assertThat(summary.visibleCount()).isEqualTo(1);
     }
 
     @Test

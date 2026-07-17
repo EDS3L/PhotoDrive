@@ -12,6 +12,7 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import pl.photodrive.core.application.command.file.FileResource;
+import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumNotFoundException;
 import pl.photodrive.core.domain.model.Album;
@@ -25,6 +26,7 @@ import pl.photodrive.core.domain.vo.HashedPassword;
 import pl.photodrive.core.infrastructure.jwt.JwtAuthenticationFilter;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -66,18 +68,20 @@ class PublicAlbumControllerTest {
     }
 
     @Test
-    @DisplayName("Portfolio counts only visible photos, so hidden ones do not inflate the number")
-    void shouldListPublicAlbumsWithVisiblePhotoCountOnly() throws Exception {
-        // Given
-        given(albumService.getAllPublicAlbums()).willReturn(List.of(albumWithVisibleAndHiddenFile()));
+    @DisplayName("Portfolio listing serves the database-computed summaries with a short cache, so tabs update within ~30 seconds")
+    void shouldListPublicAlbumSummaries() throws Exception {
+        // Given - the count is computed by the database (B.35); the query itself is pinned
+        // by RepositoryAdapterIT, here we pin how a summary reaches the client
+        given(albumService.getPublicAlbumSummaries()).willReturn(List.of(
+                new PublicAlbumSummary(UUID.randomUUID(), "portfolio-sluby", "Śluby", 1, 7)));
 
         // When / Then
         mockMvc.perform(get("/api/public/album/all"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "public, max-age=30, must-revalidate"))
                 .andExpect(jsonPath("$[0].name").value("portfolio-sluby"))
-                // counts ONLY visible photos - a hidden one must not inflate the number
-                .andExpect(jsonPath("$[0].photoCount").value(1));
+                .andExpect(jsonPath("$[0].displayName").value("Śluby"))
+                .andExpect(jsonPath("$[0].photoCount").value(7));
     }
 
     @Test

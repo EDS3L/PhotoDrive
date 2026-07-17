@@ -28,12 +28,14 @@ public class PublicAlbumController {
 
     @GetMapping("/all")
     public ResponseEntity<List<PublicAlbumDto>> getAllPublicAlbums() {
-        List<PublicAlbumDto> albums = albumService.getAllPublicAlbums().stream()
-                .map(album -> new PublicAlbumDto(
-                        album.getAlbumId().value(),
-                        album.getName(),
-                        album.getDisplayName(),
-                        (int) album.getPhotos().values().stream().filter(f -> f.isVisible()).count()))
+        // Metryczki bez plików: widoczne zdjęcia policzyła baza (COUNT, B.35) —
+        // wcześniej listing materializował KAŻDY plik publicznych albumów tylko do zliczenia.
+        List<PublicAlbumDto> albums = albumService.getPublicAlbumSummaries().stream()
+                .map(summary -> new PublicAlbumDto(
+                        summary.albumId(),
+                        summary.name(),
+                        summary.displayName(),
+                        (int) summary.visibleCount()))
                 .toList();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=30, must-revalidate")

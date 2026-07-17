@@ -3,6 +3,7 @@ package pl.photodrive.core.infrastructure.jpa.adapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.vo.AlbumId;
@@ -88,8 +89,15 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
     }
 
     @Override
-    public List<Album> findAllPublic() {
-        return jpa.findAllByIsPublicTrue().stream().map(AlbumEntityMapper::toDomain).toList();
+    public List<PublicAlbumSummary> findAllPublicSummaries() {
+        return jpa.findPublicAlbumSummaries().stream()
+                .map(view -> new PublicAlbumSummary(view.getAlbumId(),
+                        view.getName(),
+                        view.getDisplayName(),
+                        // Wiersze sprzed kolumny display_order mają NULL — traktujemy jak 0.
+                        view.getDisplayOrder() == null ? 0 : view.getDisplayOrder(),
+                        view.getVisibleCount() == null ? 0 : view.getVisibleCount()))
+                .toList();
     }
 
     @Override

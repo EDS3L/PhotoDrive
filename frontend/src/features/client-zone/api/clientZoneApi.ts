@@ -1,6 +1,13 @@
 import { apiClient } from '@/lib/apiClient';
 import type { AlbumDto, LoginRequest } from '@/shared/types/api';
 
+// Współdzielone ze wspólnym modułem plików albumu (F.2) — pobranie ZIP to ta sama operacja
+// co w panelu, tylko pod nazwą `downloadAlbumZip` używaną w strefie klienta.
+export {
+	getPhotoUrl,
+	downloadAlbum as downloadAlbumZip,
+} from '@/shared/api/albumFilesApi';
+
 export async function login(data: LoginRequest): Promise<void> {
 	await apiClient.post('/auth/login', data);
 }
@@ -61,31 +68,3 @@ export async function resetPassword(
 	});
 }
 
-export function getPhotoUrl(
-	albumId: string,
-	fileName: string,
-	width?: number,
-	height?: number,
-): string {
-	const params = new URLSearchParams();
-	if (width) params.set('width', String(width));
-	if (height) params.set('height', String(height));
-	const query = params.toString();
-	return `/api/album/${albumId}/photo/${encodeURIComponent(fileName)}${query ? `?${query}` : ''}`;
-}
-
-export function getDownloadUrl(albumId: string): string {
-	return `/api/album/${albumId}/download`;
-}
-
-export async function downloadAlbumZip(
-	albumId: string,
-	fileNames: string[],
-): Promise<Blob> {
-	const response = await apiClient.post(
-		`/album/${albumId}/download`,
-		{ fileList: fileNames },
-		{ responseType: 'arraybuffer' },
-	);
-	return new Blob([response.data], { type: 'application/zip' });
-}

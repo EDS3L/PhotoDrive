@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="supported-color-schemes" content="dark light" />
+    <title>Nowe zapytanie ze strony</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #0c0c0b;
+      }
+      @media (max-width: 600px) {
+        .container {
+          width: 100% !important;
+          border-radius: 0 !important;
+        }
+        .px {
+          padding-left: 24px !important;
+          padding-right: 24px !important;
+        }
+        h1 {
+          font-size: 28px !important;
+          line-height: 1.2 !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #0c0c0b">
+    <div
+      style="display: none; visibility: hidden; opacity: 0; height: 0; width: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: #0c0c0b"
+    >
+      Nowe zapytanie z formularza kontaktowego PhotoDrive.
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      bgcolor="#0c0c0b"
+      style="background-color: #0c0c0b"
+    >
+      <tr>
+        <td align="center" style="padding: 40px 16px">
+          <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            class="container"
+            bgcolor="#161614"
+            style="width: 100%; max-width: 600px; background-color: #161614; border: 1px solid #2a2a28; border-radius: 6px; overflow: hidden"
+          >
+            <tr>
+              <td class="px" style="padding: 26px 40px; border-bottom: 1px solid #2a2a28">
+                <span
+                  style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: 1px; color: #c9a05a"
+                  >PhotoDrive</span
+                >
+              </td>
+            </tr>
+
+            <tr>
+              <td class="px" style="padding: 40px 40px 32px 40px">
+                <p
+                  style="margin: 0 0 14px 0; font-family: 'Inter', Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #8a8680"
+                >
+                  Nowe zapytanie
+                </p>
+                <h1
+                  style="margin: 0 0 18px 0; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15; color: #f0ede8"
+                >
+                  Wiadomość z formularza
+                </h1>
+                <p
+                  style="margin: 0 0 24px 0; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #c9c4bc"
+                >
+                  Ktoś wypełnił formularz kontaktowy na stronie. Aby odpisać,
+                  po prostu <strong style="color: #f0ede8">odpowiedz na tego maila</strong> —
+                  trafi wprost do nadawcy.
+                </p>
+
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  bgcolor="#1e1e1c"
+                  style="background-color: #1e1e1c; border: 1px solid #2a2a28; border-radius: 6px; margin: 0 0 22px 0"
+                >
+                  <tr>
+                    <td style="padding: 22px 24px">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 13px; color: #8a8680; width: 120px; vertical-align: top"
+                          >
+                            Imię
+                          </td>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 500; color: #f0ede8"
+                          >
+                            {{name}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 13px; color: #8a8680; width: 120px; vertical-align: top"
+                          >
+                            E-mail
+                          </td>
+                          <td
+                            style="padding: 5px 0; font-family: 'Courier New', monospace; font-size: 14px; font-weight: 600; color: #c9a05a"
+                          >
+                            {{email}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 13px; color: #8a8680; width: 120px; vertical-align: top"
+                          >
+                            Telefon
+                          </td>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 500; color: #f0ede8"
+                          >
+                            {{phone}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 13px; color: #8a8680; width: 120px; vertical-align: top"
+                          >
+                            Rodzaj sesji
+                          </td>
+                          <td
+                            style="padding: 5px 0; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 500; color: #f0ede8"
+                          >
+                            {{sessionType}}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="margin: 0 0 10px 0; font-family: 'Inter', Arial, sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #8a8680"
+                >
+                  Wiadomość
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  bgcolor="#1e1e1c"
+                  style="background-color: #1e1e1c; border: 1px solid #2a2a28; border-radius: 6px"
+                >
+                  <tr>
+                    <td
+                      style="padding: 20px 24px; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #c9c4bc"
+                    >
+                      {{message}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="px" style="padding: 24px 40px 30px 40px; border-top: 1px solid #2a2a28">
+                <p
+                  style="margin: 0; font-family: 'Inter', Arial, sans-serif; font-size: 11px; color: #5f5c57"
+                >
+                  © 2026 PhotoDrive · Powiadomienie z formularza kontaktowego
+                </p>
+              </td>
+            </tr>
+          </table>
+          <!--[if mso]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -90,6 +90,20 @@ export function getPublicSiteSlots(): Promise<PublicSiteSlotDto[]> {
 		.then((res) => res.data);
 }
 
+/** Zapytanie z formularza kontaktowego — kontrakt zgodny z backendowym {@code ContactRequest}. */
+export interface ContactRequest {
+	name: string;
+	email: string;
+	phone?: string;
+	sessionType: string;
+	message: string;
+}
+
+/** Wysyła wiadomość z formularza kontaktowego. Backend odpowiada 200 i sam rozsyła maile. */
+export function sendContactMessage(payload: ContactRequest): Promise<void> {
+	return publicClient.post('/contact', payload).then(() => undefined);
+}
+
 /**
  * URL zdjęcia slotu. Wersja (updatedAt) jest częścią URL-a, bo serwer wysyła
  * `immutable` — podmiana zdjęcia zmienia URL i to ONA unieważnia cache przeglądarki.

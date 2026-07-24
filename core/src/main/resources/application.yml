@@ -64,6 +64,10 @@ app:
     allowed-origins: ${CSRF_ALLOWED_ORIGINS:https://photodrive.dev}
   cookie:
     secure: ${COOKIE_SECURE:true}
+  contact:
+    # Skrzynka, na którą trafiają zapytania z formularza kontaktowego. Domyślnie = adres nadawczy
+    # aplikacji (MAIL_USERNAME), więc bez dodatkowej konfiguracji wiadomości i tak gdzieś dochodzą.
+    recipient: ${CONTACT_RECIPIENT:${MAIL_USERNAME}}
 
 SWAGGER:
   LOGIN:

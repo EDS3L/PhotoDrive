@@ -29,6 +29,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String LOGIN_PATH = "/api/auth/login";
     private static final String REMIND_PASSWORD_PATH = "/api/auth/remindPassword";
     private static final String CREATE_TOKEN_PATH = "/api/auth/create/passwordToken/**";
+    private static final String CONTACT_PATH = "/api/public/contact";
 
     /** Powyżej tego rozmiaru mapa jest czyszczona z wygasłych okien — limit zużycia pamięci. */
     private static final int MAX_TRACKED_KEYS = 10_000;
@@ -38,18 +39,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final long windowMillis;
     private final int loginAttempts;
     private final int passwordResetAttempts;
+    private final int contactAttempts;
 
     @Autowired
     public RateLimitFilter(@Value("${app.rate-limit.window-minutes:15}") int windowMinutes,
                            @Value("${app.rate-limit.login-attempts:10}") int loginAttempts,
-                           @Value("${app.rate-limit.password-reset-attempts:5}") int passwordResetAttempts) {
-        this(windowMinutes, loginAttempts, passwordResetAttempts, System::currentTimeMillis);
+                           @Value("${app.rate-limit.password-reset-attempts:5}") int passwordResetAttempts,
+                           @Value("${app.rate-limit.contact-attempts:5}") int contactAttempts) {
+        this(windowMinutes, loginAttempts, passwordResetAttempts, contactAttempts, System::currentTimeMillis);
     }
 
-    RateLimitFilter(int windowMinutes, int loginAttempts, int passwordResetAttempts, LongSupplier clock) {
+    RateLimitFilter(int windowMinutes, int loginAttempts, int passwordResetAttempts, int contactAttempts, LongSupplier clock) {
         this.windowMillis = Duration.ofMinutes(windowMinutes).toMillis();
         this.loginAttempts = loginAttempts;
         this.passwordResetAttempts = passwordResetAttempts;
+        this.contactAttempts = contactAttempts;
         this.clock = clock;
     }
 
@@ -114,6 +118,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         if (REMIND_PASSWORD_PATH.equals(path) || PATH_MATCHER.match(CREATE_TOKEN_PATH, path)) {
             return Optional.of(new Limit("password-reset", passwordResetAttempts));
+        }
+        if (CONTACT_PATH.equals(path)) {
+            return Optional.of(new Limit("contact", contactAttempts));
         }
         return Optional.empty();
     }

@@ -30,6 +30,11 @@ public class MailSenderAdapter implements MailSenderPort {
 
     @Override
     public void send(String toEmail, String subject, String body) {
+        send(toEmail, subject, body, null);
+    }
+
+    @Override
+    public void send(String toEmail, String subject, String body, String replyToEmail) {
         try {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(msg,
@@ -39,6 +44,9 @@ public class MailSenderAdapter implements MailSenderPort {
             helper.setFrom(new InternetAddress(username, "PhotoDrive"));
             helper.setTo(toEmail);
             helper.setSubject(subject);
+            if (replyToEmail != null && !replyToEmail.isBlank()) {
+                helper.setReplyTo(replyToEmail);
+            }
 
             helper.setText(body, true);
 

@@ -20,6 +20,7 @@ class RateLimitFilterTest {
 
     private static final int LOGIN_ATTEMPTS = 3;
     private static final int PASSWORD_RESET_ATTEMPTS = 2;
+    private static final int CONTACT_ATTEMPTS = 2;
     private static final int WINDOW_MINUTES = 15;
 
     private AtomicLong now;
@@ -28,7 +29,7 @@ class RateLimitFilterTest {
     @BeforeEach
     void setUp() {
         now = new AtomicLong(0);
-        filter = new RateLimitFilter(WINDOW_MINUTES, LOGIN_ATTEMPTS, PASSWORD_RESET_ATTEMPTS, now::get);
+        filter = new RateLimitFilter(WINDOW_MINUTES, LOGIN_ATTEMPTS, PASSWORD_RESET_ATTEMPTS, CONTACT_ATTEMPTS, now::get);
     }
 
     @Test
@@ -128,6 +129,31 @@ class RateLimitFilterTest {
 
         // When / Then - the other reset endpoint shares the same budget
         assertThat(call("POST", "/api/auth/remindPassword", "10.0.0.1").getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    @DisplayName("The public contact form is throttled, so nobody can flood the studio mailbox with it")
+    void shouldRejectContactFormAfterExceedingLimit() throws Exception {
+        // Given - the contact budget is exhausted
+        for (int i = 0; i < CONTACT_ATTEMPTS; i++) {
+            assertThat(call("POST", "/api/public/contact", "10.0.0.1").getStatus()).isEqualTo(200);
+        }
+
+        // When / Then - the next submission is refused with 429
+        assertThat(call("POST", "/api/public/contact", "10.0.0.1").getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    @DisplayName("Contact has its own budget, separate from login")
+    void shouldCountContactSeparatelyFromLogin() throws Exception {
+        // Given - the contact budget is exhausted
+        for (int i = 0; i < CONTACT_ATTEMPTS; i++) {
+            call("POST", "/api/public/contact", "10.0.0.1");
+        }
+
+        // When / Then - contact is blocked while login still works
+        assertThat(call("POST", "/api/public/contact", "10.0.0.1").getStatus()).isEqualTo(429);
+        assertThat(call("POST", "/api/auth/login", "10.0.0.1").getStatus()).isEqualTo(200);
     }
 
     @Test

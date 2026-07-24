@@ -2,10 +2,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
+import { useSendContactMessage } from '../hooks/useSendContactMessage';
+import { SESSION_OPTIONS, buildContactPayload } from '../lib/contactForm';
 
 const contactSchema = z.object({
 	name: z.string().min(2, 'Imię jest wymagane'),
@@ -21,17 +22,8 @@ interface ContactFormProps {
 	onSuccess: () => void;
 }
 
-const sessionOptions = [
-	{ value: '', label: 'Wybierz rodzaj sesji' },
-	{ value: 'slub', label: 'Fotografia ślubna' },
-	{ value: 'plener', label: 'Sesja plenerowa' },
-	{ value: 'portret', label: 'Sesja portretowa' },
-	{ value: 'reportaz', label: 'Reportaż' },
-	{ value: 'inne', label: 'Inne' },
-];
-
 export function ContactForm({ onSuccess }: ContactFormProps) {
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const { mutate, isPending } = useSendContactMessage();
 
 	const {
 		register,
@@ -42,19 +34,9 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
 	});
 
 	const onSubmit = (data: ContactFormData) => {
-		setIsSubmitting(true);
-		// Placeholder — replace with real API call or mailto
-		const subject = encodeURIComponent(`Zapytanie: ${data.sessionType}`);
-		const body = encodeURIComponent(
-			`Imię: ${data.name}\nEmail: ${data.email}\nTelefon: ${data.phone ?? 'brak'}\nRodzaj: ${data.sessionType}\n\n${data.message}`,
-		);
-		window.location.assign(
-			`mailto:kontakt@photodrive.dev?subject=${subject}&body=${body}`,
-		);
-		setTimeout(() => {
-			setIsSubmitting(false);
-			onSuccess();
-		}, 500);
+		// Błąd wysyłki pokazuje globalny toast (MutationCache.onError); przy sukcesie
+		// przechodzimy do ekranu podziękowania. Formularz zostaje, gdy się nie uda.
+		mutate(buildContactPayload(data), { onSuccess });
 	};
 
 	return (
@@ -87,7 +69,7 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
 				<Select
 					id='sessionType'
 					label='Rodzaj sesji'
-					options={sessionOptions}
+					options={SESSION_OPTIONS}
 					error={errors.sessionType?.message}
 					{...register('sessionType')}
 				/>
@@ -114,9 +96,9 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
 				type='submit'
 				size='lg'
 				className='w-full sm:w-auto'
-				disabled={isSubmitting}
+				disabled={isPending}
 			>
-				{isSubmitting ? (
+				{isPending ? (
 					<>
 						<Loader2 className='w-4 h-4 mr-2 animate-spin' />
 						Wysyłanie...

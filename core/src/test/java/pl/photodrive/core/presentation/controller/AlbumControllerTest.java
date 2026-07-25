@@ -6,11 +6,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import pl.photodrive.core.application.command.file.StoredFile;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.vo.FileId;
+import pl.photodrive.core.domain.vo.FileName;
+import pl.photodrive.core.presentation.dto.file.UploadResponse;
+import pl.photodrive.core.presentation.dto.file.UploadResponseFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -47,8 +52,8 @@ class AlbumControllerTest {
         TrackingMultipartFile first = new TrackingMultipartFile("jeden.jpg");
         TrackingMultipartFile second = new TrackingMultipartFile("dwa.jpg");
         given(temporaryStorageService.saveTemporary(any())).willReturn("temp-1", "temp-2");
-        given(albumService.addFilesToAlbum(any()))
-                .willReturn(List.of(new FileId(UUID.randomUUID()), new FileId(UUID.randomUUID())));
+        given(albumService.addFilesToAlbum(any())).willReturn(List.of(stored("jeden.jpg"),
+                stored("dwa.jpg")));
 
         // When
         controller.addFilesToClientAlbum(UUID.randomUUID(), List.of(first, second));
@@ -56,6 +61,31 @@ class AlbumControllerTest {
         // Then - not just the last one: a leak on any part accumulates across the session
         assertThat(first.stream.closed).isTrue();
         assertThat(second.stream.closed).isTrue();
+    }
+
+    @Test
+    @DisplayName("Upload response reports the name the file ended up with, so a collision-renamed photo is not announced under the name that was taken")
+    void shouldReportDeduplicatedFileNameInUploadResponse() throws IOException {
+        // Given - the album already holds "foto.jpg", so the domain stores this one as "foto_1.jpg"
+        ReflectionTestUtils.setField(controller, "maxTotalSizeBytes", 1_000_000L);
+        TrackingMultipartFile requested = new TrackingMultipartFile("foto.jpg");
+        given(temporaryStorageService.saveTemporary(any())).willReturn("temp-1");
+        given(albumService.addFilesToAlbum(any())).willReturn(List.of(stored("foto_1.jpg")));
+
+        // When
+        ResponseEntity<UploadResponse> response =
+                controller.addFilesToClientAlbum(UUID.randomUUID(), List.of(requested));
+
+        // Then - the name must come from the domain result, not from the request; pairing the new
+        // id with the requested name would hand the client a name that belongs to another file
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().responseFile()).singleElement()
+                .extracting(UploadResponseFile::fileName)
+                .isEqualTo("foto_1.jpg");
+    }
+
+    private static StoredFile stored(String fileName) {
+        return new StoredFile(new FileId(UUID.randomUUID()), FileName.of(fileName));
     }
 
     /** Minimalna część multipart, która oddaje JEDEN śledzony strumień. */

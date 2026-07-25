@@ -16,12 +16,12 @@ import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.FileResource;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
+import pl.photodrive.core.application.command.file.StoredFile;
 import pl.photodrive.core.application.port.file.TemporaryStoragePort;
 import pl.photodrive.core.application.service.AlbumManagementService;
 import pl.photodrive.core.domain.exception.AlbumException;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.vo.AlbumId;
-import pl.photodrive.core.domain.vo.FileId;
 import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.presentation.dto.album.*;
 import pl.photodrive.core.presentation.dto.file.RemoveFilesRequest;
@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.IntStream;
 
 @Slf4j
 @RestController
@@ -125,10 +124,14 @@ public class AlbumController {
         uploadFiles(files, fileUploads);
 
         AddFileToAlbumCommand command = new AddFileToAlbumCommand(albumId, fileUploads);
-        List<FileId> addedFileIds = albumService.addFilesToAlbum(command);
+        List<StoredFile> addedFiles = albumService.addFilesToAlbum(command);
 
-        List<UploadResponseFile> responseFiles = IntStream.range(0, addedFileIds.size())
-                .mapToObj(index -> new UploadResponseFile(addedFileIds.get(index).value().toString(),files.get(index).getOriginalFilename())).toList();
+        // Nazwy bierzemy z tego, co zwróciła domena, a NIE z żądania: przy kolizji plik
+        // dostaje sufiks (foto.jpg → foto_1.jpg), więc nazwa z żądania byłaby nieprawdziwa (B.42).
+        List<UploadResponseFile> responseFiles = addedFiles.stream()
+                .map(stored -> new UploadResponseFile(stored.fileId().value().toString(),
+                        stored.fileName().value()))
+                .toList();
 
         return ResponseEntity.accepted().body(new UploadResponse(responseFiles, "Files are being processed"));
     }

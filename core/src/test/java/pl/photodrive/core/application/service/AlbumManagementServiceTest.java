@@ -14,6 +14,7 @@ import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
+import pl.photodrive.core.application.command.file.StoredFile;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.domain.exception.AlbumNotFoundException;
@@ -401,7 +402,7 @@ class AlbumManagementServiceTest {
                 new FileUpload(FileName.of("b.jpg"), 20L, "image/jpeg", "temp-b")));
 
         // When
-        List<FileId> ids = service.addFilesToAlbum(cmd);
+        List<StoredFile> ids = service.addFilesToAlbum(cmd);
 
         // Then
         assertThat(ids).hasSize(2);
@@ -432,6 +433,29 @@ class AlbumManagementServiceTest {
         assertThat(album.getPhotos().values())
                 .extracting(f -> f.getFileName().value())
                 .containsExactly("foto_1.jpg");
+    }
+
+    @Test
+    @DisplayName("Upload result carries the name the file was actually stored under, so a caller reporting it back never quotes the name that was already taken")
+    void shouldReturnDeduplicatedNameFromUpload() {
+        // Given - "foto.jpg" is taken, so the domain will store this upload as "foto_1.jpg"
+        Album album = Album.createForClient("Sesja", photographerUser, clientUser);
+        album.pullDomainEvents();
+        stubCurrentUserAs(photographerUser);
+        stubAlbum(album);
+        given(fileRepository.countBySizeBytes()).willReturn(0L);
+        given(fileUniquenessChecker.isFileNameTaken(any(), any()))
+                .willAnswer(inv -> ((FileName) inv.getArgument(1)).value().equals("foto.jpg"));
+
+        // When
+        List<StoredFile> stored = service.addFilesToAlbum(new AddFileToAlbumCommand(
+                album.getAlbumId().value(),
+                List.of(new FileUpload(FileName.of("foto.jpg"), 10L, "image/jpeg", "t1"))));
+
+        // Then - the result has to describe what landed on disk, not what was asked for
+        assertThat(stored).singleElement()
+                .extracting(s -> s.fileName().value())
+                .isEqualTo("foto_1.jpg");
     }
 
     @Test

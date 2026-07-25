@@ -15,6 +15,7 @@ import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.FileResource;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
+import pl.photodrive.core.application.command.file.StoredFile;
 import pl.photodrive.core.application.event.FileStorageRequested;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.port.file.FileStoragePort;
@@ -139,7 +140,7 @@ public class AlbumManagementService {
     }
 
     @Transactional
-    public List<FileId> addFilesToAlbum(AddFileToAlbumCommand command) {
+    public List<StoredFile> addFilesToAlbum(AddFileToAlbumCommand command) {
         AlbumId albumId = new AlbumId(command.albumId());
         Album album = getAlbum(albumId);
 
@@ -165,7 +166,11 @@ public class AlbumManagementService {
         publishDomainEvents(results);
 
 
-        return results.stream().map(r -> r.file().getFileId()).toList();
+        // Nazwa bierze się z pliku PO przejściu przez domenę, więc niesie ewentualny
+        // sufiks kolizji — kontroler nie ma już czego parować z nazwą z żądania.
+        return results.stream()
+                .map(r -> new StoredFile(r.file().getFileId(), r.file().getFileName()))
+                .toList();
     }
 
 

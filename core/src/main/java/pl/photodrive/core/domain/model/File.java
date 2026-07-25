@@ -27,7 +27,7 @@ public class File {
         if (sizeBytes <= 0) throw new FileException("Size cannot be null!");
         if (contentType == null) throw new FileException("Content type cannot be null!");
         if (uploadedAt == null || uploadedAt.isAfter(Instant.now()))
-            throw new FileException("Uploaded at is either empty or before today");
+            throw new FileException("Uploaded at is missing or set in the future");
         this.fileId = fileId;
         this.fileName = fileName;
         this.sizeBytes = sizeBytes;

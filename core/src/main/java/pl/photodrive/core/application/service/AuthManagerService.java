@@ -57,9 +57,11 @@ public class AuthManagerService {
             throw new LoginFailedException("Invalid credentials!");
         }
 
-        // UWAGA: nie blokujemy logowania przy changePasswordOnNextLogin — użytkownik
-        // MUSI móc się zalogować hasłem startowym, a wymuszenie zmiany hasła realizuje
-        // front (globalna bramka wg flagi z /user/me), aż do zmiany hasła.
+        // UWAGA: nie blokujemy logowania przy changePasswordOnNextLogin — użytkownik MUSI móc
+        // się zalogować hasłem startowym. Wymuszenie zmiany niesie sam token: flaga ląduje
+        // w claimie `mcp`, a `JwtAuthenticationFilter` odrzuca 403 każdą ścieżkę poza
+        // `GET /user/me` i `PATCH /user/*/changePassword`, dopóki flaga jest ustawiona (B.20).
+        // Bramka frontu (wg flagi z /user/me) jest tylko warstwą UX NAD tą serwerową.
 
         Duration ttl = Duration.ofMinutes(accessTtlMinutes);
         String jwt = tokenEncoder.createAccessToken(user.getId(),

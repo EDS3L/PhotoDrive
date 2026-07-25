@@ -202,7 +202,8 @@ public class UserManagementService {
                 if (new HashSet<>(photographer.getAssignedUsers()).contains(user.get().getId())) {
                     presentUsers.add(user.get().getId());
                 } else {
-                    throw new UserException("User ");
+                    throw new UserException(
+                            "User is not assigned to this photographer: " + user.get().getEmail().value());
                 }
             }
         });

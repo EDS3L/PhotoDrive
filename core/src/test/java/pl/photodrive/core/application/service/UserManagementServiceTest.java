@@ -114,6 +114,29 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Disconnecting a client who was never assigned to that photographer names the client, because this message is the whole body the admin sees")
+    void shouldNameTheClientWhenDisconnectingUnassignedClient() {
+        // Given - an admin detaching a client that this photographer never had
+        stubCurrentUserAs(adminUser);
+        User strangerClient = User.create("Stranger",
+                new Email("stranger@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.findById(strangerClient.getId())).willReturn(Optional.of(strangerClient));
+
+        AssignUserCommand cmd = new AssignUserCommand(List.of(strangerClient.getId().value()),
+                photographerUser.getId().value());
+
+        // When / Then - a placeholder here reaches the admin verbatim as the 400 body,
+        // so the message must say what went wrong AND which client it was about
+        assertThatThrownBy(() -> service.disconnectUsersFromPhotographer(cmd))
+                .isInstanceOf(UserException.class)
+                .hasMessageContaining("not assigned")
+                .hasMessageContaining("stranger@photodrive.pl");
+    }
+
+    @Test
     @DisplayName("Email must be unique")
     void shouldThrowWhenEmailAlreadyTaken() {
         // Given

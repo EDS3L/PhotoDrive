@@ -314,6 +314,23 @@ class AlbumTest {
     }
 
     @Test
+    @DisplayName("TTD is refused on any portfolio album, not just the caller's own, so one admin cannot schedule another admin's portfolio for deletion")
+    void shouldThrowExceptionWhenAdminSetsTTDForAnotherAdminsAlbum() {
+        // Given - a second admin, and the portfolio album belongs to the FIRST one
+        User otherAdmin = User.create("Other Admin",
+                new Email("other-admin@photodrive.pl"),
+                dummyPassword,
+                Role.ADMIN);
+        Album portfolioOfFirstAdmin = Album.createForAdmin("Portfolio", admin);
+        Instant futureDate = Instant.now().plusSeconds(360);
+
+        // When / Then - the guard has to key off the album TYPE; keyed off the caller's identity
+        // it would let this through and the nightly scheduler would delete the portfolio
+        assertThrows(AlbumException.class,
+                () -> portfolioOfFirstAdmin.setTTD(futureDate, otherAdmin, otherAdmin.getEmail().value()));
+    }
+
+    @Test
     @DisplayName("TTD must be a date in the future")
     void shouldThrowExceptionWhenSettingTTDInThePast() {
         // Given

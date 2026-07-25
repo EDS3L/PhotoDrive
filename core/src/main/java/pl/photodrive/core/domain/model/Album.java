@@ -49,18 +49,22 @@ public class Album {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
 
-        if (isAdmin) {
-            if (photographId.equals(user.getId().value()) && clientId.equals(user.getId().value())) {
-                throw new AlbumException("Cannot set TTD for admin album");
-            }
+        // Odmowa („to nie twój album") idzie PRZED regułami biznesowymi, żeby obcy fotograf
+        // dostał 403, a nie 400 z podpowiedzią o typie albumu (konwencja A10a).
+        if (isPhotograph && !photographId.equals(user.getId().value())) {
+            throw new DomainSecurityException("Photographer can only set TTD on own albums");
+        }
+
+        // TTD odcina klientowi dostęp po terminie, a album admina (portfolio) klienta nie ma —
+        // termin jest tam bez sensu, a scheduler skasowałby wizytówkę. Pytamy o TYP albumu,
+        // nie o tożsamość zalogowanego: warunek „to MOJE portfolio" przepuszczał ustawienie
+        // TTD na portfolio DRUGIEGO admina, czyli cudzą wizytówkę do kosza (B.40).
+        if (isAdminAlbum()) {
+            throw new AlbumException("Cannot set TTD for admin album");
         }
 
         if (ttd.isBefore(now)) {
             throw new AlbumException("Cannot set TTD before now!");
-        }
-
-        if (isPhotograph && !photographId.equals(user.getId().value())) {
-            throw new DomainSecurityException("Photographer can only set TTD on own albums");
         }
 
         if (isAdmin || isPhotograph) {

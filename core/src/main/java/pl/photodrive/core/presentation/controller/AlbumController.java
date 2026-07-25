@@ -29,6 +29,7 @@ import pl.photodrive.core.presentation.dto.file.UploadResponse;
 import pl.photodrive.core.presentation.dto.file.UploadResponseFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.IntStream;
@@ -268,7 +269,13 @@ public class AlbumController {
     private void uploadFiles(List<MultipartFile> files, List<FileUpload> fileUploads) {
         for (MultipartFile file : files) {
             try {
-                String tempId = temporaryStorageService.saveTemporary(file.getInputStream());
+                // Część multipart, która przekroczyła próg pamięci, leży na dysku — jej strumień
+                // to realny deskryptor. Spring sprząta same części po żądaniu, ale NIE zamyka
+                // strumieni, które otworzyliśmy my (a `saveTemporary` też nie zamyka źródła).
+                String tempId;
+                try (InputStream partData = file.getInputStream()) {
+                    tempId = temporaryStorageService.saveTemporary(partData);
+                }
                 fileUploads.add(new FileUpload(
                         FileName.of(file.getOriginalFilename()),
                         file.getSize(),

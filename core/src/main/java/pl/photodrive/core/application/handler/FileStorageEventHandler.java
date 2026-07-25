@@ -32,9 +32,13 @@ public class FileStorageEventHandler {
                 throw new StorageOperationException("Temporary file not found: " + tempId);
             }
 
-            InputStream inputStream = temporaryStoragePort.getFile(tempId);
-
-            fileStoragePort.saveFile(event.albumName(), event.fileName().value(), inputStream);
+            // Strumień MUSI zostać zamknięty: to otwarty deskryptor pliku tymczasowego,
+            // a `Files.copy(InputStream, Path, ...)` w adapterze z kontraktu NIE zamyka źródła.
+            // Bez tego jeden upload = jeden wyciekły deskryptor (na Linuksie `delete` odpina
+            // plik, ale FD żyje do GC), a typowy przepływ to wgranie całej sesji naraz.
+            try (InputStream inputStream = temporaryStoragePort.getFile(tempId)) {
+                fileStoragePort.saveFile(event.albumName(), event.fileName().value(), inputStream);
+            }
 
             temporaryStoragePort.delete(tempId);
 

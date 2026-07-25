@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -87,5 +88,51 @@ class FileStorageEventHandlerTest {
                 .isInstanceOf(StorageOperationException.class);
 
         then(temporaryStoragePort).should(never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("The temporary file's stream is released after the copy, so uploading a whole session cannot exhaust the process file descriptors")
+    void shouldCloseTemporaryStreamAfterSave() throws IOException {
+        // Given - the port hands out a real descriptor; nobody downstream closes it for us
+        TrackingInputStream data = new TrackingInputStream();
+        given(temporaryStoragePort.exists("temp-123")).willReturn(true);
+        given(temporaryStoragePort.getFile("temp-123")).willReturn(data);
+
+        // When
+        handler.handleFileAddedToAlbum(event());
+
+        // Then
+        assertThat(data.closed).isTrue();
+    }
+
+    @Test
+    @DisplayName("The temporary file's stream is released even when the disk write fails, so a failing upload leaks nothing either")
+    void shouldCloseTemporaryStreamWhenSaveFails() throws IOException {
+        // Given
+        TrackingInputStream data = new TrackingInputStream();
+        given(temporaryStoragePort.exists("temp-123")).willReturn(true);
+        given(temporaryStoragePort.getFile("temp-123")).willReturn(data);
+        willThrow(new IOException("disk full")).given(fileStoragePort).saveFile(anyString(), anyString(), any());
+
+        // When / Then
+        assertThatThrownBy(() -> handler.handleFileAddedToAlbum(event()))
+                .isInstanceOf(StorageOperationException.class);
+
+        assertThat(data.closed).isTrue();
+    }
+
+    /** Stoi za prawdziwy deskryptor: jedyne, co nas interesuje, to czy ktoś go zamknął. */
+    private static final class TrackingInputStream extends ByteArrayInputStream {
+        private boolean closed = false;
+
+        private TrackingInputStream() {
+            super("bytes".getBytes());
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            super.close();
+        }
     }
 }

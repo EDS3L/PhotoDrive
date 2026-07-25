@@ -422,8 +422,16 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 						type='file'
 						multiple
 						accept='image/jpeg,image/png'
+						aria-label='Pliki zdjęć do wgrania'
 						className='hidden'
-						onChange={(e) => e.target.files && handleUpload(e.target.files)}
+						onChange={(e) => {
+							if (e.target.files) handleUpload(e.target.files);
+							// Czyścimy wybór, bo przeglądarka NIE odpala `change`, gdy drugi raz
+							// wskażesz ten sam plik — bez tego „Dodaj zdjęcia" milczy po anulowaniu
+							// dialogu kolizji albo przy ponownym wgraniu usuniętego zdjęcia.
+							// `handleUpload` skopiowało już `File`-e do tablicy, więc reset ich nie unieważnia.
+							e.target.value = '';
+						}}
 					/>
 				</div>
 			</div>

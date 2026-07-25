@@ -136,6 +136,241 @@ class UserManagementServiceTest {
                 .hasMessageContaining("stranger@photodrive.pl");
     }
 
+    // -----------------------------------------------------------------------
+    // assignUsersToPhotograph / disconnectUsersFromPhotographer
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Only clients can be assigned to a photographer, so a photographer cannot end up owning another photographer")
+    void shouldRejectAssigningNonClientToPhotographer() {
+        // Given - the target of the assignment is another PHOTOGRAPHER, not a client
+        stubCurrentUserAs(adminUser);
+        User otherPhotographer = User.create("Other",
+                new Email("other-photographer@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.PHOTOGRAPHER);
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.findById(otherPhotographer.getId())).willReturn(Optional.of(otherPhotographer));
+
+        AssignUserCommand cmd = new AssignUserCommand(List.of(otherPhotographer.getId().value()),
+                photographerUser.getId().value());
+
+        // When / Then
+        assertThatThrownBy(() -> service.assignUsersToPhotograph(cmd))
+                .isInstanceOf(UserException.class)
+                .hasMessageContaining("Only clients");
+        then(userRepository).should(never()).save(photographerUser);
+    }
+
+    @Test
+    @DisplayName("An inactive client cannot be assigned, so a photographer never gets a client who is unable to log in")
+    void shouldRejectAssigningInactiveClient() {
+        // Given - a client whose account has been deactivated
+        stubCurrentUserAs(adminUser);
+        User inactiveClient = User.create("Inactive",
+                new Email("inactive@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        inactiveClient.deactivateUser(false, adminUser);
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.findById(inactiveClient.getId())).willReturn(Optional.of(inactiveClient));
+
+        AssignUserCommand cmd = new AssignUserCommand(List.of(inactiveClient.getId().value()),
+                photographerUser.getId().value());
+
+        // When / Then
+        assertThatThrownBy(() -> service.assignUsersToPhotograph(cmd))
+                .isInstanceOf(UserException.class)
+                .hasMessageContaining("inactive");
+    }
+
+    @Test
+    @DisplayName("Assigning a client twice leaves one entry, so a repeated assignment does not duplicate the photographer's client list")
+    void shouldNotDuplicateAlreadyAssignedClient() {
+        // Given - the client is ALREADY on the photographer's list
+        stubCurrentUserAs(adminUser);
+        User client = User.create("Client",
+                new Email("client@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        photographerUser.assignUsersForSelf(List.of(client.getId()));
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.findById(client.getId())).willReturn(Optional.of(client));
+
+        AssignUserCommand cmd = new AssignUserCommand(List.of(client.getId().value()),
+                photographerUser.getId().value());
+
+        // When - the same client is assigned a second time
+        service.assignUsersToPhotograph(cmd);
+
+        // Then
+        assertThat(photographerUser.getAssignedUsers()).containsExactly(client.getId());
+        then(userRepository).should().save(photographerUser);
+    }
+
+    @Test
+    @DisplayName("Only an admin may detach clients from a photographer, so a photographer cannot rearrange assignments themselves")
+    void shouldRejectDisconnectByNonAdmin() {
+        // Given - the photographer is the one calling
+        stubCurrentUserAs(photographerUser);
+
+        AssignUserCommand cmd = new AssignUserCommand(List.of(UUID.randomUUID()),
+                photographerUser.getId().value());
+
+        // When / Then
+        assertThatThrownBy(() -> service.disconnectUsersFromPhotographer(cmd))
+                .isInstanceOf(ApplicationSecurityException.class);
+        then(userRepository).should(never()).save(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // read path: assigned clients (B.22)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("One orphaned assignment is skipped instead of failing the whole list, so a single missing row cannot hide every client a photographer has")
+    void shouldSkipOrphanedAssignmentWhenListingPhotographerClients() {
+        // Given - two assigned ids, but only one of them still exists in the database
+        User livingClient = User.create("Living",
+                new Email("living@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        UserId orphanId = new UserId(UUID.randomUUID());
+        photographerUser.assignUsersForSelf(List.of(livingClient.getId(), orphanId));
+        stubCurrentUserAs(photographerUser);
+        given(userRepository.findById(livingClient.getId())).willReturn(Optional.of(livingClient));
+        given(userRepository.findById(orphanId)).willReturn(Optional.empty());
+
+        // When
+        List<User> clients = service.getPhotographUsers();
+
+        // Then - resolving through orElseThrow would blow the whole request up and the
+        // photographer would see an empty client list instead of the one client he has
+        assertThat(clients).extracting(u -> u.getEmail().value())
+                .containsExactly("living@photodrive.pl");
+    }
+
+    @Test
+    @DisplayName("Admin browsing a photographer's clients also survives an orphaned assignment")
+    void shouldSkipOrphanedAssignmentWhenAdminListsPhotographerClients() {
+        // Given
+        stubCurrentUserAs(adminUser);
+        User livingClient = User.create("Living",
+                new Email("living@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        UserId orphanId = new UserId(UUID.randomUUID());
+        photographerUser.assignUsersForSelf(List.of(orphanId, livingClient.getId()));
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.findById(livingClient.getId())).willReturn(Optional.of(livingClient));
+        given(userRepository.findById(orphanId)).willReturn(Optional.empty());
+
+        // When
+        List<User> clients = service.getPhotographerUsersForAdmin(photographerUser.getId().value());
+
+        // Then
+        assertThat(clients).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Only an admin may browse a photographer's client list")
+    void shouldRejectPhotographerClientListingByNonAdmin() {
+        // Given
+        stubCurrentUserAs(photographerUser);
+
+        // When / Then
+        assertThatThrownBy(() -> service.getPhotographerUsersForAdmin(photographerUser.getId().value()))
+                .isInstanceOf(DomainSecurityException.class);
+    }
+
+    @Test
+    @DisplayName("Asking for the client list of a user who is not a photographer is a rule violation, not an empty result")
+    void shouldRejectClientListingForNonPhotographer() {
+        // Given - the id points at a CLIENT, so there is no assignment list to speak of
+        stubCurrentUserAs(adminUser);
+        User client = User.create("Client",
+                new Email("client@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        given(userRepository.findById(client.getId())).willReturn(Optional.of(client));
+
+        // When / Then
+        assertThatThrownBy(() -> service.getPhotographerUsersForAdmin(client.getId().value()))
+                .isInstanceOf(UserException.class)
+                .hasMessageContaining("not a photographer");
+    }
+
+    // -----------------------------------------------------------------------
+    // activation
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Activating an already active account is refused, so the admin learns the state instead of silently doing nothing")
+    void shouldRejectActivatingAlreadyActiveUser() {
+        // Given - freshly created accounts are active
+        stubCurrentUserAs(adminUser);
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+
+        // When / Then
+        assertThatThrownBy(() -> service.activateUser(
+                new ActivateUserCommand(photographerUser.getId().value(), true)))
+                .isInstanceOf(UserException.class)
+                .hasMessageContaining("already active");
+    }
+
+    @Test
+    @DisplayName("Deactivation flips the account off and is persisted, so the login check has something to reject")
+    void shouldDeactivateActiveUser() {
+        // Given
+        stubCurrentUserAs(adminUser);
+        given(userRepository.findById(photographerUser.getId())).willReturn(Optional.of(photographerUser));
+        given(userRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        // When
+        service.deactivateUser(new ActivateUserCommand(photographerUser.getId().value(), false));
+
+        // Then
+        assertThat(photographerUser.isActive()).isFalse();
+        then(userRepository).should().save(photographerUser);
+    }
+
+    @Test
+    @DisplayName("Only an admin may switch accounts on or off, so a photographer cannot deactivate anybody")
+    void shouldRejectDeactivationByPhotographer() {
+        // Given
+        stubCurrentUserAs(photographerUser);
+        User client = User.create("Client",
+                new Email("client@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        given(userRepository.findById(client.getId())).willReturn(Optional.of(client));
+
+        // When / Then
+        assertThatThrownBy(() -> service.deactivateUser(
+                new ActivateUserCommand(client.getId().value(), false)))
+                .isInstanceOf(DomainSecurityException.class);
+    }
+
+    @Test
+    @DisplayName("Listing active users hides deactivated accounts, so an admin does not hand albums to somebody who cannot log in")
+    void shouldFilterOutInactiveUsersFromActiveListing() {
+        // Given
+        stubCurrentUserAs(adminUser);
+        User inactive = User.create("Inactive",
+                new Email("inactive@photodrive.pl"),
+                new HashedPassword("hashed_pwd"),
+                Role.CLIENT);
+        inactive.deactivateUser(false, adminUser);
+        given(userRepository.findAll()).willReturn(List.of(adminUser, inactive));
+
+        // When
+        List<User> active = service.getAllActiveUsers();
+
+        // Then
+        assertThat(active).extracting(u -> u.getEmail().value())
+                .containsExactly("admin@photodrive.pl");
+    }
+
     @Test
     @DisplayName("Email must be unique")
     void shouldThrowWhenEmailAlreadyTaken() {

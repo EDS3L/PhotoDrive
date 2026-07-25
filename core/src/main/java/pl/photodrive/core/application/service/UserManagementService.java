@@ -244,14 +244,7 @@ public class UserManagementService {
 
         List<UserId> userIdList = authorisedUser.getPhotographUsers(authorisedUser);
 
-        List<User> users = new ArrayList<>();
-
-        userIdList.forEach(userId -> {
-            User user = getUserForDB(userId);
-            users.add(user);
-        });
-
-        return users;
+        return resolveAssignedUsers(userIdList);
     }
 
     @Transactional(readOnly = true)
@@ -266,15 +259,25 @@ public class UserManagementService {
             throw new UserException("User is not a photographer");
         }
 
-        List<User> users = new ArrayList<>();
-        photographer.getAssignedUsers().forEach(userId -> {
-            User user = getUserForDB(userId);
-            users.add(user);
-        });
-
-        return users;
+        return resolveAssignedUsers(photographer.getAssignedUsers());
     }
 
+    /**
+     * Zamienia przypisane identyfikatory na użytkowników, POMIJAJĄC te, których nie ma w bazie.
+     *
+     * <p>Wcześniej każdy identyfikator szedł przez {@code getUserForDB}, czyli
+     * {@code orElseThrow} — jedna osierocona referencja (klient nieobecny w bazie) wywalała
+     * <b>całą</b> listę klientów fotografa, więc zamiast jednego brakującego wiersza fotograf
+     * nie widział ŻADNEGO ze swoich klientów (B.22). Read-path ma być odporny: brakująca
+     * referencja znika z listy i zostawia ślad w logu, zamiast psuć cały ekran.
+     */
+    private List<User> resolveAssignedUsers(List<UserId> assignedUserIds) {
+        List<User> users = new ArrayList<>();
+        assignedUserIds.forEach(userId -> userRepository.findById(userId)
+                .ifPresentOrElse(users::add,
+                        () -> log.warn("Assigned user {} is missing from the database — skipping", userId.value())));
+        return users;
+    }
 
     private User getUserForDB(UserId userid) {
         return userRepository.findById(userid).orElseThrow(() -> new UserException("User not found!"));

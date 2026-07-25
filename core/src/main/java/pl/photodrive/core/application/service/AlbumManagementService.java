@@ -398,7 +398,14 @@ public class AlbumManagementService {
     }
 
     private Resource resizeFile(Resource originalResource, Integer width, Integer height) throws IOException {
-        BufferedImage image = ImageIO.read(originalResource.getInputStream());
+        // Strumień MUSI być zamknięty — `ImageIO.read(InputStream)` z kontraktu NIE zamyka
+        // źródła, a tu źródłem jest realny plik na dysku. Bez tego każde żądanie `?width`
+        // na zdjęciu bez gotowej miniatury zostawiało otwarty deskryptor (ta sama klasa
+        // błędu co B.38, wykryta przez sprzątanie @TempDir w teście).
+        BufferedImage image;
+        try (java.io.InputStream source = originalResource.getInputStream()) {
+            image = ImageIO.read(source);
+        }
 
         if (image == null) {
             return originalResource;

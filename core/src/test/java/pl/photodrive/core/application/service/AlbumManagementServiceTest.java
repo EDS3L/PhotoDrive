@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -13,6 +14,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import pl.photodrive.core.application.command.album.*;
 import pl.photodrive.core.application.command.file.ChangeVisibleCommand;
 import pl.photodrive.core.application.command.file.RemoveFileCommand;
+import pl.photodrive.core.application.command.file.FileResource;
 import pl.photodrive.core.application.command.file.RenameFileCommand;
 import pl.photodrive.core.application.command.file.StoredFile;
 import pl.photodrive.core.application.event.FileStorageRequested;
@@ -38,6 +40,14 @@ import pl.photodrive.core.domain.vo.FileName;
 import pl.photodrive.core.domain.vo.HashedPassword;
 
 import jakarta.servlet.ServletContext;
+import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashMap;
@@ -709,6 +719,151 @@ class AlbumManagementServiceTest {
         assertThatThrownBy(() -> service.getFilePath(cmd))
                 .isInstanceOf(AlbumException.class)
                 .hasMessageContaining("File not found");
+    }
+
+    // =======================================================================
+    // Serving photos - on-the-fly resize (no thumbnail on disk)
+    // =======================================================================
+
+    /**
+     * Zapisuje prawdziwy plik tam, gdzie serwis go szuka, i zwraca album. Bez pliku na dysku
+     * {@code resizeFile} jest nieosiągalny — a to on obsługuje żądania {@code ?width}
+     * dla zdjęć BEZ gotowej miniatury.
+     *
+     * <p>Magazyn wskazuje na {@code @TempDir} <b>osobny dla każdego testu</b>. Nazwa albumu
+     * klienta zawiera dzisiejszą datę, więc dwa testy na „Sesja"/„foto.jpg" trafiłyby w ten
+     * SAM katalog: miniatura zostawiona przez jeden test zmieniłaby wynik drugiego (zależność
+     * od kolejności wykonania).
+     */
+    private Album clientAlbumWithFileOnDisk(Path storageRoot, String fileName, byte[] bytes) throws Exception {
+        useStorageRoot(storageRoot);
+        Album album = clientAlbumWithFile("Sesja", fileName);
+        Files.createDirectories(albumDirOf(storageRoot, album));
+        Files.write(albumDirOf(storageRoot, album).resolve(fileName), bytes);
+        stubCurrentUserAs(photographerUser);
+        stubAlbum(album);
+        return album;
+    }
+
+    /**
+     * Czyta zasób i ZAMYKA strumień. Na Windows otwarty uchwyt do pliku blokuje sprzątanie
+     * {@code @TempDir} — a {@code UrlResource} oddaje realny strumień pliku, nie kopię w pamięci.
+     */
+    private static byte[] readAll(FileResource resource) throws Exception {
+        try (InputStream in = resource.resource().getInputStream()) {
+            return in.readAllBytes();
+        }
+    }
+
+    private static BufferedImage readImage(FileResource resource) throws Exception {
+        try (InputStream in = resource.resource().getInputStream()) {
+            return ImageIO.read(in);
+        }
+    }
+
+    private Path albumDirOf(Path storageRoot, Album album) {
+        return storageRoot.resolve(photographerUser.getEmail().value()).resolve(album.getName());
+    }
+
+    private void useStorageRoot(Path storageRoot) throws Exception {
+        var field = AlbumManagementService.class.getDeclaredField("fileStorageLocation");
+        field.setAccessible(true);
+        field.set(service, storageRoot.toAbsolutePath().normalize());
+    }
+
+    private static byte[] jpegBytes(int width, int height) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        g.setColor(Color.GRAY);
+        g.fillRect(0, 0, width, height);
+        g.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", out);
+        return out.toByteArray();
+    }
+
+    @Test
+    @DisplayName("Asking for a width keeps the original proportions, so a photo served without a ready thumbnail is never stretched")
+    void shouldPreserveAspectRatioWhenOnlyWidthRequested(@TempDir Path storage) throws Exception {
+        // Given - a 800x400 photo (2:1) on disk and NO thumbnail beside it
+        Album album = clientAlbumWithFileOnDisk(storage, "foto.jpg", jpegBytes(800, 400));
+
+        // When - only the width is requested
+        FileResource resource = service.getFilePath(
+                new GetPhotoPathCommand(album.getAlbumId().value(), "foto.jpg", 200, null));
+
+        // Then - the height must follow from the ratio; a fixed or zero height would squash
+        // the photo, and this path has no thumbnail to fall back on
+        BufferedImage served = readImage(resource);
+        assertThat(served.getWidth()).isEqualTo(200);
+        assertThat(served.getHeight()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("Asking for a height alone also keeps proportions, so the derived side is computed in both directions")
+    void shouldPreserveAspectRatioWhenOnlyHeightRequested(@TempDir Path storage) throws Exception {
+        // Given - a 400x800 portrait crop (1:2)
+        Album album = clientAlbumWithFileOnDisk(storage, "pion.jpg", jpegBytes(400, 800));
+
+        // When
+        FileResource resource = service.getFilePath(
+                new GetPhotoPathCommand(album.getAlbumId().value(), "pion.jpg", null, 200));
+
+        // Then
+        BufferedImage served = readImage(resource);
+        assertThat(served.getHeight()).isEqualTo(200);
+        assertThat(served.getWidth()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("A file the image decoder cannot read is served untouched instead of crashing the request, which is what keeps an unsupported format from turning into a 500")
+    void shouldServeUndecodableFileAsIsInsteadOfFailing(@TempDir Path storage) throws Exception {
+        // Given - a .jpg in name only; ImageIO.read returns null for such content (B.15)
+        byte[] notAnImage = "to nie jest obrazek".getBytes(StandardCharsets.UTF_8);
+        Album album = clientAlbumWithFileOnDisk(storage, "udawany.jpg", notAnImage);
+
+        // When - a resize is requested anyway
+        FileResource resource = service.getFilePath(
+                new GetPhotoPathCommand(album.getAlbumId().value(), "udawany.jpg", 200, null));
+
+        // Then - without the null guard this line is an NPE, i.e. a 500 for the client;
+        // the original bytes must come back instead
+        assertThat(readAll(resource)).isEqualTo(notAnImage);
+    }
+
+    @Test
+    @DisplayName("A request without any size gets the untouched original, so downloading full quality stays possible")
+    void shouldServeOriginalWhenNoSizeRequested(@TempDir Path storage) throws Exception {
+        // Given
+        byte[] original = jpegBytes(800, 400);
+        Album album = clientAlbumWithFileOnDisk(storage, "foto.jpg", original);
+
+        // When - neither width nor height
+        FileResource resource = service.getFilePath(
+                new GetPhotoPathCommand(album.getAlbumId().value(), "foto.jpg", null, null));
+
+        // Then - byte-identical, not re-encoded
+        assertThat(readAll(resource)).isEqualTo(original);
+        assertThat(resource.contentType()).isEqualTo("image/jpeg");
+    }
+
+    @Test
+    @DisplayName("An existing thumbnail answers a sized request, so a resize is not recomputed on every view")
+    void shouldServeThumbnailWhenItExistsForSizedRequest(@TempDir Path storage) throws Exception {
+        // Given - both the original and a (deliberately distinct) thumbnail on disk
+        Album album = clientAlbumWithFileOnDisk(storage, "foto.jpg", jpegBytes(800, 400));
+        Path thumbDir = albumDirOf(storage, album).resolve(".thumbnails");
+        Files.createDirectories(thumbDir);
+        Files.write(thumbDir.resolve("foto.jpg"), jpegBytes(600, 300));
+
+        // When
+        FileResource resource = service.getFilePath(
+                new GetPhotoPathCommand(album.getAlbumId().value(), "foto.jpg", 200, null));
+
+        // Then - the thumbnail is served as-is (600px), which is exactly the documented
+        // trade-off behind B.24: the requested width is a hint, not a promise
+        BufferedImage served = readImage(resource);
+        assertThat(served.getWidth()).isEqualTo(600);
     }
 
     // =======================================================================

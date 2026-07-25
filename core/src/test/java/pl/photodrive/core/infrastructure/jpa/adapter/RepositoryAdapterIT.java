@@ -4,10 +4,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import pl.photodrive.core.application.port.repository.AlbumRepository;
+import pl.photodrive.core.application.port.repository.PasswordTokenRepository;
 import pl.photodrive.core.application.port.repository.PublicAlbumSummary;
 import pl.photodrive.core.application.port.repository.UserRepository;
 import pl.photodrive.core.domain.model.Album;
 import pl.photodrive.core.domain.model.File;
+import pl.photodrive.core.domain.model.PasswordToken;
 import pl.photodrive.core.domain.model.User;
 import pl.photodrive.core.domain.vo.AlbumId;
 import pl.photodrive.core.domain.vo.AlbumPath;
@@ -19,6 +21,8 @@ import pl.photodrive.core.support.IntegrationTest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,6 +39,9 @@ class RepositoryAdapterIT extends IntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordTokenRepository passwordTokenRepository;
 
     @Test
     @DisplayName("Scheduler's query picks up only albums past their deletion date, never those without one")
@@ -187,6 +194,65 @@ class RepositoryAdapterIT extends IntegrationTest {
         // When / Then - this check guards the photographer from silently shadowing an album
         assertThat(inTransaction(() -> albumRepository.existsByName("portfolio-sluby"))).isTrue();
         assertThat(inTransaction(() -> albumRepository.existsByName("portfolio-chrzciny"))).isFalse();
+    }
+
+    // =======================================================================
+    // PasswordTokenRepository — ścieżka resetu hasła na żywej bazie
+    // =======================================================================
+
+    @Test
+    @DisplayName("A saved reset token is found back by its user and still matches the code that was mailed, which is the whole reset flow in one query")
+    void shouldFindSavedResetTokenByUserAndKeepItUsable() {
+        // Given - a token stored exactly as the reset flow stores it
+        User client = fixtures.client("reset@photodrive.dev");
+        UUID rawCode = UUID.randomUUID();
+        Instant created = Instant.now();
+        inTransaction(() -> passwordTokenRepository.save(
+                PasswordToken.create(rawCode, created.plus(15, ChronoUnit.MINUTES), created, client)));
+
+        // When - the lookup the reset endpoint performs
+        Optional<PasswordToken> found = inTransaction(() -> passwordTokenRepository.findByUserId(client.getId()));
+
+        // Then - a mock-based test cannot tell whether the user_id query actually matches;
+        // here the token comes back out of MySQL and still recognises the mailed code
+        assertThat(found).isPresent();
+        assertThat(found.get().matches(rawCode)).isTrue();
+        assertThat(found.get().getUserId()).isEqualTo(client.getId());
+    }
+
+    @Test
+    @DisplayName("A user with no reset token reports absence instead of somebody else's token")
+    void shouldReportNoResetTokenForUserWithoutOne() {
+        // Given - two clients, only one of whom asked for a reset
+        User withToken = fixtures.client("z-tokenem@photodrive.dev");
+        User withoutToken = fixtures.client("bez-tokenu@photodrive.dev");
+        Instant created = Instant.now();
+        inTransaction(() -> passwordTokenRepository.save(
+                PasswordToken.create(UUID.randomUUID(), created.plus(15, ChronoUnit.MINUTES), created, withToken)));
+
+        // When / Then - a query missing its WHERE would hand the second client the first one's token
+        assertThat(inTransaction(() -> passwordTokenRepository.findByUserId(withoutToken.getId()))).isEmpty();
+        assertThat(inTransaction(() -> passwordTokenRepository.existsByUserId(withoutToken.getId()))).isFalse();
+        assertThat(inTransaction(() -> passwordTokenRepository.existsByUserId(withToken.getId()))).isTrue();
+    }
+
+    @Test
+    @DisplayName("Deleting a used token really removes the row, so the same authorization code cannot be replayed")
+    void shouldDeleteUsedResetToken() {
+        // Given
+        User client = fixtures.client("zuzyty@photodrive.dev");
+        Instant created = Instant.now();
+        PasswordToken saved = inTransaction(() -> passwordTokenRepository.save(
+                PasswordToken.create(UUID.randomUUID(), created.plus(15, ChronoUnit.MINUTES), created, client)));
+
+        // When - this is what runs after a successful password change
+        inTransaction(() -> {
+            passwordTokenRepository.delete(saved);
+            return null;
+        });
+
+        // Then - a delete keyed on the wrong column would leave the code usable forever
+        assertThat(inTransaction(() -> passwordTokenRepository.findByUserId(client.getId()))).isEmpty();
     }
 
     /**

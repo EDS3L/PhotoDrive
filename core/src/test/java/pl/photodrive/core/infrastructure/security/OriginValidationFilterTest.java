@@ -125,4 +125,80 @@ class OriginValidationFilterTest {
         // Then
         assertThat(response.getStatus()).isEqualTo(200);
     }
+
+    @Test
+    @DisplayName("A malformed Origin is rejected rather than treated as a missing one, so garbage in the header is not a way around the check")
+    void shouldRejectMalformedOriginInsteadOfTreatingItAsAbsent() throws Exception {
+        // Given - an Origin that cannot be parsed into scheme + host
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("Origin", "not-a-valid-origin");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Then - the "no headers at all" branch exists for non-browser clients; falling into
+        // it on unparsable input would turn a bad Origin into a free pass
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("Referer stands in when Origin is absent, so a browser that sends only Referer is still checked")
+    void shouldFallBackToRefererWhenOriginMissing() throws Exception {
+        // Given - no Origin, but a Referer pointing at a foreign site
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/album/admin/create");
+        request.addHeader("Referer", "https://zly-serwis.example/atak.html");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Then
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("Referer from the real front end passes, because the fallback compares origins and not whole URLs")
+    void shouldAllowRefererFromConfiguredOrigin() throws Exception {
+        // Given - a Referer carries the full page URL, not a bare origin
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/album/admin/create");
+        request.addHeader("Referer", "https://photodrive.dev/admin/albums?tab=portfolio");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Then - comparing the raw string would reject every real request from the app
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("Origin matching ignores letter case, so an upper-case host from the browser is not read as a foreign site")
+    void shouldMatchOriginCaseInsensitively() throws Exception {
+        // Given
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("Origin", "HTTPS://PhotoDrive.DEV");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Then
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("The localhost gate covers http and https only, so a non-web scheme pointing at localhost is not trusted even in development")
+    void shouldNotTrustNonHttpSchemeOnLocalhost() throws Exception {
+        // Given - dev configuration, where plain http://localhost WOULD be accepted
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("Origin", "ftp://localhost:5173");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Then - the gate is for the local front end, not for anything that merely says "localhost"
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
 }

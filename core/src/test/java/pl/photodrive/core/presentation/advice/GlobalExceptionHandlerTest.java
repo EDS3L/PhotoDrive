@@ -8,10 +8,13 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
+import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
+import pl.photodrive.core.application.exception.StorageOperationException;
 import pl.photodrive.core.domain.exception.*;
 import pl.photodrive.core.infrastructure.exception.ExpiredTokenException;
 import pl.photodrive.core.infrastructure.exception.InvalidTokenException;
+import pl.photodrive.core.infrastructure.exception.StorageException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -144,6 +147,52 @@ class GlobalExceptionHandlerTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody().errorCode()).isEqualTo("INTERNAL_ERROR");
+    }
+
+    @Test
+    @DisplayName("Storage failure is reported as 503 and its message is replaced, so server paths and stack details never reach the client")
+    void shouldMapStorageExceptionTo503WithoutLeakingDetails() {
+        // Given - a storage error whose message carries an absolute server path
+        var ex = new StorageException("Failed to save file: /app/photodrive/foto@studio.pl/sesja/IMG_1.jpg");
+
+        // When
+        var response = handler.storageException(ex, request);
+
+        // Then - 503 says "try again later" rather than "you sent bad data"; the original
+        // message must NOT be echoed, because it describes the server's filesystem
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().errorCode()).isEqualTo("STORAGE_ERROR");
+        assertThat(response.getBody().message()).isEqualTo("Storage operation failed");
+        assertThat(response.getBody().message()).doesNotContain("/app/photodrive");
+    }
+
+    @Test
+    @DisplayName("Failed storage operation during upload is reported as 503, also without echoing the original message")
+    void shouldMapStorageOperationExceptionTo503WithoutLeakingDetails() {
+        // Given
+        var ex = new StorageOperationException("Temporary file not found: /tmp/photodrive-temp/abc-123");
+
+        // When
+        var response = handler.storageOperationException(ex, request);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody().errorCode()).isEqualTo("STORAGE_ERROR");
+        assertThat(response.getBody().message()).doesNotContain("/tmp/photodrive-temp");
+    }
+
+    @Test
+    @DisplayName("A request without an authenticated user is reported as 401, so the front end redirects to login instead of showing a broken screen")
+    void shouldMapAuthenticatedUserExceptionTo401() {
+        // When
+        var response = handler.authenticatedUserException(
+                new AuthenticatedUserException("No authenticated user"), request);
+
+        // Then - the axios interceptor keys the redirect off 401; any other status leaves
+        // the user staring at an error instead of the login form
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody().errorCode()).isEqualTo("AUTHENTICATION_USER_EXCEPTION");
     }
 
     @Test

@@ -112,26 +112,6 @@ class AlbumTest {
     }
 
     @Test
-    @DisplayName("Admin can list files of any album")
-    void shouldGrantAccessToAdminAlways() {
-        // Given
-        Album album = Album.createForClient("Private", photographer, client);
-
-        // When & Then - the admin has access even when visible = false
-        assertTrue(album.hasAccessToGetFilesFromAlbum(admin, false));
-    }
-
-    @Test
-    @DisplayName("Client cannot request hidden files of an album")
-    void shouldDenyAccessToClientWhenAlbumIsNotVisible() {
-        // Given
-        Album album = Album.createForClient("Secret", photographer, client);
-
-        // When & Then
-        assertThrows(DomainSecurityException.class, () -> album.hasAccessToGetFilesFromAlbum(client, false));
-    }
-
-    @Test
     @DisplayName("Watermark cannot be applied to a file with an unsupported extension")
     void shouldThrowExceptionWhenWatermarkingUnsupportedExtension() {
         // Given

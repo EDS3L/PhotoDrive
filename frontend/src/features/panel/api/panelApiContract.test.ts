@@ -25,7 +25,6 @@ import {
 } from './adminApi';
 import {
 	getAllUsers,
-	getActiveUsers,
 	getAllAlbums,
 	getAllAlbumsWithoutTtd,
 } from './adminApi';
@@ -209,14 +208,6 @@ describe('panel API contract', () => {
 		expect(apiClientMock.get).toHaveBeenCalledWith(
 			'/album/allAssignedAlbum/withoutTtd',
 		);
-	});
-
-	it('The active-users list has its own endpoint, because the assign dialog must not offer deactivated accounts', async () => {
-		// When
-		await getActiveUsers();
-
-		// Then
-		expect(apiClientMock.get).toHaveBeenCalledWith('/user/activeUsers');
 	});
 
 	it('A photographer creating an account always sends role CLIENT, because that is the only role they may create', async () => {

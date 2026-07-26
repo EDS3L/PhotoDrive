@@ -42,9 +42,6 @@ public class AlbumController {
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
 
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
-
     //do zmiany na pozniej, wieksza ilosc do uploadu plikow
     @Value("${app.upload.max-total-size-bytes:2097152000}")
     private long maxTotalSizeBytes;
@@ -82,12 +79,6 @@ public class AlbumController {
         return ResponseEntity.ok(albumService.getAlbumFileNames(new AlbumId(albumId)));
     }
 
-    @GetMapping("{albumId}/file/url/all")
-    public ResponseEntity<List<String>> getAllFileUrls(@PathVariable UUID albumId, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height, @RequestParam(required = false) boolean showOnlyVisible) {
-        GetUrlsCommand cmd = new GetUrlsCommand(albumId, baseUrl, width, height, showOnlyVisible);
-        return ResponseEntity.ok().body(albumService.getAllUrlsFromAlbum(cmd));
-    }
-
     @DeleteMapping("/{albumId}/delete")
     public ResponseEntity<Void> deletePhotographAlbum(@PathVariable UUID albumId) {
 
@@ -98,22 +89,27 @@ public class AlbumController {
         return ResponseEntity.noContent().build();
     }
 
+    // Utworzony album wraca w TYM SAMYM kształcie co album z listy (`AlbumDto`).
+    // Wcześniej był to osobny `AlbumResponse` z polem `photographerId` (zamiast
+    // `photographId`) i BEZ `ttd`/`isPublic`/`displayName`/`displayOrder` — front typował
+    // odpowiedź jako `AlbumDto`, więc sięgnięcie po którekolwiek z tych pól dawało
+    // `undefined` bez błędu typu. Jeden kształt = nie ma czego mylić (B.46).
     @PostMapping("/admin/create")
-    public ResponseEntity<AlbumResponse> createAdminAlbum(@Valid @RequestBody CreateAlbumRequest request) {
+    public ResponseEntity<AlbumDto> createAdminAlbum(@Valid @RequestBody CreateAlbumRequest request) {
 
         Album album = albumService.createAdminAlbum(new CreateAlbumCommand(request.name(), null));
 
-        return ResponseEntity.ok(AlbumResponse.fromDomain(album));
+        return ResponseEntity.ok(mapAlbum(album, false));
     }
 
     @PostMapping("/client/{clientId}/create")
-    public ResponseEntity<AlbumResponse> createClientAlbum(@Valid @RequestBody CreateClientAlbumRequest request, @NotNull @PathVariable UUID clientId) {
+    public ResponseEntity<AlbumDto> createClientAlbum(@Valid @RequestBody CreateClientAlbumRequest request, @NotNull @PathVariable UUID clientId) {
 
         CreateAlbumCommand command = new CreateAlbumCommand(request.name(), clientId);
 
         Album album = albumService.createAlbumForClient(command);
 
-        return ResponseEntity.ok(AlbumResponse.fromDomain(album));
+        return ResponseEntity.ok(mapAlbum(album, false));
     }
 
     @PostMapping(path = "upload/{albumId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

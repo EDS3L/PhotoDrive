@@ -77,6 +77,40 @@ class AlbumControllerIT extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("A newly created album comes back in the same shape as an album from the list, so the client never has to know two album formats")
+    void shouldReturnCreatedAlbumInTheSameShapeAsTheListing() throws Exception {
+        // Given
+        User admin = fixtures.admin("admin@photodrive.dev");
+
+        // When
+        MvcResult created = mockMvc.perform(post("/api/album/admin/create")
+                        .cookie(fixtures.authCookie(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"PortfolioSluby"}"""))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Then - the creation response used to be a separate shape whose photographer field was
+        // named `photographerId` and which had no ttd/isPublic/displayName/displayOrder at all;
+        // the front end typed it as the listing shape, so those fields silently read as undefined
+        JsonNode body = json(created);
+        assertThat(body.has("photographId")).isTrue();
+        assertThat(body.has("photographerId")).isFalse();
+        assertThat(body.has("ttd")).isTrue();
+        assertThat(body.has("isPublic")).isTrue();
+        assertThat(body.has("displayName")).isTrue();
+        assertThat(body.has("displayOrder")).isTrue();
+
+        // ...and it really is the same field set the listing returns
+        MvcResult listed = mockMvc.perform(get("/api/album/all").cookie(fixtures.authCookie(admin)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode fromList = json(listed).get(0);
+        assertThat(fieldNames(body)).isEqualTo(fieldNames(fromList));
+    }
+
+    @Test
     @DisplayName("Client cannot create an album, even by calling the endpoint directly")
     void shouldRejectAlbumCreationWhenCallerIsClient() throws Exception {
         // Given
@@ -548,5 +582,13 @@ class AlbumControllerIT extends IntegrationTest {
 
     private JsonNode json(MvcResult result) throws Exception {
         return objectMapper.readTree(result.getResponse().getContentAsByteArray());
+    }
+
+    /** Posortowane nazwy pól obiektu JSON — do porównywania KSZTAŁTU dwóch odpowiedzi. */
+    private List<String> fieldNames(JsonNode node) {
+        List<String> names = new ArrayList<>();
+        node.fieldNames().forEachRemaining(names::add);
+        names.sort(String::compareTo);
+        return names;
     }
 }

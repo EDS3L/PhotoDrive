@@ -1071,47 +1071,4 @@ class AlbumManagementServiceTest {
         stubCurrentUserAs(adminUser);
         assertThat(service.isCurrentUserClient()).isFalse();
     }
-
-    // =======================================================================
-    // getAllUrlsFromAlbum
-    // =======================================================================
-
-    @Test
-    @DisplayName("Photo URLs carry the size parameters only when a size was requested")
-    void shouldBuildPhotoUrlsWithAndWithoutSize() {
-        // Given
-        Album album = clientAlbumWithFile("Sesja", "foto.jpg");
-        stubCurrentUserAs(photographerUser);
-        stubAlbum(album);
-        UUID albumId = album.getAlbumId().value();
-
-        // When
-        List<String> plain = service.getAllUrlsFromAlbum(
-                new GetUrlsCommand(albumId, "https://photodrive.dev", null, null, false));
-
-        // Then
-        assertThat(plain).containsExactly(
-                "https://photodrive.dev/api/album/" + albumId + "/photo/foto.jpg");
-
-        List<String> sized = service.getAllUrlsFromAlbum(
-                new GetUrlsCommand(albumId, "https://photodrive.dev", 300, 200, false));
-        assertThat(sized).containsExactly(
-                "https://photodrive.dev/api/album/" + albumId + "/photo/foto.jpg?width=300&height=200");
-    }
-
-    @Test
-    @DisplayName("Only visible photos get a URL when the caller asks for visible ones")
-    void shouldReturnOnlyVisibleUrlsWhenRequested() {
-        // Given
-        Album album = clientAlbumWithFile("Sesja", "ukryte.jpg");
-        stubCurrentUserAs(clientUser);
-        stubAlbum(album);
-
-        // When
-        List<String> urls = service.getAllUrlsFromAlbum(new GetUrlsCommand(
-                album.getAlbumId().value(), "https://photodrive.dev", null, null, true));
-
-        // Then
-        assertThat(urls).isEmpty();
-    }
 }

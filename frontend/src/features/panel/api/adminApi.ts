@@ -23,11 +23,6 @@ export async function getAllUsers(): Promise<UserInfo[]> {
 	return response.data;
 }
 
-export async function getActiveUsers(): Promise<UserInfo[]> {
-	const response = await apiClient.get<UserInfo[]>('/user/activeUsers');
-	return response.data;
-}
-
 export async function getAllAlbums(): Promise<AlbumDto[]> {
 	const response = await apiClient.get<AlbumDto[]>('/album/all');
 	return response.data;

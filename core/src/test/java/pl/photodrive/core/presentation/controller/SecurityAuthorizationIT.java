@@ -145,7 +145,13 @@ class SecurityAuthorizationIT extends IntegrationTest {
                 // --- sloty strony wizytówki ---
                 // Zarządza tylko admin (upload multipart pokrywa ta sama reguła /api/site/** — jak przy watermarku).
                 endpoint(HttpMethod.GET, "/api/site/slots", Role.ADMIN),
-                endpoint(HttpMethod.DELETE, "/api/site/slots/HOME_HERO", Role.ADMIN)
+                endpoint(HttpMethod.DELETE, "/api/site/slots/HOME_HERO", Role.ADMIN),
+
+                // --- uploady multipart (B.48) ---
+                // Bez ciała multipart żądanie i tak nie dojdzie do logiki, ale bramka roli
+                // działa WCZEŚNIEJ — i to ją sprawdzamy (rola spoza macierzy → 403).
+                endpoint(HttpMethod.PUT, "/api/watermark", Role.ADMIN),
+                endpoint(HttpMethod.PUT, "/api/site/slots/HOME_HERO", Role.ADMIN)
         );
     }
 
@@ -264,6 +270,70 @@ class SecurityAuthorizationIT extends IntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"newFileName":"przejete.jpg"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    // =======================================================================
+    // B.48 — operacje plikowe: brak reguły ról w WebConfig, więc odmowę musi dać domena
+    // =======================================================================
+
+    @Test
+    @DisplayName("A foreign photographer is refused every file operation on someone else's album, so a shared role is not a shared album")
+    void shouldRefuseForeignPhotographerEveryFileOperationWith403() throws Exception {
+        // Given - album należy do `photographer`; pyta inny fotograf (ta sama rola)
+        UUID albumId = createClientAlbum("FileOpsDenialTest");
+        UUID targetId = createClientAlbum("FileOpsTargetTest");
+        Cookie foreign = fixtures.authCookie(fixtures.photographer("obcy2@photodrive.dev"));
+
+        // When / Then - lekkie query nazw plików (zdradza zawartość cudzego albumu)
+        mockMvc.perform(get("/api/album/{albumId}/file-names", albumId).cookie(foreign))
+                .andExpect(status().isForbidden());
+
+        // ...pobranie ZIP-a
+        mockMvc.perform(post("/api/album/{albumId}/download", albumId)
+                        .cookie(foreign)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileList":["foto.jpg"]}"""))
+                .andExpect(status().isForbidden());
+
+        // ...usunięcie zdjęć
+        mockMvc.perform(post("/api/album/{albumId}/remove", albumId)
+                        .cookie(foreign)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileIdList":["%s"]}""".formatted(UNKNOWN_ID)))
+                .andExpect(status().isForbidden());
+
+        // ...oraz swap, który dotyka DWÓCH albumów naraz
+        mockMvc.perform(patch("/api/album/{albumId}/album/{targetId}/swap", albumId, targetId)
+                        .cookie(foreign)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileIdList":["%s"]}""".formatted(UNKNOWN_ID)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("A client is refused file operations on an album that is not his, so reading his own album grants nothing elsewhere")
+    void shouldRefuseForeignClientFileOperationsWith403() throws Exception {
+        // Given - album przypisany do `client`; pyta INNY klient
+        UUID albumId = createClientAlbum("ForeignClientTest");
+        Cookie otherClient = fixtures.authCookie(fixtures.client("obcy-klient@photodrive.dev"));
+
+        // When / Then
+        mockMvc.perform(get("/api/album/{albumId}/file-names", albumId).cookie(otherClient))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/album/{albumId}/download", albumId)
+                        .cookie(otherClient)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileList":["foto.jpg"]}"""))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/album/{albumId}/photo/{fileName}", albumId, "foto.jpg")
+                        .cookie(otherClient))
                 .andExpect(status().isForbidden());
     }
 

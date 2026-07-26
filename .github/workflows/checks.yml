@@ -2,9 +2,10 @@ name: Checks
 
 # Reużywalny zestaw bramek jakości (workflow_call). Definicja testów/lintu żyje
 # w JEDNYM miejscu i jest wołana przez:
-#   - ci.yml      → pełne sprawdzenie gałęzi i PR (backend + frontend zawsze),
-#   - publish.yml → warunkowo, tylko dla tego co się zmieniło (gate deployu).
-# Flagi wejściowe pozwalają odpalić wyłącznie potrzebną część.
+#   - ci.yml      → pełne sprawdzenie gałęzi i PR (backend + frontend),
+#   - publish.yml → gate deployu (od B.44 również backend + frontend, patrz komentarz tam).
+# Flagi wejściowe zostają, bo pozwalają odpalić wyłącznie potrzebną część, ale oba
+# wywołania używają dziś `true`/`true`.
 
 on:
   workflow_call:

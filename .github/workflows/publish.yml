@@ -15,51 +15,36 @@ on:
       - "frontend/package.json"
       - "frontend/nginx.conf"
       - ".github/workflows/**"
+  # Ręczny re-deploy bieżącego `main` bez sztucznego commita — potrzebny, gdy
+  # trzeba odtworzyć obraz (awaria rejestru, ręczna zmiana na VPS, rollback).
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+# B.44: TU BYŁ JOB `changes` (dorny/paths-filter) I WARUNKI `if:` NA BUILDACH.
+# Usunięte świadomie — path-filter liczy różnicę względem POPRZEDNIEGO PUSHA, a nie
+# względem tego, co realnie stoi na produkcji. Przy serii pushy GitHub trzyma w kolejce
+# tylko jeden oczekujący run (`cancel-in-progress: false`), więc push kasuje run
+# oczekujący; jeśli tamten niósł zmianę backendu, następny (np. frontowy) widział
+# `backend=false`, pomijał `build-backend` i deploy wypychał STARY obraz, meldując
+# sukces. Zdarzyło się realnie 25.07 (fix B.43 przez chwilę nie istniał na prodzie).
+# Teraz każdy przebieg testuje i buduje OBA stacki z HEAD-a, więc stan produkcji zawsze
+# odpowiada wierzchołkowi `main`. Koszt jest mały: niezmieniony stack trafia w cache
+# (Gradle/GHA + warstwy Dockera) i wypycha obraz o tym samym digeście.
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'core/src/main/**'
-              - 'core/Dockerfile'
-              - 'core/build.gradle'
-              - 'core/settings.gradle'
-              - 'core/gradle/**'
-              - 'docker-compose.prod.yml'
-            frontend:
-              - 'frontend/src/**'
-              - 'frontend/Dockerfile'
-              - 'frontend/package.json'
-              - 'frontend/nginx.conf'
-
-  # Bramka jakości: odpala testy/lint TYLKO dla tego, co się zmieniło
-  # (wg jobu `changes`). Buildy zależą od tego jobu (`needs: checks`),
-  # więc czerwone testy = brak builda i brak deployu.
+  # Bramka jakości: czerwone testy = brak builda i brak deployu (`needs: checks`).
   checks:
-    needs: changes
     permissions:
       contents: read
     uses: ./.github/workflows/checks.yml
     with:
-      backend: ${{ needs.changes.outputs.backend == 'true' }}
-      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+      backend: true
+      frontend: true
 
   build-backend:
-    needs: [changes, checks]
-    if: needs.changes.outputs.backend == 'true'
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,8 +68,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
   build-frontend:
-    needs: [changes, checks]
-    if: needs.changes.outputs.frontend == 'true'
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,13 +91,11 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+  # Oba buildy są teraz obowiązkowe, więc `needs` wystarcza — zniknął warunek
+  # `always() && ...`, który istniał tylko po to, żeby deploy przeszedł przy
+  # POMINIĘTYM buildzie. To on zamieniał brakujący obraz w „sukces" (B.44).
   deploy:
     needs: [build-backend, build-frontend]
-    if: |
-      always() &&
-      needs.build-backend.result  != 'failure' &&
-      needs.build-frontend.result != 'failure' &&
-      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

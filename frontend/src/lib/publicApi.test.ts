@@ -17,6 +17,9 @@ import {
 	getPublicPhotoUrl,
 	getSiteSlotPhotoUrl,
 	sendContactMessage,
+	getPublicAlbums,
+	getPublicPhotosByAlbumName,
+	getPublicSiteSlots,
 	PUBLIC_PHOTO_SIZE,
 } from './publicApi';
 
@@ -60,6 +63,60 @@ describe('getSiteSlotPhotoUrl', () => {
 		expect(before).not.toBe(after);
 		expect(before).toContain('v=111');
 		expect(after).toContain('v=222');
+	});
+});
+
+describe('public reads (anonymous visitor)', () => {
+	beforeEach(() => {
+		publicClientMock.get.mockReset().mockResolvedValue({ data: [] });
+	});
+
+	it('The portfolio tab list is taken as the backend ordered it, because displayOrder is decided in the panel and not in the browser', async () => {
+		// Given - the backend answers sorted by displayOrder, then by name (8.4)
+		publicClientMock.get.mockResolvedValue({
+			data: [
+				{ albumId: 'a2', name: 'sluby', displayName: 'Śluby', photoCount: 4 },
+				{ albumId: 'a1', name: 'plener', displayName: null, photoCount: 2 },
+			],
+		});
+
+		// When
+		const albums = await getPublicAlbums();
+
+		// Then - re-sorting here (e.g. alphabetically) would silently override the admin's
+		// chosen tab order, and the panel would look broken
+		expect(publicClientMock.get).toHaveBeenCalledWith('/album/all');
+		expect(albums.map((album) => album.albumId)).toEqual(['a2', 'a1']);
+	});
+
+	it('An album is fetched by name with the name encoded, so a tab label with a space or slash cannot break the path', async () => {
+		// Given
+		publicClientMock.get.mockResolvedValue({
+			data: { albumId: 'a1', name: 'sesje plenerowe', photos: [] },
+		});
+
+		// When
+		await getPublicPhotosByAlbumName('sesje plenerowe');
+
+		// Then
+		expect(publicClientMock.get).toHaveBeenCalledWith(
+			'/album/by-name/sesje%20plenerowe',
+		);
+	});
+
+	it('Site slots are read in a single request, so one page load does not fire one request per section', async () => {
+		// Given
+		publicClientMock.get.mockResolvedValue({
+			data: [{ slot: 'HOME_HERO', version: 17 }],
+		});
+
+		// When
+		const slots = await getPublicSiteSlots();
+
+		// Then
+		expect(publicClientMock.get).toHaveBeenCalledTimes(1);
+		expect(publicClientMock.get).toHaveBeenCalledWith('/site/slots');
+		expect(slots).toEqual([{ slot: 'HOME_HERO', version: 17 }]);
 	});
 });
 

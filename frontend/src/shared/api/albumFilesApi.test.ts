@@ -22,6 +22,9 @@ import {
 	downloadAlbum,
 	getPhotoUrl,
 	uploadFiles,
+	getAlbumFileNames,
+	setAlbumTtd,
+	deleteAlbum,
 } from './albumFilesApi';
 
 describe('albumFilesApi (single source for admin/photographer/client, F.2)', () => {
@@ -110,6 +113,37 @@ describe('albumFilesApi (single source for admin/photographer/client, F.2)', () 
 		);
 		// ...and no query at all when no size is requested
 		expect(getPhotoUrl('alb-1', 'a.jpg')).toBe('/api/album/alb-1/photo/a.jpg');
+	});
+
+	it('Collision detection asks for names only, so opening the upload dialog does not pull whole album metadata', async () => {
+		// Given
+		apiClientMock.get.mockResolvedValue({ data: ['foto.jpg', 'foto_1.jpg'] });
+
+		// When
+		const names = await getAlbumFileNames('alb-1');
+
+		// Then - this lightweight query is what feeds the rename/skip dialog (B.28)
+		expect(apiClientMock.get).toHaveBeenCalledWith('/album/alb-1/file-names');
+		expect(names).toEqual(['foto.jpg', 'foto_1.jpg']);
+	});
+
+	it('A TTD is sent in the body under the name the backend reads', async () => {
+		// When
+		await setAlbumTtd('alb-1', '2026-12-01');
+
+		// Then
+		expect(apiClientMock.patch).toHaveBeenCalledWith('/album/alb-1/setTtd', {
+			ttd: '2026-12-01',
+		});
+	});
+
+	it('Deleting an album uses DELETE on its own path, so it cannot be confused with removing files from it', async () => {
+		// When
+		await deleteAlbum('alb-1');
+
+		// Then - `/remove` (POST) drops selected photos, `/delete` drops the album itself
+		expect(apiClientMock.delete).toHaveBeenCalledWith('/album/alb-1/delete');
+		expect(apiClientMock.post).not.toHaveBeenCalled();
 	});
 
 	it('uploads as multipart and reports progress as a whole percentage', async () => {

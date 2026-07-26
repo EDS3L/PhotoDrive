@@ -23,6 +23,26 @@ import {
 	deactivateUser,
 	createUser,
 } from './adminApi';
+import {
+	getAllUsers,
+	getActiveUsers,
+	getAllAlbums,
+	getAllAlbumsWithoutTtd,
+} from './adminApi';
+import {
+	getAssignedClients,
+	getAssignedAlbums,
+	getAssignedAlbumsWithoutTtd,
+	createClient,
+	createClientAlbum,
+} from './photographerApi';
+import {
+	panelLogin,
+	panelLogout,
+	getMe,
+	changePassword,
+	changeEmail,
+} from './panelAuthApi';
 import { uploadWatermark, getWatermarkImageUrl } from './watermarkApi';
 import { uploadSiteSlotImage, getSiteSlotPreviewUrl } from './siteSlotsApi';
 
@@ -158,6 +178,119 @@ describe('panel API contract', () => {
 		const [url, body] = apiClientMock.put.mock.calls[0];
 		expect(url).toBe('/site/slots/ABOUT_BIO');
 		expect((body as FormData).get('file')).toBe(photo);
+	});
+
+	// -----------------------------------------------------------------------
+	// Listy: admin czyta wszystko, fotograf tylko swoje
+	// -----------------------------------------------------------------------
+
+	it('The admin reads every user and every album, while the photographer reads only what is assigned to them', async () => {
+		// When
+		await getAllUsers();
+		await getAllAlbums();
+		await getAssignedClients();
+		await getAssignedAlbums();
+
+		// Then - mixing these up is not a type error but a privilege leak: the photographer's
+		// screen would ask for the full list and answer 403 instead of showing their clients
+		expect(apiClientMock.get).toHaveBeenCalledWith('/user/all');
+		expect(apiClientMock.get).toHaveBeenCalledWith('/album/all');
+		expect(apiClientMock.get).toHaveBeenCalledWith('/user/getAssignedUsers');
+		expect(apiClientMock.get).toHaveBeenCalledWith('/album/getAllAssignedAlbums');
+	});
+
+	it('The "without TTD" reminder lists are separate endpoints per role, so each sees only albums it may set a TTD on', async () => {
+		// When
+		await getAllAlbumsWithoutTtd();
+		await getAssignedAlbumsWithoutTtd();
+
+		// Then
+		expect(apiClientMock.get).toHaveBeenCalledWith('/album/all/withoutTtd');
+		expect(apiClientMock.get).toHaveBeenCalledWith(
+			'/album/allAssignedAlbum/withoutTtd',
+		);
+	});
+
+	it('The active-users list has its own endpoint, because the assign dialog must not offer deactivated accounts', async () => {
+		// When
+		await getActiveUsers();
+
+		// Then
+		expect(apiClientMock.get).toHaveBeenCalledWith('/user/activeUsers');
+	});
+
+	it('A photographer creating an account always sends role CLIENT, because that is the only role they may create', async () => {
+		// When - the form collects a name and an e-mail, never a role
+		await createClient({ name: 'Klient', email: 'klient@example.com' });
+
+		// Then - the backend enforces this too, but sending anything else would turn a
+		// clear form into a 400 the photographer cannot explain
+		expect(apiClientMock.post).toHaveBeenCalledWith('/user/add', {
+			name: 'Klient',
+			email: 'klient@example.com',
+			role: 'CLIENT',
+		});
+		const body = apiClientMock.post.mock.calls[0][1] as Record<string, unknown>;
+		expect(body).not.toHaveProperty('password');
+	});
+
+	it("A client album is created under its client's id, so it can never land in the portfolio by accident", async () => {
+		// When
+		await createClientAlbum('klient-1', 'sesja-lipiec');
+
+		// Then - the admin route (/album/admin/create) is the publishable one; a client
+		// album must go through the client path
+		expect(apiClientMock.post).toHaveBeenCalledWith('/album/client/klient-1/create', {
+			name: 'sesja-lipiec',
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Sesja panelu i dane konta
+	// -----------------------------------------------------------------------
+
+	it('Panel login and logout use the shared auth endpoints, because the session cookie is the same one the client zone uses', async () => {
+		// When
+		await panelLogin({ email: 'admin@photodrive.pl', password: 'tajne' });
+		await panelLogout();
+
+		// Then
+		expect(apiClientMock.post).toHaveBeenCalledWith('/auth/login', {
+			email: 'admin@photodrive.pl',
+			password: 'tajne',
+		});
+		expect(apiClientMock.post).toHaveBeenCalledWith('/auth/logout');
+	});
+
+	it('The panel identity probe is NOT silent, so an expired cookie sends the user to the login screen', async () => {
+		// When
+		await getMe();
+
+		// Then - unlike the client zone probe, no skipAuthRedirect flag: in the panel a 401
+		// must trigger the interceptor redirect rather than render an empty panel
+		expect(apiClientMock.get).toHaveBeenCalledWith('/user/me');
+		expect(apiClientMock.get.mock.calls[0]).toHaveLength(1);
+	});
+
+	it('Changing a password sends the current one alongside the new one, which is what proves it is the owner asking', async () => {
+		// When
+		await changePassword('user-1', 'stare', 'nowe');
+
+		// Then
+		expect(apiClientMock.patch).toHaveBeenCalledWith('/user/user-1/changePassword', {
+			currentPassword: 'stare',
+			newPassword: 'nowe',
+		});
+	});
+
+	it('Changing an e-mail targets its own endpoint, so it cannot be mistaken for a password change', async () => {
+		// When
+		await changeEmail('user-1', 'nowy@example.com');
+
+		// Then
+		expect(apiClientMock.patch).toHaveBeenCalledWith('/user/user-1/changeEmail', {
+			newEmail: 'nowy@example.com',
+		});
 	});
 
 	// -----------------------------------------------------------------------

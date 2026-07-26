@@ -43,6 +43,19 @@ export default defineConfig({
 				'src/**/types/**',
 				'src/vite-env.d.ts',
 			],
+			// Próg 70% — ta sama liczba co bramka backendu (JaCoCo), żeby w całym repo
+			// obowiązywało jedno minimum. Realne pokrycie to 77/73/72/78 (stmts/branch/
+			// funcs/lines), więc zwykły refaktor nie wywali builda, ale wyraźny regres tak.
+			// Najciaśniej jest na funkcjach (72%), bo nietestowane zostają całe moduły
+			// prezentacyjne (AppRoutes, Toast, Navbar, sekcje strony publicznej).
+			// Egzekwuje to `npm run test:coverage` — i to ono, nie `npm run test`, jest
+			// bramką w CI (odpowiednik `gradlew check` vs `gradlew test` po stronie backendu).
+			thresholds: {
+				statements: 70,
+				branches: 70,
+				functions: 70,
+				lines: 70,
+			},
 		},
 	},
 });

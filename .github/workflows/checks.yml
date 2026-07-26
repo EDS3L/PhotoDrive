@@ -69,9 +69,12 @@ jobs:
 
       # Vitest + React Testing Library (jsdom). Czerwony test blokuje deploy tak samo
       # jak czerwony test backendu — inaczej testy frontu byłyby tylko dekoracją.
-      - name: Run tests
+      # Świadomie `test:coverage`, a nie `test`: progi z `vite.config.ts` egzekwuje tylko
+      # przebieg z pokryciem (5.5). Dokładnie ten sam podział co po stronie backendu,
+      # gdzie bramką jest `gradlew check`, a nie `gradlew test`.
+      - name: Run tests + coverage gate
         working-directory: frontend
-        run: npm run test
+        run: npm run test:coverage
 
       - name: Build
         working-directory: frontend

@@ -3,9 +3,11 @@ package pl.photodrive.core.presentation.advice;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
@@ -181,6 +183,40 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiException> missingRequestPartException(MissingServletRequestPartException ex, HttpServletRequest request) {
         ApiException error = new ApiException("MISSING_REQUEST_PART",
                 ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Niesparsowalne ciało żądania (zepsuty JSON, pole złego typu) to błąd KLIENTA — 400.
+     *
+     * <p>Bez tego handlera wyjątek spadał do catch-alla {@code Exception} i wracał jako
+     * <b>500 + log ERROR</b>, czyli literówka użytkownika wyglądała jak awaria serwera
+     * i zaśmiecała logi produkcyjne (B.45). Komunikat jest neutralny — treść wyjątku
+     * Jacksona potrafi zawierać nazwy klas i fragment ciała żądania.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiException> notReadableException(HttpMessageNotReadableException ex,
+                                                             HttpServletRequest request) {
+        log.warn("Malformed request body on {} {}", request.getMethod(), request.getRequestURI());
+        ApiException error = new ApiException("BAD_REQUEST",
+                "Nieprawidłowy format żądania",
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Parametr ścieżki/zapytania złego typu (np. tekst tam, gdzie oczekiwany jest UUID) — 400.
+     * Ta sama historia co wyżej: wcześniej ręcznie zepsuty URL dawał 500 (B.45).
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiException> typeMismatchException(MethodArgumentTypeMismatchException ex,
+                                                              HttpServletRequest request) {
+        log.warn("Bad path/query parameter '{}' on {} {}", ex.getName(), request.getMethod(), request.getRequestURI());
+        ApiException error = new ApiException("BAD_REQUEST",
+                "Nieprawidłowy parametr żądania: " + ex.getName(),
                 Instant.now(),
                 request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);

@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import pl.photodrive.core.application.command.auth.RemindPasswordCommand;
 import pl.photodrive.core.application.dto.AccessToken;
 import pl.photodrive.core.application.exception.LoginFailedException;
@@ -28,6 +29,7 @@ import pl.photodrive.core.presentation.web.cookie.TokenCookieWriter;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +57,21 @@ class AuthControllerTest {
         @MockitoBean
     private TokenCookieWriter tokenCookieWriter;
 
+    private static final AtomicInteger CLIENT_IP = new AtomicInteger();
+
+    /**
+     * Nadaje żądaniu WŁASNY adres IP. {@code RateLimitFilter} jest stanowy i wspólny dla
+     * całej klasy testowej (okno per IP + endpoint), więc bez tego kolejne testy zjadają
+     * sobie nawzajem pulę prób i któryś dostaje 429 zamiast sprawdzanej odpowiedzi —
+     * a który, zależy od kolejności wykonania.
+     */
+    private static RequestPostProcessor freshClientIp() {
+        return request -> {
+            request.setRemoteAddr("10.0.0." + CLIENT_IP.incrementAndGet());
+            return request;
+        };
+    }
+
     // -----------------------------------------------------------------------
     // POST /api/auth/login
     // -----------------------------------------------------------------------
@@ -72,6 +89,7 @@ class AuthControllerTest {
 
         // When / Then
         mockMvc.perform(post("/api/auth/login")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -88,6 +106,7 @@ class AuthControllerTest {
 
         // When / Then
         mockMvc.perform(post("/api/auth/login")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnauthorized());
@@ -100,6 +119,7 @@ class AuthControllerTest {
         String body = objectMapper.writeValueAsString(Map.of("email", "", "password", ""));
 
         mockMvc.perform(post("/api/auth/login")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -117,7 +137,7 @@ class AuthControllerTest {
                 .willReturn(ResponseCookie.from("pd_at", "").maxAge(0).build());
 
         // When / Then
-        mockMvc.perform(post("/api/auth/logout"))
+        mockMvc.perform(post("/api/auth/logout").with(freshClientIp()))
                 .andExpect(status().isOk());
     }
 
@@ -129,12 +149,13 @@ class AuthControllerTest {
     @DisplayName("Password reset forwards e-mail, authorization code and new password each into its own field, so none of the three can be silently swapped")
     void shouldForwardResetFieldsIntoTheirOwnCommandFields() throws Exception {
         // Given - three values distinct enough that any swap shows up in the assertion
-        UUID code = UUID.randomUUID();
+        String code = UUID.randomUUID().toString();
         String body = objectMapper.writeValueAsString(
                 new RemindPasswordRequest("klient@example.com", code, "NoweHaslo123!"));
 
         // When
         mockMvc.perform(post("/api/auth/remindPassword")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk());
@@ -156,13 +177,33 @@ class AuthControllerTest {
                 .given(authManagerService).remindPassword(any());
 
         String body = objectMapper.writeValueAsString(
-                new RemindPasswordRequest("klient@example.com", UUID.randomUUID(), "NoweHaslo123!"));
+                new RemindPasswordRequest("klient@example.com", UUID.randomUUID().toString(), "NoweHaslo123!"));
 
         // When / Then - 400 for all four cases is what closes account enumeration (B.14)
         mockMvc.perform(post("/api/auth/remindPassword")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("A mistyped authorization code reaches the service instead of failing on deserialization, so the answer is a plain 400 and not a server error")
+    void shouldPassMalformedResetCodeToTheServiceInsteadOfFailingToDeserialize() throws Exception {
+        // Given - the code is a UUID in the e-mail, but the user retypes it by hand
+        willThrow(new PasswordTokenException("Nieprawidłowy lub wygasły kod autoryzacji."))
+                .given(authManagerService).remindPassword(any());
+        String body = objectMapper.writeValueAsString(
+                new RemindPasswordRequest("klient@example.com", "nie-jest-uuid", "NoweHaslo123!"));
+
+        // When / Then - with a UUID-typed field this answered 500 from Jackson, i.e. a typo
+        // looked like a server failure and gave a different message than a wrong code (B.45)
+        mockMvc.perform(post("/api/auth/remindPassword")
+                        .with(freshClientIp())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+        then(authManagerService).should().remindPassword(any());
     }
 
     @Test
@@ -174,6 +215,7 @@ class AuthControllerTest {
 
         // When / Then
         mockMvc.perform(post("/api/auth/remindPassword")
+                        .with(freshClientIp())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -189,7 +231,7 @@ class AuthControllerTest {
     @DisplayName("Requesting an authorization code returns 200")
     void shouldReturn200WhenCreatingPasswordToken() throws Exception {
         // When / Then
-        mockMvc.perform(post("/api/auth/create/passwordToken/user@example.com"))
+        mockMvc.perform(post("/api/auth/create/passwordToken/user@example.com").with(freshClientIp()))
                 .andExpect(status().isOk());
     }
 
@@ -197,7 +239,7 @@ class AuthControllerTest {
     @DisplayName("Unknown email also returns 200, so accounts cannot be enumerated")
     void shouldReturn200WhenUserNotFoundForPasswordTokenToAvoidEnumeration() throws Exception {
         // When / Then
-        mockMvc.perform(post("/api/auth/create/passwordToken/unknown@example.com"))
+        mockMvc.perform(post("/api/auth/create/passwordToken/unknown@example.com").with(freshClientIp()))
                 .andExpect(status().isOk());
 
         then(tokenManagementService).should().createToken("unknown@example.com");

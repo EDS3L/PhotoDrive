@@ -176,7 +176,7 @@ class AuthManagerServiceTest {
         given(passwordHasher.encode(any())).willReturn("hashed_NewPass9!");
         given(userRepository.save(any())).willReturn(photographer);
 
-        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", tokenUUID, "NewPass9!");
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", tokenUUID.toString(), "NewPass9!");
 
         // When / Then
         assertThatCode(() -> service.remindPassword(cmd)).doesNotThrowAnyException();
@@ -191,7 +191,7 @@ class AuthManagerServiceTest {
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordTokenRepository.findByUserId(any())).willReturn(Optional.empty());
 
-        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", UUID.randomUUID(), "NewPass9!");
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", UUID.randomUUID().toString(), "NewPass9!");
 
         // When / Then - a generic message that does not reveal the token state (anti-enumeration)
         assertThatThrownBy(() -> service.remindPassword(cmd))
@@ -205,7 +205,7 @@ class AuthManagerServiceTest {
         // Given - an unknown email (no such account)
         given(userRepository.findByEmail(any())).willReturn(Optional.empty());
 
-        RemindPasswordCommand cmd = new RemindPasswordCommand("ghost@photodrive.pl", UUID.randomUUID(), "NewPass9!");
+        RemindPasswordCommand cmd = new RemindPasswordCommand("ghost@photodrive.pl", UUID.randomUUID().toString(), "NewPass9!");
 
         // When / Then - EXACTLY the same response as for a known email without a token,
         // so an attacker cannot tell an existing account from a missing one.
@@ -228,7 +228,7 @@ class AuthManagerServiceTest {
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordTokenRepository.findByUserId(any())).willReturn(Optional.of(expiredToken));
 
-        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", tokenUUID, "NewPass9!");
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", tokenUUID.toString(), "NewPass9!");
 
         // When / Then
         assertThatThrownBy(() -> service.remindPassword(cmd))
@@ -252,11 +252,55 @@ class AuthManagerServiceTest {
         given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
         given(passwordTokenRepository.findByUserId(any())).willReturn(Optional.of(passwordToken));
 
-        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", wrongToken, "NewPass9!");
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", wrongToken.toString(), "NewPass9!");
 
         // When / Then - a generic message (anti-enumeration)
         assertThatThrownBy(() -> service.remindPassword(cmd))
                 .isInstanceOf(PasswordTokenException.class)
                 .hasMessageContaining("Nieprawidłowy lub wygasły");
+    }
+
+    @Test
+    @DisplayName("A mistyped authorization code is rejected exactly like a wrong one, so a typo cannot be told apart from a bad code")
+    void shouldRejectMalformedResetCodeLikeAWrongOne() {
+        // Given - text that is not a UUID at all (user retyped the code from the e-mail)
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl", "nie-jest-uuid", "NewPass9!");
+
+        // When / Then - same exception and same message as every other reset failure (B.14);
+        // before B.45 this blew up on deserialization and answered 500 instead
+        assertThatThrownBy(() -> service.remindPassword(cmd))
+                .isInstanceOf(PasswordTokenException.class)
+                .hasMessageContaining("Nieprawidłowy lub wygasły");
+
+        // ...and the database is never touched, because such a code cannot match anything
+        then(userRepository).shouldHaveNoInteractions();
+        then(passwordTokenRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Surrounding whitespace in a pasted code is tolerated, because copying from an e-mail often brings a trailing space")
+    void shouldAcceptResetCodePastedWithWhitespace() {
+        // Given
+        UUID tokenUUID = UUID.randomUUID();
+        PasswordToken passwordToken = PasswordToken.create(
+                tokenUUID,
+                Instant.now().plusSeconds(900),
+                Instant.now(),
+                photographer);
+        passwordToken.pullDomainEvents();
+
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(photographer));
+        given(passwordTokenRepository.findByUserId(any())).willReturn(Optional.of(passwordToken));
+        given(passwordHasher.matches(any(), any())).willReturn(false);
+        given(passwordHasher.encode(any())).willReturn("hashed_NewPass9!");
+        given(userRepository.save(any())).willReturn(photographer);
+
+        RemindPasswordCommand cmd = new RemindPasswordCommand("photo@photodrive.pl",
+                "  " + tokenUUID + "  ",
+                "NewPass9!");
+
+        // When / Then
+        assertThatCode(() -> service.remindPassword(cmd)).doesNotThrowAnyException();
+        then(passwordTokenRepository).should().delete(passwordToken);
     }
 }

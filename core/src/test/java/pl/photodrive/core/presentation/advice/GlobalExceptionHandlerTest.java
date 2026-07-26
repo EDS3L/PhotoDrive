@@ -2,11 +2,14 @@ package pl.photodrive.core.presentation.advice;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pl.photodrive.core.application.exception.ApplicationSecurityException;
 import pl.photodrive.core.application.exception.AuthenticatedUserException;
 import pl.photodrive.core.application.exception.LoginFailedException;
@@ -211,5 +214,65 @@ class GlobalExceptionHandlerTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().errorCode()).isEqualTo("VALIDATION_EXCEPTION");
+    }
+
+    @Test
+    @DisplayName("A malformed request body is the client's fault, so it answers 400 and not a server error")
+    void shouldMapUnreadableBodyTo400() {
+        // Given - Jackson cannot deserialize the payload (broken JSON or a field of the wrong type)
+        var ex = new HttpMessageNotReadableException("Cannot deserialize value of type `java.util.UUID`",
+                (org.springframework.http.HttpInputMessage) null);
+
+        // When
+        var response = handler.notReadableException(ex, request);
+
+        // Then - without this handler the exception fell through to the catch-all and became
+        // a 500, so a user's typo looked like an outage (B.45)
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().errorCode()).isEqualTo("BAD_REQUEST");
+    }
+
+    @Test
+    @DisplayName("The parser message never reaches the client, because it quotes internal class names and part of the payload")
+    void shouldNotLeakParserDetailsOnUnreadableBody() {
+        // Given
+        var ex = new HttpMessageNotReadableException(
+                "JSON parse error: Cannot deserialize value of type `pl.photodrive.core.domain.vo.UserId`",
+                (org.springframework.http.HttpInputMessage) null);
+
+        // When
+        var response = handler.notReadableException(ex, request);
+
+        // Then
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).doesNotContain("pl.photodrive");
+        assertThat(response.getBody().message()).doesNotContain("JSON parse error");
+    }
+
+    @Test
+    @DisplayName("A path parameter of the wrong type answers 400 and names the parameter, so the caller can see what to fix")
+    void shouldMapTypeMismatchTo400() throws Exception {
+        // Given - e.g. /api/user/not-a-uuid/assignedUsers
+        MethodParameter parameter = new MethodParameter(
+                GlobalExceptionHandlerTest.class.getDeclaredMethod("sampleHandler", java.util.UUID.class), 0);
+        var ex = new MethodArgumentTypeMismatchException("not-a-uuid",
+                java.util.UUID.class,
+                "id",
+                parameter,
+                new IllegalArgumentException("Invalid UUID string"));
+
+        // When
+        var response = handler.typeMismatchException(ex, request);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).contains("id");
+    }
+
+    /** Cel dla {@link MethodParameter} w teście wyżej - nigdy nie wołany. */
+    @SuppressWarnings("unused")
+    private void sampleHandler(java.util.UUID id) {
     }
 }

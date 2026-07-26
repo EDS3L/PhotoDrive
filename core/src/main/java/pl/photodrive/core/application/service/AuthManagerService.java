@@ -23,6 +23,7 @@ import pl.photodrive.core.domain.vo.Email;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -74,6 +75,9 @@ public class AuthManagerService {
 
     @Transactional
     public void remindPassword(RemindPasswordCommand cmd) {
+        // Zły FORMAT kodu (literówka przy przepisywaniu z maila) musi wyglądać DOKŁADNIE
+        // tak samo jak kod nietrafiony — inaczej odpowiedź odróżnia jedno od drugiego.
+        UUID resetCode = parseResetCode(cmd.token());
         Email email = new Email(cmd.email());
         // Nieznany email zwraca DOKŁADNIE ten sam błąd co niepoprawny token — bez tego
         // różny status (401 vs 406) zdradzałby, czy konto istnieje (enumeracja).
@@ -84,9 +88,9 @@ public class AuthManagerService {
                 .orElseThrow(() -> new PasswordTokenException(INVALID_RESET_TOKEN));
 
         if (token.getExpiration().isBefore(Instant.now())) throw new PasswordTokenException(INVALID_RESET_TOKEN);
-        if (!token.matches(cmd.token())) throw new PasswordTokenException(INVALID_RESET_TOKEN);
+        if (!token.matches(resetCode)) throw new PasswordTokenException(INVALID_RESET_TOKEN);
 
-        user.changePasswordWithToken(cmd.token(), cmd.newPassword(), passwordHasher);
+        user.changePasswordWithToken(resetCode, cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);
 
         passwordTokenRepository.delete(token);
@@ -95,6 +99,21 @@ public class AuthManagerService {
 
         userRepository.save(user);
 
+    }
+
+    /**
+     * Zamienia przepisany kod na UUID, a nieparsowalny tekst na TEN SAM wyjątek co kod błędny.
+     *
+     * <p>To ostatni brakujący element reguły z B.14: nieznany e-mail, brak tokenu, token
+     * wygasły i token nietrafiony dawały już identyczne 400, ale literówka w kodzie wywracała
+     * się na deserializacji Jacksona — czyli 500 i inny komunikat.
+     */
+    private UUID parseResetCode(String rawCode) {
+        try {
+            return UUID.fromString(rawCode.trim());
+        } catch (IllegalArgumentException e) {
+            throw new PasswordTokenException(INVALID_RESET_TOKEN);
+        }
     }
 
     private User getUserByEmail(Email email) {

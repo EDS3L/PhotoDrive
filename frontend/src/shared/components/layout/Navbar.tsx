@@ -34,7 +34,6 @@ export function Navbar() {
 						PHOTODRIVE
 					</Link>
 
-					{/* Desktop nav */}
 					<div className='hidden md:flex items-center gap-8'>
 						{navLinks.map((link) => (
 							<Link
@@ -57,7 +56,6 @@ export function Navbar() {
 						</Link>
 					</div>
 
-					{/* Mobile hamburger */}
 					<button
 						className='md:hidden text-foreground'
 						onClick={() => setMobileOpen(true)}
@@ -68,9 +66,8 @@ export function Navbar() {
 				</nav>
 			</header>
 
-			{/* Mobile overlay */}
 			{mobileOpen && (
-				<div className='fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center'>
+				<div className='fixed inset-0 z-60 bg-background flex flex-col items-center justify-center'>
 					<button
 						className='absolute top-6 right-6 text-foreground'
 						onClick={() => setMobileOpen(false)}

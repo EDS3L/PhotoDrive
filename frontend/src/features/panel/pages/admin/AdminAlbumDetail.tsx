@@ -22,7 +22,6 @@ import {
 } from '../../api/adminApi';
 import type { AlbumDto } from '@/shared/types/api';
 
-/** Album administracyjny (portfolio) — admin jest w nim jednocześnie fotografem i klientem. */
 function isAdminAlbum(album: AlbumDto) {
 	return album.photographId === album.clientId;
 }
@@ -39,7 +38,6 @@ function AlbumTypeField({ album }: { album: AlbumDto }) {
 	);
 }
 
-/** Publikacja w portfolio dotyczy tylko albumów administracyjnych. */
 function AlbumPublicToggle({ album }: { album: AlbumDto }) {
 	const publicMutation = useSetAlbumPublic();
 	if (!isAdminAlbum(album)) return null;
@@ -85,7 +83,6 @@ const config: AlbumDetailConfig = {
 		useSetAlbumTtd,
 		useDownloadAlbum,
 	},
-	// Album administracyjny nie ma klienta, więc TTD go nie dotyczy.
 	canSetTtd: (album) => !isAdminAlbum(album),
 	renderInfoBefore: (album) => <AlbumTypeField album={album} />,
 	renderInfoAfter: (album) => <AlbumPublicToggle album={album} />,

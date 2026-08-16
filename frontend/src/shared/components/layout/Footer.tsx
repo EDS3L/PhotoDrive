@@ -6,7 +6,6 @@ export function Footer() {
 		<footer className='border-t border-border bg-surface'>
 			<div className='max-w-7xl mx-auto px-6 py-16'>
 				<div className='grid grid-cols-1 md:grid-cols-3 gap-12'>
-					{/* Brand */}
 					<div>
 						<Link
 							to='/'
@@ -21,7 +20,6 @@ export function Footer() {
 						</p>
 					</div>
 
-					{/* Navigation */}
 					<div>
 						<h4 className='text-xs uppercase tracking-[0.2em] text-muted mb-4'>
 							Nawigacja
@@ -46,7 +44,6 @@ export function Footer() {
 						</ul>
 					</div>
 
-					{/* Social */}
 					<div>
 						<h4 className='text-xs uppercase tracking-[0.2em] text-muted mb-4'>
 							Social

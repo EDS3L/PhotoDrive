@@ -6,34 +6,19 @@ import { suggestNonCollidingName } from './useSwapWithRename';
 export type CollisionAction = 'rename' | 'skip';
 
 export interface CollisionEntry {
-	/** Stabilny klucz listy (oryginalna nazwa + indeks — nazwy w kolizji mogą się powtarzać). */
 	id: string;
 	file: File;
 	originalName: string;
 	action: CollisionAction;
-	/** Używane, gdy `action === 'rename'`. */
 	newName: string;
 }
 
 interface UseUploadWithCollisionCheckParams {
-	/** Lekkie query: same nazwy plików już w albumie (do wykrycia kolizji). */
 	getFileNames: (albumId: string) => Promise<string[]>;
-	/** Wysyłka jednej paczki (postęp bajtów 0–100). */
 	upload: (files: File[], onProgress: (percent: number) => void) => Promise<void>;
-	/** Po całości (i po błędzie) — np. inwalidacja listy albumów. */
 	onComplete?: () => void;
 }
 
-/**
- * Nakładka na {@link useChunkedUpload} sprawdzająca kolizje nazw PRZED wysyłką.
- * Bez kolizji — od razu upload. Z kolizją — udostępnia edytowalny plan
- * (dla każdego pliku: zmień nazwę albo pomiń), a po zatwierdzeniu wysyła
- * pliki bezkolizyjne + zmienione (nowe `File` z nową nazwą), pomijając wybrane.
- *
- * Uwaga: backend i tak nadaje unikalną nazwę przy kolizji (`makeUniqueFileName`,
- * `foto.jpg`→`foto_1.jpg`) — ten krok daje fotografowi ŚWIADOMOŚĆ i KONTROLĘ
- * zamiast cichego auto-sufiksu.
- */
 export function useUploadWithCollisionCheck({
 	getFileNames,
 	upload,
@@ -58,7 +43,6 @@ export function useUploadWithCollisionCheck({
 					return;
 				}
 
-				// Domyślne propozycje nazw — unikające istniejących i siebie nawzajem.
 				const reserved = new Set(existing);
 				const entries: CollisionEntry[] = colliding.map((file, index) => {
 					const suggested = suggestNonCollidingName(file.name, reserved);
@@ -74,8 +58,6 @@ export function useUploadWithCollisionCheck({
 				setSafeFiles(files.filter((f) => !taken.has(f.name)));
 				setCollisions(entries);
 			} catch {
-				// Nie udało się sprawdzić nazw — wysyłamy mimo to (backend nada unikalną
-				// nazwę, brak utraty danych); lepiej nie blokować uploadu.
 				start(files);
 			} finally {
 				setIsChecking(false);

@@ -47,7 +47,6 @@ export function AlbumList({ onOpenAlbum }: AlbumListProps) {
 				))}
 			</div>
 
-			{/* Help card */}
 			<div className='mt-12 border border-border p-6 flex items-start gap-4 max-w-lg'>
 				<HelpCircle className='w-6 h-6 text-accent shrink-0 mt-0.5' />
 				<div>

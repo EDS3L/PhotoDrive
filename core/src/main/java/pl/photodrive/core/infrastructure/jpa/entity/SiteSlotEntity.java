@@ -5,8 +5,6 @@ import lombok.*;
 
 import java.time.Instant;
 
-// Jeden wiersz = jedno zdjęcie slotu strony wizytówki (klucz = nazwa z enuma SiteSlot).
-// MEDIUMBLOB (16 MB) wystarcza z zapasem: serwis przy uploadzie skaluje do 2560 px i zapisuje JPEG.
 @Entity
 @Table(name = "site_slot")
 @Getter

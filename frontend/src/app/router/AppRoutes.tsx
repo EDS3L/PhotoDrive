@@ -59,17 +59,14 @@ export function AppRoutes() {
 	return (
 		<Suspense fallback={<Loading />}>
 			<Routes>
-				{/* Public pages */}
 				<Route path='/' element={<HomePage />} />
 				<Route path='/portfolio' element={<PortfolioPage />} />
 				<Route path='/o-mnie' element={<AboutPage />} />
 				<Route path='/kontakt' element={<ContactPage />} />
 				<Route path='/strefa-klienta' element={<ClientZonePage />} />
 
-				{/* Panel login */}
 				<Route path='/panel-login' element={<PanelLoginPage />} />
 
-				{/* Admin panel */}
 				<Route element={<PanelLayout requiredRole='ADMIN' />}>
 					<Route path='/admin' element={<AdminDashboard />} />
 					<Route path='/admin/users' element={<AdminUsers />} />
@@ -81,7 +78,6 @@ export function AppRoutes() {
 					<Route path='/admin/settings' element={<AccountPage />} />
 				</Route>
 
-				{/* Photographer panel */}
 				<Route element={<PanelLayout requiredRole='PHOTOGRAPHER' />}>
 					<Route path='/photographer' element={<PhotographerDashboard />} />
 					<Route
@@ -96,7 +92,6 @@ export function AppRoutes() {
 					<Route path='/photographer/account' element={<AccountPage />} />
 				</Route>
 
-				{/*Error route*/}
 				<Route path='*' element={<NotFoundPage />} />
 			</Routes>
 		</Suspense>

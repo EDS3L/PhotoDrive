@@ -33,7 +33,6 @@ public interface AlbumRepository {
 
     List<Album> findAll();
 
-    /** Listing portfolio bez ładowania plików — patrz {@link PublicAlbumSummary}. */
     List<PublicAlbumSummary> findAllPublicSummaries();
 
     Optional<Album> findPublicByName(String name);

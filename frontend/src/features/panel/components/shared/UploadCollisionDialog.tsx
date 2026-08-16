@@ -16,11 +16,6 @@ interface UploadCollisionDialogProps {
 	onCancel: () => void;
 }
 
-/**
- * Modal kolizji nazw przy uploadzie: dla każdego pliku o nazwie już obecnej
- * w albumie fotograf wybiera „Zmień nazwę" (nowa nazwa) albo „Pomiń".
- * Analogiczny do `SwapRenameDialog`, ale z opcją pominięcia pliku.
- */
 export function UploadCollisionDialog({
 	open,
 	collisions,

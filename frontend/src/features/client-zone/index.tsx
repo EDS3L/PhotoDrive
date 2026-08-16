@@ -45,7 +45,6 @@ export default function ClientZonePage() {
 		return <LoginForm />;
 	}
 
-	// Wymuszona zmiana hasła startowego — dopóki flaga ustawiona, nic innego nie pokazujemy.
 	if (mustChangePassword && userId) {
 		return (
 			<ForcePasswordChange
@@ -60,7 +59,6 @@ export default function ClientZonePage() {
 	return (
 		<div className='pt-28 pb-24'>
 			<div className='max-w-7xl mx-auto px-6'>
-				{/* Header */}
 				<div className='flex items-center justify-between mb-12'>
 					<div>
 						<h1 className='font-serif text-4xl md:text-5xl font-light'>
@@ -81,7 +79,6 @@ export default function ClientZonePage() {
 				<AlbumList onOpenAlbum={setSelectedAlbum} />
 			</div>
 
-			{/* Album detail modal */}
 			{selectedAlbum && (
 				<AlbumDetailModal
 					album={selectedAlbum}

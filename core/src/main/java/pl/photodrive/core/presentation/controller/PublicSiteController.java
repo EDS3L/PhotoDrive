@@ -13,7 +13,6 @@ import pl.photodrive.core.presentation.dto.site.PublicSiteSlotDto;
 
 import java.util.List;
 
-/** Odczyt slotów strony wizytówki — bez logowania (strona publiczna). */
 @RestController
 @RequestMapping("/api/public/site")
 @RequiredArgsConstructor
@@ -21,23 +20,16 @@ public class PublicSiteController {
 
     private final SiteSlotManagementService slotService;
 
-    /** Tylko skonfigurowane sloty; sekcja bez wpisu pokazuje swój placeholder. */
     @GetMapping("/slots")
     public ResponseEntity<List<PublicSiteSlotDto>> getSlots() {
         List<PublicSiteSlotDto> slots = slotService.getConfiguredSlots().stream()
                 .map(v -> new PublicSiteSlotDto(v.slot().name(), v.updatedAt().toEpochMilli()))
                 .toList();
-        // Krótki cache jak listingi albumów: podmiana zdjęcia widoczna na stronie w ~pół minuty.
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=30, must-revalidate")
                 .body(slots);
     }
 
-    /**
-     * Sam obraz może być cache'owany agresywnie — URL niesie wersję ({@code ?v=updatedAt}),
-     * więc podmiana zdjęcia zmienia URL i unieważnia cache bez czekania na wygaśnięcie.
-     * (Wzorzec z F.12; parametru {@code v} serwer nie czyta — to wyłącznie cache-buster.)
-     */
     @GetMapping("/photo/{slot}")
     public ResponseEntity<byte[]> getPhoto(@PathVariable("slot") String slot) {
         return slotService.getImage(SiteSlotController.parseSlot(slot))

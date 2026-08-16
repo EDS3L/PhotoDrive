@@ -9,7 +9,6 @@ interface ConfirmDialogProps {
 	message: string;
 	confirmLabel?: string;
 	cancelLabel?: string;
-	/** Akcent „niebezpieczny" (czerwony przycisk) — domyślnie true (akcje usuwania). */
 	danger?: boolean;
 	isPending?: boolean;
 	onConfirm: () => void;

@@ -65,7 +65,6 @@ export default function PhotographerClients() {
 
 	return (
 		<div>
-			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>Moi klienci</h2>
@@ -79,7 +78,6 @@ export default function PhotographerClients() {
 				</Button>
 			</div>
 
-			{/* Search */}
 			<div className='mb-6'>
 				<SearchInput
 					value={search}
@@ -89,7 +87,6 @@ export default function PhotographerClients() {
 				/>
 			</div>
 
-			{/* Clients grid */}
 			{filtered.length === 0 ? (
 				<EmptyState
 					icon={<UserPlus className='w-12 h-12' />}
@@ -111,10 +108,9 @@ export default function PhotographerClients() {
 							albums={albumsByClient.get(client.id) ?? []}
 						/>
 					))}
-					{/* Add card */}
 					<button
 						onClick={() => setAddOpen(true)}
-						className='border-2 border-dashed border-border hover:border-accent/50 transition-colors p-6 flex flex-col items-center justify-center gap-2 min-h-[200px]'
+						className='border-2 border-dashed border-border hover:border-accent/50 transition-colors p-6 flex flex-col items-center justify-center gap-2 min-h-50'
 					>
 						<UserPlus className='w-8 h-8 text-muted' />
 						<span className='text-sm text-muted'>Dodaj klienta</span>
@@ -122,7 +118,6 @@ export default function PhotographerClients() {
 				</div>
 			)}
 
-			{/* Add Client Modal */}
 			<Modal
 				open={addOpen}
 				onClose={() => setAddOpen(false)}
@@ -193,7 +188,6 @@ function ClientCard({
 
 	return (
 		<div className='bg-surface border border-border p-6'>
-			{/* Top */}
 			<div className='flex items-center gap-4 mb-5'>
 				<div className='w-12 h-12 bg-border flex items-center justify-center flex-shrink-0'>
 					<span className='text-sm text-muted'>{initials}</span>
@@ -228,7 +222,6 @@ function ClientCard({
 				</div>
 			</div>
 
-			{/* Album list (max 3) */}
 			{albums.length > 0 && (
 				<div className='space-y-1 mb-4'>
 					{albums.slice(0, 3).map((album) => (
@@ -253,7 +246,6 @@ function ClientCard({
 				<p className='text-xs text-muted mb-4'>Brak albumów</p>
 			)}
 
-			{/* Actions */}
 			<div className='border-t border-border pt-4 flex gap-4'>
 				<Link
 					to='/photographer/albums'

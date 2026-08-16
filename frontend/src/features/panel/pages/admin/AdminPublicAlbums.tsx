@@ -16,11 +16,6 @@ import { toast } from '@/shared/store/toastStore';
 import { albumNameError } from '../../lib/albumName';
 import type { AlbumDto } from '@/shared/types/api';
 
-/**
- * Publiczny album admina = zakładka w portfolio na stronie. Koniec magicznych nazw
- * (`portfolio-sluby`): o tym, co i w jakiej kolejności widzi gość, decydują etykieta
- * i kolejność ustawiane tutaj, nie konwencja nazewnicza.
- */
 export default function AdminPublicAlbums() {
 	const { data: albums, isLoading } = useAdminAlbums();
 	const createMutation = useCreateAdminAlbum();
@@ -33,7 +28,6 @@ export default function AdminPublicAlbums() {
 	const [editLabel, setEditLabel] = useState('');
 	const [editOrder, setEditOrder] = useState('0');
 
-	// Kandydaci na zakładki: wyłącznie albumy admina (fotograf==klient); porządek jak na stronie.
 	const adminAlbums = useMemo(
 		() =>
 			(albums ?? [])
@@ -84,7 +78,6 @@ export default function AdminPublicAlbums() {
 		displayMutation.mutate(
 			{
 				albumId: editing.albumId,
-				// Pusta etykieta = wróć do nazwy technicznej (backend zapisuje null).
 				displayName: editLabel.trim() === '' ? null : editLabel.trim(),
 				displayOrder: Number(editOrder) || 0,
 			},
@@ -101,7 +94,6 @@ export default function AdminPublicAlbums() {
 
 	return (
 		<div>
-			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>Albumy publiczne</h2>
@@ -115,7 +107,6 @@ export default function AdminPublicAlbums() {
 				</Button>
 			</div>
 
-			{/* Info banner */}
 			<div className='bg-accent/5 border border-border p-4 mb-8 flex items-start gap-3'>
 				<Info className='w-5 h-5 text-accent shrink-0 mt-0.5' />
 				<div>
@@ -131,14 +122,12 @@ export default function AdminPublicAlbums() {
 				</div>
 			</div>
 
-			{/* Stats */}
 			<div className='mb-8'>
 				<span className='text-xs text-muted'>
 					{publicCount} albumów publicznych
 				</span>
 			</div>
 
-			{/* Albums */}
 			{adminAlbums.length === 0 ? (
 				<EmptyState
 					icon={<Globe className='w-12 h-12' />}
@@ -201,7 +190,6 @@ export default function AdminPublicAlbums() {
 				</div>
 			)}
 
-			{/* Create modal */}
 			<Modal
 				open={createOpen}
 				onClose={() => setCreateOpen(false)}
@@ -244,7 +232,6 @@ export default function AdminPublicAlbums() {
 				</div>
 			</Modal>
 
-			{/* Display settings modal */}
 			<Modal
 				open={editing !== null}
 				onClose={() => setEditing(null)}

@@ -1,16 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
-/**
- * Wspólna logika zaznaczania zdjęć w gridzie (panel admina i fotografa).
- * Obsługuje: pojedyncze przełączanie, zakres z Shift (od kotwicy do klikniętego)
- * oraz „zaznacz / odznacz wszystkie" w obrębie aktualnie widocznej listy.
- *
- * Kolejność do wyznaczania zakresu podajemy przy kliknięciu (`orderedIds`),
- * bo zależy od aktywnego filtra widoczności — hook nie musi jej znać z góry.
- */
 export function usePhotoSelection() {
 	const [selected, setSelected] = useState<Set<string>>(new Set());
-	// Kotwica zakresu (ostatnio kliknięte zdjęcie) — ref, bo nie wpływa na render.
 	const anchorRef = useRef<string | null>(null);
 
 	const clearSelection = useCallback(() => {
@@ -25,8 +16,6 @@ export function usePhotoSelection() {
 
 	const handleItemClick = useCallback(
 		(id: string, orderedIds: string[], shiftKey: boolean) => {
-			// Kotwicę odczytujemy PRZED setSelected i domykamy w closure — updater
-			// Reacta może być wywołany asynchronicznie, a ref jest już nadpisany.
 			const anchor = anchorRef.current;
 			anchorRef.current = id;
 			setSelected((prev) => {

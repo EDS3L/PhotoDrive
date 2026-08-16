@@ -2,8 +2,6 @@ import { apiClient } from '@/lib/apiClient';
 import type { AlbumDto } from '@/shared/types/api';
 import type { UserInfo } from '../types/panel';
 
-// Wspólne operacje na plikach albumu żyją w jednym miejscu (F.2); tu je tylko re-eksportujemy,
-// żeby konsumenci panelu importowali dalej z `adminApi`.
 export {
 	getAlbumFileNames,
 	setAlbumTtd,
@@ -38,7 +36,6 @@ export async function createUser(data: {
 	email: string;
 	role: string;
 }): Promise<UserInfo> {
-	// Hasło startowe generuje backend i wysyła mailem — nie podajemy go z formularza.
 	const response = await apiClient.post<UserInfo>('/user/add', data);
 	return response.data;
 }
@@ -97,7 +94,6 @@ export async function setAlbumPublic(
 	});
 }
 
-/** Etykieta (Unicode) i kolejność zakładki portfolio; pusta etykieta = wróć do nazwy technicznej. */
 export async function setAlbumDisplay(
 	albumId: string,
 	displayName: string | null,

@@ -2,7 +2,6 @@ import axios from 'axios';
 
 declare module 'axios' {
 	interface AxiosRequestConfig {
-		/** Gdy true — interceptor nie robi redirectu przy 401 (ciche sprawdzenie sesji). */
 		skipAuthRedirect?: boolean;
 	}
 }

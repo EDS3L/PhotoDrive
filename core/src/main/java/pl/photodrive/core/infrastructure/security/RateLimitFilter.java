@@ -18,10 +18,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
-/**
- * Ogranicza liczbę prób na wrażliwych endpointach uwierzytelniania (okno czasowe per IP + endpoint).
- * Chroni przed zgadywaniem hasła, zgadywaniem kodu autoryzacji i zasypywaniem skrzynek mailem resetującym.
- */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -31,7 +27,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String CREATE_TOKEN_PATH = "/api/auth/create/passwordToken/**";
     private static final String CONTACT_PATH = "/api/public/contact";
 
-    /** Powyżej tego rozmiaru mapa jest czyszczona z wygasłych okien — limit zużycia pamięci. */
     private static final int MAX_TRACKED_KEYS = 10_000;
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
@@ -125,10 +120,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Optional.empty();
     }
 
-    /**
-     * Za odwrotnym proxy (Traefik) X-Forwarded-For jest nadpisywany dla ruchu z zewnątrz,
-     * więc pierwszy wpis to realny klient, a nie wartość podstawiona przez atakującego.
-     */
     private String clientIp(HttpServletRequest request) {
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (forwardedFor != null && !forwardedFor.isBlank()) {

@@ -76,8 +76,6 @@ export default function AdminUsers() {
 		);
 	}, [users, assignedClients]);
 
-	// Szukajka w modalu przypisywania (B.10): filtruje po nazwie i e-mailu — przy większej
-	// liczbie klientów lista bez wyszukiwania jest bezużyteczna.
 	const filteredAvailableClients = useMemo(() => {
 		const q = assignSearch.trim().toLowerCase();
 		if (!q) return availableClients;
@@ -87,7 +85,6 @@ export default function AdminUsers() {
 		);
 	}, [availableClients, assignSearch]);
 
-	// New user form
 	const [newName, setNewName] = useState('');
 	const [newEmail, setNewEmail] = useState('');
 	const [newRole, setNewRole] = useState<'PHOTOGRAPHER' | 'CLIENT'>('CLIENT');
@@ -135,7 +132,6 @@ export default function AdminUsers() {
 
 	return (
 		<div>
-			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>Użytkownicy</h2>
@@ -149,7 +145,6 @@ export default function AdminUsers() {
 				</Button>
 			</div>
 
-			{/* Filters */}
 			<div className='bg-surface border border-border p-4 mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center'>
 				<SearchInput
 					value={search}
@@ -195,7 +190,6 @@ export default function AdminUsers() {
 				</span>
 			</div>
 
-			{/* Table */}
 			{filtered.length === 0 ? (
 				<EmptyState
 					icon={<User className='w-12 h-12' />}
@@ -279,7 +273,6 @@ export default function AdminUsers() {
 				</div>
 			)}
 
-			{/* Add User Modal */}
 			<Modal
 				open={addOpen}
 				onClose={() => setAddOpen(false)}
@@ -301,7 +294,6 @@ export default function AdminUsers() {
 						value={newEmail}
 						onChange={(e) => setNewEmail(e.target.value)}
 					/>
-					{/* Role selector */}
 					<div>
 						<p className='text-xs uppercase tracking-widest text-muted mb-3'>
 							Rola
@@ -365,7 +357,6 @@ export default function AdminUsers() {
 				</div>
 			</Modal>
 
-			{/* User Detail Modal */}
 			<Modal
 				open={!!detailUser}
 				onClose={() => setDetailUser(null)}
@@ -496,7 +487,6 @@ export default function AdminUsers() {
 				)}
 			</Modal>
 
-			{/* Assign Clients Modal */}
 			<Modal
 				open={assignOpen}
 				onClose={() => setAssignOpen(false)}

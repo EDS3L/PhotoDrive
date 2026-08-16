@@ -107,7 +107,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 	const sidebarContent = (
 		<>
-			{/* Brand */}
 			<div className='px-6 py-6 border-b border-border'>
 				<NavLink
 					to={role === 'ADMIN' ? '/admin' : '/photographer'}
@@ -120,7 +119,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 				</span>
 			</div>
 
-			{/* Navigation */}
 			<nav className='flex-1 px-3 py-4 space-y-1'>
 				{navItems.map((item) => (
 					<NavLink
@@ -141,7 +139,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 				))}
 			</nav>
 
-			{/* User info */}
 			{user && (
 				<div className='px-6 py-4 border-t border-border'>
 					<p className='text-sm text-foreground truncate'>{user.name}</p>
@@ -156,16 +153,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 	return (
 		<>
-			{/* Desktop sidebar */}
-			<aside className='hidden lg:flex lg:flex-col lg:w-[260px] lg:fixed lg:inset-y-0 lg:left-0 bg-surface border-r border-border z-30'>
+			<aside className='hidden lg:flex lg:flex-col lg:w-65 lg:fixed lg:inset-y-0 lg:left-0 bg-surface border-r border-border z-30'>
 				{sidebarContent}
 			</aside>
 
-			{/* Mobile overlay */}
 			{open && (
 				<div className='fixed inset-0 z-40 lg:hidden'>
 					<div className='absolute inset-0 bg-black/60' onClick={onClose} />
-					<aside className='relative w-[260px] h-full bg-surface border-r border-border flex flex-col'>
+					<aside className='relative w-65 h-full bg-surface border-r border-border flex flex-col'>
 						<button
 							onClick={onClose}
 							className='absolute top-4 right-4 text-muted hover:text-foreground'

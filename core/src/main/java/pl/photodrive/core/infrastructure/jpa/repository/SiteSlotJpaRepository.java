@@ -8,7 +8,6 @@ import java.util.List;
 
 public interface SiteSlotJpaRepository extends JpaRepository<SiteSlotEntity, String> {
 
-    /** Projekcja bez kolumny BLOB — listing wersji jest na gorącej ścieżce strony publicznej. */
     interface SlotVersionView {
         String getSlotKey();
 

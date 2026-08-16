@@ -30,8 +30,6 @@ public class UserEventHandler {
         }
     }
 
-    // Przeniesienie folderu jest operacją plikową spójną z bazą — BEFORE_COMMIT, żeby jej
-    // porażka wycofała zmianę maila (fotograf nie zostaje z rozjazdem folder↔ścieżki w bazie, B.33).
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handlePhotographerEmailChanged(PhotographerEmailChanged event) {
         log.info("Photographer email changed {} -> {}, moving storage folder", event.oldEmail(), event.newEmail());

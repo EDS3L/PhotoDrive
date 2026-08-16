@@ -4,8 +4,6 @@ interface ClientSession {
 	email: string;
 	userId: string;
 	mustChangePassword: boolean;
-	/** Hasło użyte przy logowaniu — trzymane w pamięci tylko po świeżym logowaniu
-	 * (nie po F5), by nie prosić o nie ponownie na ekranie wymuszonej zmiany. */
 	loginPassword?: string;
 }
 
@@ -16,7 +14,6 @@ interface AuthState {
 	mustChangePassword: boolean;
 	loginPassword: string | null;
 	setSession: (session: ClientSession) => void;
-	/** Zmiana hasła zakończona — zdejmujemy flagę i czyścimy hasło z pamięci. */
 	completePasswordChange: () => void;
 	clear: () => void;
 }

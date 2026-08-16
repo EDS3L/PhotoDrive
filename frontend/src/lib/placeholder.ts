@@ -1,7 +1,3 @@
-/**
- * Generate a placeholder image URL using a simple SVG data URI.
- * Replace these with real images later.
- */
 export function placeholder(
 	width: number,
 	height: number,

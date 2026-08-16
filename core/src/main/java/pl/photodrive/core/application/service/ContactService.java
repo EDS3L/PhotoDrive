@@ -6,23 +6,6 @@ import org.springframework.stereotype.Service;
 import pl.photodrive.core.application.command.contact.ContactCommand;
 import pl.photodrive.core.application.port.mail.MailSenderPort;
 
-/**
- * Obsługuje zapytania z publicznego formularza kontaktowego. Nie ma tu agregatu ani zapisu do bazy —
- * to bezstanowy przepływ „wejście → e-mail", więc idzie prosto przez {@link MailSenderPort}, a nie przez
- * zdarzenie domenowe (te są wiązane z fazą transakcji, której tu nie ma).
- *
- * <p>Wysyłane są dwa maile:
- * <ol>
- *   <li><b>Powiadomienie</b> do skrzynki studia (Reply-To = adres gościa, żeby „Odpowiedz" trafiało do niego).
- *       Jego porażka <b>przerywa</b> operację — gość ma wiedzieć, że wiadomość nie dotarła.</li>
- *   <li><b>Potwierdzenie</b> do gościa (Reply-To = studio). Jego porażka jest <b>tolerowana</b> (log) —
- *       skoro powiadomienie doszło, wiadomość jest dostarczona; brak potwierdzenia nie może wywalić żądania.</li>
- * </ol>
- *
- * <p>Wszystkie pola pochodzą od anonima, więc przed wstawieniem do HTML-a maila są escapowane
- * ({@link MailSenderPort#escapeHtml}); treść wiadomości dodatkowo zamienia znaki nowej linii na {@code <br>}
- * <b>po</b> escapowaniu, żeby zachować układ bez otwierania furtki na wstrzyknięcie.
- */
 @Slf4j
 @Service
 public class ContactService {
@@ -53,7 +36,6 @@ public class ContactService {
                 .replace("{{sessionType}}", safeSessionType)
                 .replace("{{message}}", safeMessage);
 
-        // Reply-To = adres gościa (raw, zwalidowany @Email w DTO), żeby odpowiedź studia szła wprost do niego.
         mailSenderPort.send(recipient,
                 "Nowe zapytanie ze strony: " + command.sessionType(),
                 notification,
@@ -62,7 +44,6 @@ public class ContactService {
         sendConfirmation(command, safeName, safeMessage);
     }
 
-    /** Potwierdzenie dla gościa — best-effort: jego porażka nie może cofnąć dostarczonego już powiadomienia. */
     private void sendConfirmation(ContactCommand command, String safeName, String safeMessage) {
         try {
             String confirmation = mailSenderPort.loadResourceAsString(CONFIRMATION_TEMPLATE)

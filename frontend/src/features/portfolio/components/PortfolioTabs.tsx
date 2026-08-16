@@ -11,11 +11,6 @@ interface PortfolioTabsProps {
 	onChange: (albumId: string) => void;
 }
 
-/**
- * Zakładki budowane z publicznych albumów admina (kolejność i etykiety ustawia panel) —
- * żadnych zaszytych kategorii. Ikony celowo zniknęły: kategorii nie znamy z góry,
- * a dobieranie ikon do dowolnych nazw byłoby zgadywaniem.
- */
 export function PortfolioTabs({ tabs, activeId, onChange }: PortfolioTabsProps) {
 	return (
 		<div className='flex justify-center gap-2 overflow-x-auto px-4 pb-2 no-scrollbar'>

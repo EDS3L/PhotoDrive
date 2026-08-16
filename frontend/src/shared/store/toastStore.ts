@@ -27,11 +27,6 @@ export const useToastStore = create<ToastState>((set) => ({
 		set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
 }));
 
-/**
- * Skrót wywoływalny też poza Reactem (np. w globalnym handlerze błędów
- * React Query w `queryClient`). Zustand pozwala czytać/aktualizować store
- * przez `getState()` bez hooka.
- */
 export const toast = {
 	error: (message: string) => useToastStore.getState().addToast(message, 'error'),
 	success: (message: string) =>

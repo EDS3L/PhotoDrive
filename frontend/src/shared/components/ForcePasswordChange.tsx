@@ -6,28 +6,15 @@ import { getApiErrorMessage } from '@/lib/queryClient';
 
 interface ForcePasswordChangeProps {
 	userId: string;
-	/** Wstrzykiwane przez strefę (panel/klient), by komponent nie był zależny od konkretnego modułu API. */
 	changePassword: (
 		userId: string,
 		currentPassword: string,
 		newPassword: string,
 	) => Promise<void>;
-	/** Wywoływane po udanej zmianie — strefa odświeża `/user/me` / czyści flagę i wpuszcza dalej. */
 	onDone: () => void | Promise<void>;
-	/**
-	 * Hasło użyte przy logowaniu (świeże logowanie) — jeśli podane, nie prosimy
-	 * użytkownika o nie ponownie. Przy re-hydracji sesji po F5 nie mamy go w pamięci,
-	 * więc wtedy pole „hasło startowe" jest pokazywane.
-	 */
 	presetCurrentPassword?: string;
 }
 
-/**
- * Obowiązkowy, pełnoekranowy ekran zmiany hasła startowego. Renderowany dopóki
- * `/user/me` zwraca `changePasswordOnNextLogin=true` — użytkownik nie zrobi nic
- * innego, dopóki nie ustawi własnego hasła (bramka przeżywa odświeżenie strony,
- * bo flaga siedzi w bazie).
- */
 export function ForcePasswordChange({
 	userId,
 	changePassword,
@@ -40,7 +27,6 @@ export function ForcePasswordChange({
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
-	// Jeśli mamy hasło z logowania — używamy go i nie prosimy o nie ponownie.
 	const currentPassword = presetCurrentPassword ?? manualCurrent;
 
 	const handleSubmit = async (e: FormEvent) => {

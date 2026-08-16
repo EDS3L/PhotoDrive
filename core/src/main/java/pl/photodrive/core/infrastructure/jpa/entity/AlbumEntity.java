@@ -44,7 +44,6 @@ public class AlbumEntity {
     @Builder.Default
     private boolean isPublic = false;
 
-    // Prezentacja zakładki portfolio; Integer (nie int), bo wiersze sprzed tej kolumny mają NULL.
     @Column(length = 100)
     private String displayName;
     private Integer displayOrder;

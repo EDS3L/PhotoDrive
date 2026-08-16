@@ -12,11 +12,6 @@ import { getSiteSlotPreviewUrl } from '../../api/siteSlotsApi';
 import { toast } from '@/shared/store/toastStore';
 import type { SiteSlotDto } from '@/shared/types/api';
 
-/**
- * Etykiety slotów — jedyne miejsce, w którym front tłumaczy klucz slotu na język
- * człowieka. Slot nieznany tej mapie (świeżo dodany w backendzie) i tak jest
- * wyświetlany, tylko z surowym kluczem — nowa sekcja nie wymaga zmiany panelu.
- */
 const SLOT_LABELS: Record<string, { label: string; hint: string }> = {
 	HOME_HERO: {
 		label: 'Strona główna — tło hero',
@@ -69,7 +64,6 @@ export default function AdminSitePage() {
 
 	const handleFileChange = (files: FileList | null) => {
 		const file = files?.[0];
-		// Zamknięcie okna wyboru pliku nie może zostawić „uzbrojonego" slotu.
 		const slot = pendingSlot;
 		setPendingSlot(null);
 		if (!file || !slot) return;
@@ -82,7 +76,6 @@ export default function AdminSitePage() {
 					),
 			},
 		);
-		// pozwala wgrać ten sam plik ponownie
 		if (fileInputRef.current) fileInputRef.current.value = '';
 	};
 
@@ -109,7 +102,6 @@ export default function AdminSitePage() {
 							key={slot.slot}
 							className='bg-surface border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-4'
 						>
-							{/* Podgląd */}
 							<div className='w-40 h-24 shrink-0 bg-black/40 border border-border flex items-center justify-center overflow-hidden'>
 								{slot.configured && slot.updatedAt ? (
 									<img
@@ -122,7 +114,6 @@ export default function AdminSitePage() {
 								)}
 							</div>
 
-							{/* Opis */}
 							<div className='flex-1 min-w-0'>
 								<p className='font-medium'>{label}</p>
 								{hint && <p className='text-xs text-muted mt-1'>{hint}</p>}
@@ -133,7 +124,6 @@ export default function AdminSitePage() {
 								)}
 							</div>
 
-							{/* Akcje */}
 							<div className='flex items-center gap-2 shrink-0'>
 								<Button
 									size='sm'

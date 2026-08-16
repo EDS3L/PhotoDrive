@@ -6,13 +6,6 @@ interface UploadProgressProps {
 	state: UploadProgressState | null;
 }
 
-/**
- * Pasek postępu uploadu + ostrzeżenie „nie zamykaj karty".
- * Pasek jest DWUFAZOWY: część wysyłki bajtów + część potwierdzonego zapisu na VPS
- * (patrz {@link useChunkedUpload}) — 100% dopiero, gdy wszystkie pliki zapisane.
- * Dopóki upload trwa (faza inna niż `done`) blokujemy zamknięcie/odświeżenie karty
- * natywnym oknem przeglądarki (beforeunload) — przerwany request nic nie zapisze.
- */
 export function UploadProgress({ state }: UploadProgressProps) {
 	const active = state !== null && state.phase !== 'done';
 

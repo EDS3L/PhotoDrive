@@ -1,13 +1,5 @@
 import { apiClient } from '@/lib/apiClient';
 
-/**
- * Wspólne operacje na albumie i jego plikach — JEDNO źródło dla panelu (admin/fotograf)
- * i strefy klienta. Wcześniej te funkcje były przeklejone w trzech modułach API
- * (`adminApi`/`photographerApi`/`clientZoneApi`), co groziło rozjechaniem endpointów (F.2).
- * Moduły feature'owe re-eksportują stąd to, czego potrzebują, więc konsumenci importują
- * dalej ze swoich modułów — a implementacja żyje tylko tutaj.
- */
-
 export async function getAlbumFileNames(albumId: string): Promise<string[]> {
 	const response = await apiClient.get<string[]>(`/album/${albumId}/file-names`);
 	return response.data;

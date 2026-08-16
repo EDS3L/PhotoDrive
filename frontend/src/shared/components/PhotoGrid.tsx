@@ -41,8 +41,8 @@ export function PhotoGridItem({
 }: PhotoGridItemProps) {
 	const aspectClasses = {
 		square: 'aspect-square',
-		portrait: 'aspect-[3/4]',
-		landscape: 'aspect-[4/3]',
+		portrait: 'aspect-3/4',
+		landscape: 'aspect-4/3',
 	};
 
 	return (

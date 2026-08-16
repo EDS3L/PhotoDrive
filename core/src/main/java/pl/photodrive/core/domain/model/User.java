@@ -113,9 +113,6 @@ public class User {
         }
         String previousEmail = this.email.value();
         this.email = email;
-        // Folder fotografa na dysku wywodzi się z maila — musimy go przenieść, inaczej
-        // po zmianie maila wszystkie ścieżki zdjęć celują w nieistniejący katalog (B.33).
-        // Tylko fotograf ma taki folder (klient trzyma się pod folderem fotografa, admin nie ma).
         if (this.roles.contains(Role.PHOTOGRAPHER)) {
             registerEvent(new PhotographerEmailChanged(previousEmail, email.value()));
         }
@@ -167,7 +164,6 @@ public class User {
             throw new UserException("Some of the users listed are not assigned to a photographer!");
         }
 
-        // Defensive copy: assignedUsers may come from Stream.toList() (immutable).
         List<UserId> remaining = new ArrayList<>(this.assignedUsers);
         remaining.removeAll(disconnectedUsers);
         this.assignedUsers = remaining;
@@ -220,9 +216,6 @@ public class User {
     }
 
 
-    // Aktywacja i dezaktywacja kont jest zastrzeżona dla ADMINA — tak jak endpointy
-    // /activateUser i /deactivateUser w WebConfig. Wcześniej domena przepuszczała tu
-    // fotografa, więc jedyną ochroną była warstwa webowa (4.2).
     private void hasAccessToSetActive(User user) {
         if (!user.getRoles().contains(Role.ADMIN)) {
             throw new DomainSecurityException("Only admins can activate or deactivate users");

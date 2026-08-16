@@ -24,22 +24,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Zdjęcia slotów strony wizytówki (hero, sekcje „o mnie" — {@link SiteSlot}). Wgrywa/podmienia
- * wyłącznie ADMIN; czyta strona publiczna bez logowania.
- *
- * <p>Serwer przy uploadzie od razu skaluje zdjęcie do {@link #SLOT_MAX_DIMENSION} po dłuższym
- * boku i zapisuje JPEG. Dzięki temu w bazie NIGDY nie leży oryginał (ten sam powód co cap A9a:
- * strona publiczna nie może być kanałem dystrybucji plików do druku), publiczny endpoint
- * serwuje bajty wprost bez przetwarzania, a re-enkodowanie usuwa przy okazji metadane
- * EXIF (w tym GPS) z pliku prosto z aparatu.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SiteSlotManagementService {
 
-    /** Ten sam limit co publiczne warianty albumów ({@code PUBLIC_MAX_DIMENSION}, A9a). */
     public static final int SLOT_MAX_DIMENSION = 2560;
 
     private static final long MAX_UPLOAD_SIZE_BYTES = 30L * 1024 * 1024;
@@ -81,7 +70,6 @@ public class SiteSlotManagementService {
         try {
             BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(image));
             if (decoded == null) {
-                // ImageIO nie zna formatu (webp/heic/uszkodzony plik) — zwraca null, nie wyjątek.
                 throw new FileException("Unsupported image format — upload a JPG or PNG photo");
             }
             return decoded;
@@ -93,8 +81,6 @@ public class SiteSlotManagementService {
     private static BufferedImage downscale(BufferedImage image, int maxDimension) {
         int longEdge = Math.max(image.getWidth(), image.getHeight());
         if (longEdge <= maxDimension) {
-            // Bez powiększania; redraw i tak jest potrzebny, żeby spłaszczyć ewentualny
-            // kanał alfa (PNG) do RGB — JPEG nie zna przezroczystości.
             return redraw(image, image.getWidth(), image.getHeight());
         }
 
@@ -104,10 +90,6 @@ public class SiteSlotManagementService {
         return scaleTo(image, width, height);
     }
 
-    /**
-     * Skalowanie schodkowe, po połowie na krok — ta sama zasada co w {@code LocalStorageAdapter}:
-     * jeden skok {@code drawImage} próbkuje tylko sąsiedztwo 2×2, więc gubi detale (banding).
-     */
     private static BufferedImage scaleTo(BufferedImage image, int targetWidth, int targetHeight) {
         BufferedImage current = image;
         int width = image.getWidth();
@@ -129,7 +111,6 @@ public class SiteSlotManagementService {
     private static BufferedImage redraw(BufferedImage source, int width, int height) {
         BufferedImage target = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = target.createGraphics();
-        // Białe tło pod ewentualną przezroczystością PNG — default (czarny) wygląda jak błąd.
         g2d.setColor(Color.WHITE);
         g2d.fillRect(0, 0, width, height);
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);

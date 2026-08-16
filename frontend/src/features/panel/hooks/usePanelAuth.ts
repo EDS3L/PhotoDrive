@@ -11,7 +11,6 @@ export function usePanelLogin() {
 	const setLoginPassword = usePanelAuthStore((s) => s.setLoginPassword);
 
 	return useMutation<void, AxiosError, LoginRequest>({
-		// formularz logowania pokazuje błąd inline — pomijamy globalny toast
 		meta: { skipGlobalError: true },
 		mutationFn: async (data) => {
 			await panelLogin(data);
@@ -23,10 +22,7 @@ export function usePanelLogin() {
 				throw new Error('ACCESS_DENIED');
 			}
 			setUser(user);
-			// Zasilamy cache ['panel','me'] danymi z logowania — bez tego PanelLayout
-			// (usePanelMe, staleTime: Infinity) po nawigacji odpalał DRUGI GET /user/me (F.1).
 			queryClient.setQueryData(['panel', 'me'], user);
-			// zachowujemy hasło z logowania na wypadek wymuszonej zmiany (pierwsze logowanie)
 			setLoginPassword(data.password);
 		},
 	});

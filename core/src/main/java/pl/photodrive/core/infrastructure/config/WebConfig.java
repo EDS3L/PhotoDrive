@@ -37,7 +37,6 @@ public class WebConfig {
     @Value("${app.csrf.allowed-origins:https://photodrive.dev}")
     private String allowedOrigins;
 
-    /** Ta sama flaga co w {@link OriginValidationFilter} — na prodzie `false` (`application-prod.yml`). */
     @Value("${app.csrf.allow-localhost-origins:true}")
     private boolean allowLocalhostOrigins;
 
@@ -88,19 +87,13 @@ public class WebConfig {
                         .requestMatchers("/api/user/*/assignUsers").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/removeUsers").hasRole("ADMIN")
                         .requestMatchers("/api/album/*/setPublic").hasRole("ADMIN")
-                        // Etykieta/kolejność zakładki portfolio — para do setPublic (tylko admin).
                         .requestMatchers("/api/album/*/display").hasRole("ADMIN")
-                        // Status watermarku czyta też fotograf (steruje widocznością akcji w UI);
-                        // zarządzanie samym logiem (GET/PUT/DELETE /api/watermark) tylko ADMIN.
                         .requestMatchers("/api/watermark/status").hasAnyRole("ADMIN", "PHOTOGRAPHER")
                         .requestMatchers("/api/watermark", "/api/watermark/**").hasRole("ADMIN")
-                        // Sloty strony wizytówki: zarządza tylko admin; odczyt publiczny żyje pod /api/public/site.
                         .requestMatchers("/api/site/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/*/changePassword").authenticated()
                         .requestMatchers("/api/user/*/changeEmail").authenticated()
                         .requestMatchers("/api/user/me").authenticated()
-                        // Lista klientów należy do fotografa; admin ma osobny endpoint (/{id}/assignedUsers).
-                        // Odmowa pada już na filtrze web (obrona w głąb), a nie dopiero w domenie (A13).
                         .requestMatchers("/api/user/getAssignedUsers").hasRole("PHOTOGRAPHER")
                         .requestMatchers("/api/auth/**", "/api/public/**", "/favicon.ico", "/error").permitAll()
                         .anyRequest().authenticated()
@@ -139,7 +132,6 @@ public class WebConfig {
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
                 .toList());
-        // Localhost jako dozwolony origin tylko poza produkcją — patrz OriginValidationFilter.
         if (allowLocalhostOrigins) {
             configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://localhost"));
         }

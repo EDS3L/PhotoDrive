@@ -2,41 +2,26 @@ import { useCallback, useRef, useState } from 'react';
 import { toast } from '@/shared/store/toastStore';
 import { getApiErrorMessage } from '@/lib/queryClient';
 
-// Upload w paczkach: każda paczka to osobny request, a jego odpowiedź = pliki
-// realnie zapisane na dysku VPS (osobna transakcja + commit po stronie backendu).
-// Dzięki temu pasek postępu odzwierciedla NIE TYLKO wysyłkę bajtów, ale też zapis,
-// a błąd jednej paczki nie gubi wszystkiego (wcześniejsze paczki są już zapisane).
-// Paczka: max liczba plików LUB max sumaryczny rozmiar (co pierwsze). Większe paczki
-// = mniej round-tripów = szybciej (mniej martwego czasu między requestami). Spring
-// zapisuje części multipart na dysk (file-size-threshold=0), więc rozmiar paczki nie
-// obciąża mocno pamięci backendu; główny koszt = sekwencyjna generacja miniatur.
 const MAX_FILES_PER_CHUNK = 20;
 const MAX_BYTES_PER_CHUNK = 100 * 1024 * 1024;
 
-// Podział paska: połowa na transfer bajtów, połowa na potwierdzony zapis na serwerze.
-// 100% osiągane dopiero, gdy WSZYSTKIE bajty wysłane I wszystkie pliki zapisane.
 const UPLOAD_WEIGHT = 0.5;
 const SAVE_WEIGHT = 0.5;
 
 export type UploadPhase = 'uploading' | 'saving' | 'done';
 
 export interface UploadProgressState {
-	/** 0–100, ważona kombinacja wysyłki bajtów i zapisu na serwerze. */
 	percent: number;
-	/** Pliki potwierdzone jako zapisane na dysku VPS. */
 	savedCount: number;
 	totalCount: number;
 	phase: UploadPhase;
 }
 
 interface UseChunkedUploadParams {
-	/** Wysyłka jednej paczki; `onProgress` = postęp bajtów tej paczki (0–100). */
 	upload: (files: File[], onProgress: (percent: number) => void) => Promise<void>;
-	/** Po całości (i po błędzie) — np. inwalidacja listy albumów, by pokazać zapisane pliki. */
 	onComplete?: () => void;
 }
 
-/** Dzieli pliki na paczki: max liczba plików LUB max sumaryczny rozmiar (co pierwsze). */
 function buildChunks(files: File[]): File[][] {
 	const chunks: File[][] = [];
 	let current: File[] = [];
@@ -57,10 +42,6 @@ function buildChunks(files: File[]): File[][] {
 	return chunks;
 }
 
-/**
- * Sekwencyjny upload w paczkach ze stanem postępu dla `UploadProgress`.
- * `start` jest stabilne (refy) — bezpieczne w zależnościach `useCallback`.
- */
 export function useChunkedUpload(params: UseChunkedUploadParams) {
 	const [state, setState] = useState<UploadProgressState | null>(null);
 	const paramsRef = useRef(params);
@@ -79,10 +60,9 @@ export function useChunkedUpload(params: UseChunkedUploadParams) {
 		const total = files.length;
 		const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
 		const chunks = buildChunks(files);
-		let bytesDone = 0; // bajty z w pełni wysłanych paczek
-		let savedFiles = 0; // pliki z potwierdzonych (zapisanych) paczek
+		let bytesDone = 0;
+		let savedFiles = 0;
 
-		// Ważony postęp: udział wysyłki (bajty) + udział zapisu (potwierdzone pliki).
 		const compute = (inflightBytes: number) => {
 			const uploadFraction = (bytesDone + inflightBytes) / totalBytes;
 			const saveFraction = savedFiles / total;
@@ -97,14 +77,12 @@ export function useChunkedUpload(params: UseChunkedUploadParams) {
 				await paramsRef.current.upload(chunkFiles, (bytePct) => {
 					const inflight = (chunkBytes * bytePct) / 100;
 					setState({
-						// <100 aż do potwierdzenia zapisu ostatniej paczki
 						percent: Math.min(99, compute(inflight)),
 						savedCount: savedFiles,
 						totalCount: total,
 						phase: bytePct >= 100 ? 'saving' : 'uploading',
 					});
 				});
-				// Odpowiedź wróciła = ta paczka zapisana na dysku VPS.
 				bytesDone += chunkBytes;
 				savedFiles += chunkFiles.length;
 				const done = savedFiles >= total;
@@ -117,7 +95,6 @@ export function useChunkedUpload(params: UseChunkedUploadParams) {
 			}
 			paramsRef.current.onComplete?.();
 		} catch (error) {
-			// Część paczek mogła się już zapisać — odśwież, by je pokazać, i zgłoś błąd.
 			paramsRef.current.onComplete?.();
 			toast.error(getApiErrorMessage(error));
 		} finally {

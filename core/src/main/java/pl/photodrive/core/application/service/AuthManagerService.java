@@ -39,8 +39,6 @@ public class AuthManagerService {
     @Value("${app.jwt.access-ttl-minutes:60}")
     private long accessTtlMinutes;
 
-    // Jeden generyczny komunikat dla WSZYSTKICH porażek resetu (nieznany email,
-    // brak tokenu, token wygasły, token niezgodny) — anty-enumeracja kont.
     private static final String INVALID_RESET_TOKEN = "Nieprawidłowy lub wygasły kod autoryzacji.";
 
     @Transactional
@@ -58,12 +56,6 @@ public class AuthManagerService {
             throw new LoginFailedException("Invalid credentials!");
         }
 
-        // UWAGA: nie blokujemy logowania przy changePasswordOnNextLogin — użytkownik MUSI móc
-        // się zalogować hasłem startowym. Wymuszenie zmiany niesie sam token: flaga ląduje
-        // w claimie `mcp`, a `JwtAuthenticationFilter` odrzuca 403 każdą ścieżkę poza
-        // `GET /user/me` i `PATCH /user/*/changePassword`, dopóki flaga jest ustawiona (B.20).
-        // Bramka frontu (wg flagi z /user/me) jest tylko warstwą UX NAD tą serwerową.
-
         Duration ttl = Duration.ofMinutes(accessTtlMinutes);
         String jwt = tokenEncoder.createAccessToken(user.getId(),
                 user.getRoles(),
@@ -75,12 +67,8 @@ public class AuthManagerService {
 
     @Transactional
     public void remindPassword(RemindPasswordCommand cmd) {
-        // Zły FORMAT kodu (literówka przy przepisywaniu z maila) musi wyglądać DOKŁADNIE
-        // tak samo jak kod nietrafiony — inaczej odpowiedź odróżnia jedno od drugiego.
         UUID resetCode = parseResetCode(cmd.token());
         Email email = new Email(cmd.email());
-        // Nieznany email zwraca DOKŁADNIE ten sam błąd co niepoprawny token — bez tego
-        // różny status (401 vs 406) zdradzałby, czy konto istnieje (enumeracja).
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new PasswordTokenException(INVALID_RESET_TOKEN));
 
@@ -101,13 +89,6 @@ public class AuthManagerService {
 
     }
 
-    /**
-     * Zamienia przepisany kod na UUID, a nieparsowalny tekst na TEN SAM wyjątek co kod błędny.
-     *
-     * <p>To ostatni brakujący element reguły z B.14: nieznany e-mail, brak tokenu, token
-     * wygasły i token nietrafiony dawały już identyczne 400, ale literówka w kodzie wywracała
-     * się na deserializacji Jacksona — czyli 500 i inny komunikat.
-     */
     private UUID parseResetCode(String rawCode) {
         try {
             return UUID.fromString(rawCode.trim());

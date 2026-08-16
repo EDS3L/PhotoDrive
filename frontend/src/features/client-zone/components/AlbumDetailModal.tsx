@@ -16,7 +16,6 @@ const FOCUSABLE_SELECTOR =
 
 export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 	const [downloading, setDownloading] = useState(false);
-	// Indeks otwartego zdjęcia w lightboxie (null = lightbox zamknięty).
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const visibleFiles = useMemo(
 		() => album.files.filter((file) => file.visible),
@@ -26,16 +25,11 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 	const lightboxRef = useRef<HTMLDivElement>(null);
 	const titleId = useId();
 
-	// onClose bywa nową funkcją przy każdym renderze rodzica — trzymamy w ref,
-	// żeby efekt a11y uruchamiał się tylko przy mount/unmount (modal jest montowany
-	// warunkowo, więc mount = otwarcie, unmount = zamknięcie).
 	const onCloseRef = useRef(onClose);
 	useEffect(() => {
 		onCloseRef.current = onClose;
 	});
 
-	// Mirror bieżących wartości do refów — jeden globalny listener klawiatury (efekt
-	// z [] deps) musi widzieć aktualny stan lightboxa i liczbę zdjęć bez stale-closure.
 	const lightboxIndexRef = useRef<number | null>(lightboxIndex);
 	lightboxIndexRef.current = lightboxIndex;
 	const countRef = useRef(visibleFiles.length);
@@ -50,16 +44,11 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 			i === null ? null : (i + 1) % visibleFiles.length,
 		);
 
-	// A11y: blokada scrolla tła, Escape, strzałki lightboxa, pułapka Tab, focus.
-	// Jeden listener na document obsługuje i modal, i lightbox — dzięki temu Escape
-	// przy otwartym lightboxie zamyka TYLKO lightbox (nie cały modal).
 	useEffect(() => {
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 		const html = document.documentElement;
 		const prevBodyOverflow = document.body.style.overflow;
 		const prevHtmlOverflow = html.style.overflow;
-		// Blokujemy oba (body ORAZ html) — w zależności od układu scrollowany bywa
-		// element root, więc sama blokada body czasem nie wystarcza.
 		document.body.style.overflow = 'hidden';
 		html.style.overflow = 'hidden';
 		const dialog = dialogRef.current;
@@ -83,7 +72,6 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 				return;
 			}
 
-			// Nawigacja strzałkami tylko przy otwartym lightboxie.
 			if (lightboxIndexRef.current !== null) {
 				const count = countRef.current;
 				if (e.key === 'ArrowRight') {
@@ -128,14 +116,10 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 		};
 	}, []);
 
-	// Po otwarciu lightboxa przenosimy do niego focus (dla klawiatury/czytników).
 	useEffect(() => {
 		if (lightboxIndex !== null) lightboxRef.current?.focus();
 	}, [lightboxIndex]);
 
-	// Prefetch oryginałów sąsiadów (następny + poprzedni) — po nawigacji ostra
-	// wersja jest już w cache przeglądarki, więc przewijanie jest płynne. Ograniczone
-	// do 2 zdjęć, żeby nie obciążać słabego VPS-a.
 	useEffect(() => {
 		if (lightboxIndex === null) return;
 		const len = visibleFiles.length;
@@ -175,9 +159,8 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 			aria-modal='true'
 			aria-labelledby={titleId}
 			tabIndex={-1}
-			className='fixed inset-0 z-[70] bg-background/95 overflow-y-auto focus:outline-none'
+			className='fixed inset-0 z-70 bg-background/95 overflow-y-auto focus:outline-none'
 		>
-			{/* Header */}
 			<div className='sticky top-0 bg-surface/95 backdrop-blur-md border-b border-border z-10'>
 				<div className='max-w-7xl mx-auto px-6 py-4 flex items-center justify-between'>
 					<div>
@@ -212,7 +195,6 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 				</div>
 			</div>
 
-			{/* Photo grid */}
 			<div className='max-w-7xl mx-auto px-6 py-8'>
 				<PhotoGrid columns={4}>
 					{visibleFiles.map((file, idx) => (
@@ -225,7 +207,6 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 					))}
 				</PhotoGrid>
 
-				{/* Download all */}
 				<div className='flex justify-end mt-8'>
 					<Button
 						variant='outline'
@@ -243,7 +224,6 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 				</div>
 			</div>
 
-			{/* Lightbox — powiększenie pojedynczego zdjęcia */}
 			{activeFile && (
 				<div
 					ref={lightboxRef}
@@ -251,7 +231,7 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 					role='dialog'
 					aria-modal='true'
 					aria-label={`Podgląd zdjęcia ${(lightboxIndex ?? 0) + 1} z ${visibleFiles.length}`}
-					className='fixed inset-0 z-[80] bg-background/98 flex items-center justify-center focus:outline-none'
+					className='fixed inset-0 z-80 bg-background/98 flex items-center justify-center focus:outline-none'
 					onClick={(e) => {
 						if (e.target === e.currentTarget) setLightboxIndex(null);
 					}}
@@ -306,15 +286,6 @@ export function AlbumDetailModal({ album, onClose }: AlbumDetailModalProps) {
 	);
 }
 
-/**
- * Obraz lightboxa z progresywnym ładowaniem: natychmiast pokazuje miniaturę
- * (zwykle już w cache przeglądarki z gridu), a w tle doczytuje oryginał i podmienia
- * `src`, gdy się załaduje. Dzięki temu otwieranie/nawigacja są natychmiastowe, a
- * ostrość „doskakuje" — bez blokowania na wolnym pobieraniu pełnego pliku.
- *
- * Reset do miniatury przy zmianie zdjęcia realizujemy przez `key` na komponencie
- * (remount inicjalizuje stan `thumbSrc`), zamiast synchronicznego setState w efekcie.
- */
 function LightboxImage({
 	thumbSrc,
 	fullSrc,

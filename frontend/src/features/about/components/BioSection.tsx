@@ -8,8 +8,7 @@ export function BioSection() {
 	return (
 		<section className='max-w-7xl mx-auto px-6 py-24'>
 			<div className='grid grid-cols-1 md:grid-cols-2 gap-12 items-center'>
-				{/* Photo */}
-				<div className='aspect-[3/4] overflow-hidden'>
+				<div className='aspect-3/4 overflow-hidden'>
 					<img
 						src={bioUrl}
 						alt='Fotograf'
@@ -17,7 +16,6 @@ export function BioSection() {
 					/>
 				</div>
 
-				{/* Bio text */}
 				<div>
 					<p className='text-xs uppercase tracking-[0.3em] text-accent mb-4'>
 						O mnie
@@ -37,7 +35,6 @@ export function BioSection() {
 						autentyczność i piękne światło.
 					</p>
 
-					{/* Stats */}
 					<div className='flex gap-12'>
 						<div>
 							<p className='font-serif text-4xl text-foreground'>8+</p>

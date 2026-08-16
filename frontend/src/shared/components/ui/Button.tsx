@@ -25,9 +25,6 @@ const sizeStyles: Record<ButtonSize, string> = {
 export function Button({
 	variant = 'primary',
 	size = 'md',
-	// Domyślnie 'button' — natywny default przycisku to 'submit', więc <Button> bez
-	// jawnego type wewnątrz <form> przypadkowo wysyłał formularz. Realne submity
-	// deklarują type='submit' jawnie i nadpisują ten default.
 	type = 'button',
 	className,
 	children,

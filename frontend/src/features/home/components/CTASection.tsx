@@ -9,7 +9,6 @@ export function CTASection() {
 
 	return (
 		<section className='relative py-24 overflow-hidden'>
-			{/* Background */}
 			<div className='absolute inset-0'>
 				<img
 					src={ctaUrl}

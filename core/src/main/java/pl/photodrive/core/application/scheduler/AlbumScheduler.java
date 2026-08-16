@@ -13,7 +13,6 @@ public class AlbumScheduler {
 
     private final AlbumManagementService albumManagementService;
 
-    //    @Scheduled(fixedDelay = 60000, initialDelay = 30000)
     @Scheduled(cron = "0 0 0 * * *")
     public void scheduledRemoveExpiredAlbums() {
         log.info("Starting scheduled remove expired albums");

@@ -23,14 +23,11 @@ export function Modal({
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const titleId = useId();
 
-	// onClose bywa nową funkcją przy każdym renderze rodzica — trzymamy w ref,
-	// żeby efekt focusu/Escape uruchamiał się tylko przy zmianie `open`.
 	const onCloseRef = useRef(onClose);
 	useEffect(() => {
 		onCloseRef.current = onClose;
 	});
 
-	// Blokada scrolla tła
 	useEffect(() => {
 		if (open) {
 			document.body.style.overflow = 'hidden';
@@ -40,8 +37,6 @@ export function Modal({
 		};
 	}, [open]);
 
-	// Zarządzanie focusem: przeniesienie do dialogu, Escape, pułapka Tab,
-	// przywrócenie focusu na element wyzwalający po zamknięciu.
 	useEffect(() => {
 		if (!open) return;
 

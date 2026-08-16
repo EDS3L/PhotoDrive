@@ -28,7 +28,6 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
     private static final String ISSUER = "CeVeMe";
     private static final String KEY_ID = "key-2025-11";
-    // Claim wymuszonej zmiany hasła (B.20). Krótki, bo leci w każdym żądaniu.
     private static final String MUST_CHANGE_PASSWORD_CLAIM = "mcp";
 
     private final JWSSigner signer;
@@ -83,7 +82,6 @@ public class JwtTokenService implements TokenEncoder, TokenDecoder {
 
             Set<Role> roles = rolesClaim.stream().map(Object::toString).map(Role::valueOf).collect(Collectors.toSet());
 
-            // Brak claimu (tokeny sprzed B.20) traktujemy jako false — nie blokujemy zastanych sesji.
             Boolean mcp = claims.getBooleanClaim(MUST_CHANGE_PASSWORD_CLAIM);
             boolean mustChangePassword = mcp != null && mcp;
 

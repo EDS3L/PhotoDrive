@@ -16,10 +16,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Optional;
 
-/**
- * Zarządzanie JEDNYM globalnym znakiem wodnym platformy (wgrywa/podmienia/usuwa ADMIN).
- * Logo żyje w bazie (singleton) — podmiana/usunięcie czyści cache skomponowanych wersji.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -41,7 +37,6 @@ public class WatermarkManagementService {
     public void uploadWatermark(byte[] image) {
         validateWatermarkImage(image);
         watermarkStore.put(image);
-        // Stary cache = stare logo; klucz i tak zawiera wersję, ale sprzątamy od razu.
         fileStoragePort.clearWatermarkCache();
         log.info("Platform watermark uploaded ({} bytes)", image.length);
     }
@@ -50,7 +45,6 @@ public class WatermarkManagementService {
     public void deleteWatermark() {
         long inUse = fileRepository.countWithWatermark();
         if (inUse > 0) {
-            // Bez tej blokady usunięcie loga po cichu odsłoniłoby chronione zdjęcia.
             throw new AlbumException("Cannot delete watermark: it is applied to " + inUse
                     + " photo(s). Remove the watermark from those photos first.");
         }

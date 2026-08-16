@@ -58,8 +58,6 @@ export function LoginForm() {
 	};
 
 	const openReset = () => {
-		// Zawsze przenosi na ekran resetu; email podpowiadamy z formularza logowania,
-		// jeśli był wpisany (ale NIE jest wymagany, żeby tu wejść).
 		setResetEmail(getValues('email') || '');
 		setResetError(null);
 		setResetEmailSent(false);
@@ -73,7 +71,7 @@ export function LoginForm() {
 		try {
 			await requestPasswordToken(resetEmail);
 		} catch {
-			// cicho — nie zdradzamy, czy konto istnieje (anty-enumeracja)
+			// intentionally silent
 		} finally {
 			setResetPending(false);
 			setResetEmailSent(true);
@@ -103,7 +101,6 @@ export function LoginForm() {
 
 	return (
 		<div className='min-h-screen flex'>
-			{/* Left — photo panel (hidden on mobile) */}
 			<div className='hidden lg:flex lg:w-1/2 relative items-end p-12'>
 				<img
 					src={slots?.CLIENT_LOGIN ?? placeholder(960, 1080, 'Login — portret')}
@@ -119,7 +116,6 @@ export function LoginForm() {
 				</p>
 			</div>
 
-			{/* Right — form */}
 			<div className='flex-1 flex items-center justify-center px-6 py-12 lg:px-16'>
 				<div className='w-full max-w-md'>
 					<p className='text-xs uppercase tracking-[0.3em] text-accent mb-2'>

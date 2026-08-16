@@ -1,8 +1,6 @@
 import { apiClient } from '@/lib/apiClient';
 import type { AlbumDto, LoginRequest } from '@/shared/types/api';
 
-// Współdzielone ze wspólnym modułem plików albumu (F.2) — pobranie ZIP to ta sama operacja
-// co w panelu, tylko pod nazwą `downloadAlbumZip` używaną w strefie klienta.
 export {
 	getPhotoUrl,
 	downloadAlbum as downloadAlbumZip,
@@ -24,7 +22,6 @@ export interface CurrentUser {
 	changePasswordOnNextLogin: boolean;
 }
 
-/** Ciche sprawdzenie sesji z cookie (bez redirectu przy 401). */
 export async function getCurrentUser(): Promise<CurrentUser> {
 	const response = await apiClient.get<CurrentUser>('/user/me', {
 		skipAuthRedirect: true,

@@ -42,7 +42,6 @@ public class AlbumController {
     private final AlbumManagementService albumService;
     private final TemporaryStoragePort temporaryStorageService;
 
-    //do zmiany na pozniej, wieksza ilosc do uploadu plikow
     @Value("${app.upload.max-total-size-bytes:2097152000}")
     private long maxTotalSizeBytes;
 
@@ -73,7 +72,6 @@ public class AlbumController {
                 clientView)).toList());
     }
 
-    // Lekkie query — same nazwy plików (bez pełnych metadanych) do wykrywania kolizji przy swapie.
     @GetMapping("/{albumId}/file-names")
     public ResponseEntity<List<String>> getFileNames(@PathVariable UUID albumId) {
         return ResponseEntity.ok(albumService.getAlbumFileNames(new AlbumId(albumId)));
@@ -89,11 +87,6 @@ public class AlbumController {
         return ResponseEntity.noContent().build();
     }
 
-    // Utworzony album wraca w TYM SAMYM kształcie co album z listy (`AlbumDto`).
-    // Wcześniej był to osobny `AlbumResponse` z polem `photographerId` (zamiast
-    // `photographId`) i BEZ `ttd`/`isPublic`/`displayName`/`displayOrder` — front typował
-    // odpowiedź jako `AlbumDto`, więc sięgnięcie po którekolwiek z tych pól dawało
-    // `undefined` bez błędu typu. Jeden kształt = nie ma czego mylić (B.46).
     @PostMapping("/admin/create")
     public ResponseEntity<AlbumDto> createAdminAlbum(@Valid @RequestBody CreateAlbumRequest request) {
 
@@ -122,8 +115,6 @@ public class AlbumController {
         AddFileToAlbumCommand command = new AddFileToAlbumCommand(albumId, fileUploads);
         List<StoredFile> addedFiles = albumService.addFilesToAlbum(command);
 
-        // Nazwy bierzemy z tego, co zwróciła domena, a NIE z żądania: przy kolizji plik
-        // dostaje sufiks (foto.jpg → foto_1.jpg), więc nazwa z żądania byłaby nieprawdziwa (B.42).
         List<UploadResponseFile> responseFiles = addedFiles.stream()
                 .map(stored -> new UploadResponseFile(stored.fileId().value().toString(),
                         stored.fileName().value()))
@@ -166,6 +157,8 @@ public class AlbumController {
 
     }
 
+    // Nie dodawać Cache-Control/ETag/Last-Modified tutaj — brak nagłówków cache to jedyny
+    // powód, dla którego podmiana watermarku jest widoczna natychmiast.
     @GetMapping("{albumUUID}/photo/{fileName}")
     public ResponseEntity<Resource> getFile(@PathVariable UUID albumUUID, @PathVariable String fileName, @RequestParam(required = false) Integer width, @RequestParam(required = false) Integer height) {
         GetPhotoPathCommand cmd = new GetPhotoPathCommand(albumUUID,
@@ -193,7 +186,6 @@ public class AlbumController {
         return ResponseEntity.ok().build();
     }
 
-    /** Etykieta i kolejność zakładki portfolio na stronie publicznej (tylko albumy admina). */
     @PatchMapping("{albumId}/display")
     public ResponseEntity<Void> changeDisplaySettings(@PathVariable UUID albumId,
                                                       @Valid @RequestBody DisplaySettingsRequest request) {
@@ -268,9 +260,7 @@ public class AlbumController {
     private void uploadFiles(List<MultipartFile> files, List<FileUpload> fileUploads) {
         for (MultipartFile file : files) {
             try {
-                // Część multipart, która przekroczyła próg pamięci, leży na dysku — jej strumień
-                // to realny deskryptor. Spring sprząta same części po żądaniu, ale NIE zamyka
-                // strumieni, które otworzyliśmy my (a `saveTemporary` też nie zamyka źródła).
+                // Spring nie zamyka strumieni części multipart, które otworzyliśmy sami.
                 String tempId;
                 try (InputStream partData = file.getInputStream()) {
                     tempId = temporaryStorageService.saveTemporary(partData);

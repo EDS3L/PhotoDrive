@@ -5,8 +5,6 @@ interface PanelAuthState {
 	isAuthenticated: boolean;
 	user: CurrentUserInfo | null;
 	role: PanelRole | null;
-	/** Hasło użyte przy logowaniu — w pamięci, tylko po świeżym logowaniu, by nie
-	 * prosić o nie ponownie na ekranie wymuszonej zmiany hasła. */
 	loginPassword: string | null;
 	setUser: (user: CurrentUserInfo) => void;
 	setLoginPassword: (password: string | null) => void;

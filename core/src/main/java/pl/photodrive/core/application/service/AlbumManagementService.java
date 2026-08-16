@@ -80,11 +80,6 @@ public class AlbumManagementService {
     @Value("${ORG_MAX_SIZE}")
     private long orgMaxSize;
 
-    /**
-     * Twardy limit dłuższego boku zdjęcia serwowanego BEZ logowania (A9). Gość ogląda portfolio
-     * w dobrej jakości, ale nie pobierze pliku do druku — oryginał (6000+ px) nigdy nie opuszcza
-     * serwera przez publiczny endpoint.
-     */
     public static final int PUBLIC_MAX_DIMENSION = 2560;
 
     @Transactional
@@ -166,8 +161,6 @@ public class AlbumManagementService {
         publishDomainEvents(results);
 
 
-        // Nazwa bierze się z pliku PO przejściu przez domenę, więc niesie ewentualny
-        // sufiks kolizji — kontroler nie ma już czego parować z nazwą z żądania.
         return results.stream()
                 .map(r -> new StoredFile(r.file().getFileId(), r.file().getFileName()))
                 .toList();
@@ -196,8 +189,6 @@ public class AlbumManagementService {
 
         List<String> existingFileNames = files.stream().map(f -> f.getFileName().value()).toList();
 
-        // Klient pobiera watermarkowane wersje plików oznaczonych (nigdy czystego oryginału);
-        // właściciel (admin/fotograf) dostaje czyste oryginały.
         Map<String, String> watermarkCacheKeys = new HashMap<>();
         byte[] watermarkImage = null;
         if (isClient(user)) {
@@ -302,8 +293,6 @@ public class AlbumManagementService {
         Album album = getAlbum(albumId);
         Album targetAlbum = getAlbum(targetAlbumId);
 
-        // Autoryzacja własności na OBU albumach — bez tego dowolny fotograf mógł
-        // przenosić pliki między cudzymi albumami (m.in. do publicznego).
         validateAccess(album, loggedInUser);
         validateAccess(targetAlbum, loggedInUser);
 
@@ -357,9 +346,6 @@ public class AlbumManagementService {
                     height = 0;
                 }
 
-                // Plik z watermarkiem: NIGDY nie serwuj czystego oryginału ani czystej miniatury —
-                // każde żądanie dostaje wersję watermarkowaną (z cache albo komponowaną teraz).
-                // To domyka obejście (dawniej ?width oddawał czysty 600px thumb).
                 if (watermarkFileId != null) {
                     Optional<PlatformWatermark> watermark = watermarkStore.get();
                     if (watermark.isPresent()) {
@@ -372,8 +358,6 @@ public class AlbumManagementService {
                                 watermark.get().image());
                         return new FileResource(watermarkedResource, contentType);
                     }
-                    // Flaga jest, a loga brak (DELETE jest blokowany, gdy watermark w użyciu —
-                    // stan awaryjny): nie blokujemy podglądu, ale logujemy głośno.
                     log.warn("File {} flagged as watermarked but no platform watermark configured — serving clean", fileName);
                 }
 
@@ -398,10 +382,7 @@ public class AlbumManagementService {
     }
 
     private Resource resizeFile(Resource originalResource, Integer width, Integer height) throws IOException {
-        // Strumień MUSI być zamknięty — `ImageIO.read(InputStream)` z kontraktu NIE zamyka
-        // źródła, a tu źródłem jest realny plik na dysku. Bez tego każde żądanie `?width`
-        // na zdjęciu bez gotowej miniatury zostawiało otwarty deskryptor (ta sama klasa
-        // błędu co B.38, wykryta przez sprzątanie @TempDir w teście).
+        // ImageIO.read(InputStream) nie zamyka źródła — strumień MUSI być zamknięty ręcznie.
         BufferedImage image;
         try (java.io.InputStream source = originalResource.getInputStream()) {
             image = ImageIO.read(source);
@@ -561,10 +542,6 @@ public class AlbumManagementService {
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
-    /**
-     * Listing portfolio dla gościa — metryczki bez plików (COUNT liczy baza, B.35).
-     * Kolejność = kolejność zakładek na stronie; remis rozstrzyga nazwa (stabilnie).
-     */
     @Transactional(readOnly = true)
     public List<PublicAlbumSummary> getPublicAlbumSummaries() {
         return albumRepository.findAllPublicSummaries().stream()
@@ -589,13 +566,6 @@ public class AlbumManagementService {
                 .orElseThrow(() -> new AlbumNotFoundException("Public album not found"));
     }
 
-    /**
-     * Zdjęcie dla strony publicznej — zawsze wariant przeskalowany, NIGDY oryginał (A9).
-     *
-     * <p>{@code requestedWidth} jest tylko życzeniem: serwer i tak zacina je na
-     * {@link #PUBLIC_MAX_DIMENSION}. Limit dotyczy <b>dłuższego boku</b>, nie samej szerokości —
-     * inaczej pionowy kadr (2560 szerokości = 3840 wysokości) obchodziłby ograniczenie.
-     */
     @Transactional(readOnly = true)
     public FileResource getPublicPhoto(UUID albumIdValue, String fileName, Integer requestedWidth) {
         AlbumId albumId = new AlbumId(albumIdValue);
@@ -613,10 +583,6 @@ public class AlbumManagementService {
 
         int maxDimension = clampToPublicLimit(requestedWidth);
 
-        // Portfolio jest ZAWSZE czyste — flagę hasWatermark ignorujemy tu świadomie. Domena nie
-        // pozwala jej podnieść na albumie admina, a swap nie wniesie pliku z flagą (patrz
-        // Album.receiveFiles), więc ta gałąź to obrona w głąb: nawet flaga wstawiona wprost
-        // w bazie nie przebije się na stronę publiczną. Klucz cache nie ma już wymiaru wm|clean.
         String cacheKey = file.getFileId().value() + "-" + maxDimension;
         Resource resource = fileStoragePort.getOrCreatePublicPhoto(resolveAlbumStoragePath(album),
                 fileName,
@@ -626,7 +592,6 @@ public class AlbumManagementService {
         return new FileResource(resource, publicContentType(fileName));
     }
 
-    /** Żądanie większe od limitu — albo brak żądania — ląduje na limicie. Obejść się tego nie da. */
     static int clampToPublicLimit(Integer requestedWidth) {
         if (requestedWidth == null || requestedWidth <= 0) {
             return PUBLIC_MAX_DIMENSION;
@@ -674,7 +639,6 @@ public class AlbumManagementService {
         }
     }
 
-    /** fileId (do klucza cache watermarku), jeśli plik istnieje i ma flagę hasWatermark; inaczej null. */
     private String watermarkedFileId(Album album, String fileName) {
         return album.getPhotos().values().stream()
                 .filter(file -> file.getFileName().value().equals(fileName))

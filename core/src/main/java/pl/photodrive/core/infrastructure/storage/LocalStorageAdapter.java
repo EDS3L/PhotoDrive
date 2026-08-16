@@ -44,21 +44,12 @@ public class LocalStorageAdapter implements FileStoragePort {
     private Path baseDirectory;
 
     private static final String THUMB_DIR = ".thumbnails";
-    // Cache watermarkowanych wersji — jednorazowego użytku (klucz po fileId+wersji loga),
-    // można skasować w każdej chwili; NIE wymaga synchronizacji z bazą ani obsługi
-    // przy rename/swap/delete (osierocone wpisy są nieszkodliwe).
     private static final String WATERMARK_CACHE_DIR = ".cache/watermark";
-    // Cache wariantów dla strony publicznej (A9) — tak samo jednorazowego użytku:
-    // klucz niesie fileId + wersję loga + rozmiar, więc osierocone wpisy są nieszkodliwe.
     private static final String PUBLIC_CACHE_DIR = ".cache/public";
     private static final int THUMBNAIL_WIDTH = 600;
 
-    // Pełnowymiarowa kompozycja to dekod całego zdjęcia (~100-200 MB RAM dla 24MP) —
-    // na słabym VPS ograniczamy do jednej naraz; miniatury (600px) są tanie i idą bez limitu.
     private static final Semaphore FULL_COMPOSE_PERMIT = new Semaphore(1);
 
-    // Watermark = kafelki po całości (nie da się wykadrować). Rozmiar kafla liczony
-    // względem SZEROKOŚCI ZDJĘCIA (spójny na każdej rozdzielczości), na skos, niskie krycie.
     private static final float WATERMARK_ALPHA = 0.20f;
     private static final double WATERMARK_TILE_WIDTH_RATIO = 0.18; // szerokość kafla = % szer. zdjęcia
     private static final double WATERMARK_ANGLE_DEG = -30.0;
@@ -84,13 +75,10 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         try {
             if (!Files.exists(oldPath)) {
-                // Nic do przeniesienia (np. fotograf bez albumów) — nie blokujemy zmiany maila.
                 log.warn("Photographer folder {} does not exist, nothing to rename", oldPath);
                 return;
             }
             if (Files.exists(newPath)) {
-                // Kolizja: pod nowym mailem już coś jest — rzucamy, żeby wycofać zmianę maila
-                // zamiast po cichu scalać/nadpisywać cudze zdjęcia.
                 throw new StorageException("Cannot rename photographer folder: target already exists: " + newPath);
             }
             Files.move(oldPath, newPath);
@@ -176,8 +164,6 @@ public class LocalStorageAdapter implements FileStoragePort {
                 int finalHeight = Math.max(1,
                         (int) (((double) finalWidth / image.getWidth()) * image.getHeight()));
 
-                // To samo skalowanie schodkowe co przy wariantach publicznych — miniatura z jednego
-                // skoku bilinearnego była miękka (patrz scaleTo).
                 BufferedImage resizedImage = scaleTo(image, finalWidth, finalHeight);
 
                 String format = lowerName.endsWith(".png") ? "png" : "jpg";
@@ -266,8 +252,6 @@ public class LocalStorageAdapter implements FileStoragePort {
                     continue;
                 }
 
-                // Pliki oznaczone watermarkiem idą w wersji watermarkowanej (klient nigdy
-                // nie dostaje czystego oryginału) — z cache albo komponowane teraz.
                 if (watermarkCacheKeys != null && watermarkCacheKeys.containsKey(fileName)) {
                     Resource watermarked = getOrCreateWatermarkedPhoto(albumPath,
                             fileName,
@@ -347,7 +331,6 @@ public class LocalStorageAdapter implements FileStoragePort {
                 return new UrlResource(cacheFile.toUri());
             }
 
-            // Miniatura komponowana z istniejącego thumba (600px — tanio); pełna z oryginału.
             Path original = resolveAndValidate(albumPath, fileName);
             Path source = original;
             if (thumbnail) {
@@ -364,7 +347,6 @@ public class LocalStorageAdapter implements FileStoragePort {
                 FULL_COMPOSE_PERMIT.acquireUninterruptibly();
             }
             try {
-                // Ktoś mógł skomponować, gdy czekaliśmy na semafor.
                 if (Files.exists(cacheFile)) {
                     return new UrlResource(cacheFile.toUri());
                 }
@@ -381,8 +363,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
     }
 
-    // Kompozycja kafelków + atomiczny zapis do cache (temp + move), by współbieżny
-    // odczyt nie zobaczył połowicznie zapisanego pliku.
     private void composeToCache(Path source, Path cacheFile, String extension, byte[] watermarkPng) throws IOException {
         if (watermarkPng == null || watermarkPng.length == 0) {
             throw new StorageException("No watermark image provided");
@@ -415,8 +395,6 @@ public class LocalStorageAdapter implements FileStoragePort {
             }
 
             Path original = resolveAndValidate(albumPath, fileName);
-            // Mały wariant można wyprodukować z gotowej miniatury (600px) — dekod pełnego
-            // 24MP zdjęcia jest drogi, a kafelki portfolio i tak nie potrzebują więcej.
             Path source = original;
             if (maxDimension <= THUMBNAIL_WIDTH) {
                 Path thumbSource = original.getParent().resolve(THUMB_DIR).resolve(fileName);
@@ -428,14 +406,11 @@ public class LocalStorageAdapter implements FileStoragePort {
                 throw new StorageException("File not found: " + albumPath + "/" + fileName);
             }
 
-            // Semafor tylko dla drogiej ścieżki (dekod oryginału) — wariant z miniatury jest tani
-            // i nie ma powodu ustawiać za nim w kolejce całej siatki portfolio.
             boolean fromOriginal = source.equals(original);
             if (fromOriginal) {
                 FULL_COMPOSE_PERMIT.acquireUninterruptibly();
             }
             try {
-                // Ktoś mógł zbudować wariant, gdy czekaliśmy na semafor.
                 if (Files.exists(cacheFile)) {
                     return new UrlResource(cacheFile.toUri());
                 }
@@ -464,7 +439,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         log.info("Created public variant ({}px) in cache: {}", maxDimension, cacheFile.getFileName());
     }
 
-    /** Skalowanie po DŁUŻSZYM boku; obraz mniejszy od limitu zostaje bez zmian (nigdy nie powiększamy). */
     private BufferedImage downscale(BufferedImage image, int maxDimension) {
         int longEdge = Math.max(image.getWidth(), image.getHeight());
         if (longEdge <= maxDimension) {
@@ -478,14 +452,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         return scaleTo(image, width, height);
     }
 
-    /**
-     * Skalowanie <b>schodkowe, po połowie</b> — nie jednym skokiem.
-     *
-     * <p>Powód: {@code drawImage} z BILINEAR próbkuje tylko sąsiedztwo 2×2 piksela źródła, więc
-     * skok 4000→800 po prostu WYRZUCA 95% pikseli — wynik jest miękki i aliasowany (drobne wzory
-     * zamieniają się w szum). Zmniejszanie o połowę na krok uśrednia pełny obszar i daje ostry
-     * obraz. Ostatni krok dochodzi do dokładnego rozmiaru docelowego.
-     */
     private BufferedImage scaleTo(BufferedImage image, int targetWidth, int targetHeight) {
         BufferedImage current = image;
         int width = image.getWidth();
@@ -515,7 +481,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         return target;
     }
 
-    /** Zapis przez plik tymczasowy + move, żeby współbieżny odczyt nie zobaczył połowicznego pliku. */
     private void writeToCacheAtomically(BufferedImage image, Path cacheFile, String extension) throws IOException {
         Files.createDirectories(cacheFile.getParent());
         Path tempFile = Files.createTempFile(cacheFile.getParent(), "compose-", ".tmp");
@@ -546,12 +511,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
     }
 
-    /**
-     * Nakłada znak wodny jako KAFELKI po całej powierzchni (na skos, niskie krycie) —
-     * nie da się wykadrować. Rozmiar kafla liczony względem szerokości zdjęcia, więc
-     * wygląda tak samo na oryginale i na miniaturze (miniatura powstaje z owatermarkowanego
-     * obrazu). Mutuje przekazany obraz w miejscu.
-     */
     private void drawWatermark(BufferedImage image, BufferedImage watermarkImage) {
         int imageWidth = image.getWidth();
         int imageHeight = image.getHeight();
@@ -566,13 +525,11 @@ public class LocalStorageAdapter implements FileStoragePort {
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, WATERMARK_ALPHA));
 
-        // Obrót całej siatki wokół środka — kafle idą na skos.
         g2d.rotate(Math.toRadians(WATERMARK_ANGLE_DEG), imageWidth / 2.0, imageHeight / 2.0);
 
         int stepX = tileWidth + (int) (tileWidth * WATERMARK_GAP_X_RATIO);
         int stepY = tileHeight + (int) (tileHeight * WATERMARK_GAP_Y_RATIO);
 
-        // Po obrocie trzeba pokryć obszar większy niż zdjęcie (przekątna z zapasem).
         int reach = (int) Math.hypot(imageWidth, imageHeight);
 
         int row = 0;
@@ -602,7 +559,6 @@ public class LocalStorageAdapter implements FileStoragePort {
         }
     }
 
-    /** Przenosi plik, jeśli istnieje (tworzy katalog docelowy) — nie-fatalnie (dane pochodne). */
     private void moveIfExists(Path source, Path target) {
         if (!Files.exists(source)) {
             return;
@@ -626,8 +582,6 @@ public class LocalStorageAdapter implements FileStoragePort {
 
         Path targetFilePath = targetDir.resolve(fileName);
 
-        // Backstop dla kolizji nazw: nie nadpisuj istniejącego pliku w albumie docelowym
-        // (ATOMIC_MOVE na Linuksie podmieniłby go po cichu). Domena i tak odrzuca kolizję wcześniej.
         if (Files.exists(targetFilePath)) {
             throw new StorageException("Target file already exists, refusing to overwrite: " + targetFilePath);
         }
@@ -650,7 +604,6 @@ public class LocalStorageAdapter implements FileStoragePort {
 
     }
 
-    // Thumbnail is derived data — once the original has moved, a thumbnail failure must not fail the swap.
     private void moveThumbnail(Path sourceFilePath, Path targetDir, String fileName) {
         Path sourceThumbPath = sourceFilePath.getParent().resolve(".thumbnails").resolve(fileName);
         if (!Files.exists(sourceThumbPath)) {

@@ -10,7 +10,6 @@ export function HeroSection() {
 
 	return (
 		<section className='relative h-dvh flex items-center justify-center overflow-hidden'>
-			{/* Background */}
 			<div className='absolute inset-0'>
 				<img
 					src={heroUrl}
@@ -20,7 +19,6 @@ export function HeroSection() {
 				<div className='absolute inset-0 bg-black/50' />
 			</div>
 
-			{/* Content */}
 			<div className='relative z-10 text-center px-4'>
 				<h1 className='font-serif text-5xl md:text-7xl lg:text-8xl font-light leading-tight'>
 					Twoja historia
@@ -42,7 +40,6 @@ export function HeroSection() {
 				</div>
 			</div>
 
-			{/* Scroll indicator */}
 			<div className='absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce'>
 				<ChevronDown className='w-6 h-6 text-foreground/40' />
 			</div>

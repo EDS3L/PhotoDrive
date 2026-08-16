@@ -188,14 +188,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
-    /**
-     * Niesparsowalne ciało żądania (zepsuty JSON, pole złego typu) to błąd KLIENTA — 400.
-     *
-     * <p>Bez tego handlera wyjątek spadał do catch-alla {@code Exception} i wracał jako
-     * <b>500 + log ERROR</b>, czyli literówka użytkownika wyglądała jak awaria serwera
-     * i zaśmiecała logi produkcyjne (B.45). Komunikat jest neutralny — treść wyjątku
-     * Jacksona potrafi zawierać nazwy klas i fragment ciała żądania.
-     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiException> notReadableException(HttpMessageNotReadableException ex,
                                                              HttpServletRequest request) {
@@ -207,10 +199,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
-    /**
-     * Parametr ścieżki/zapytania złego typu (np. tekst tam, gdzie oczekiwany jest UUID) — 400.
-     * Ta sama historia co wyżej: wcześniej ręcznie zepsuty URL dawał 500 (B.45).
-     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiException> typeMismatchException(MethodArgumentTypeMismatchException ex,
                                                               HttpServletRequest request) {

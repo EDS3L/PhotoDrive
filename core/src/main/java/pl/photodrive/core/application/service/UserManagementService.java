@@ -57,16 +57,13 @@ public class UserManagementService {
             throw new ApplicationSecurityException("Photographers can only create clients");
         }
 
-        // Hasło startowe generowane serwerowo — twórca konta go nie zna, a użytkownik
-        // musi je zmienić przy pierwszym logowaniu (changePasswordOnNextLogin).
         String generatedPassword = PasswordGenerator.generate();
-        new Password(generatedPassword); // walidacja spójności z regułami VO
+        new Password(generatedPassword);
         HashedPassword hashedPassword = new HashedPassword(passwordHasher.encode(generatedPassword));
         User user = User.create(cmd.name(), email, hashedPassword, cmd.role());
 
         var savedUser = userRepository.save(user);
 
-        // Auto-assign client to photographer
         if (isPhotographer && cmd.role() == Role.CLIENT) {
             User photographer = getUserForDB(authenticated.userId());
             List<UserId> currentAssigned = new ArrayList<>(photographer.getAssignedUsers());
@@ -93,8 +90,6 @@ public class UserManagementService {
         User user = getUserForDB(userId);
         user.changePassword(cmd.currentPassword(), cmd.newPassword(), passwordHasher);
         user.setChangePasswordOnNextLogin(false);
-        // Zwracamy usera, żeby kontroler mógł re-issue'ować czyste cookie po zmianie WŁASNEGO
-        // hasła (zdjęcie flagi wymuszonej zmiany z bieżącej sesji, B.20).
         return userRepository.save(user);
     }
 
@@ -125,8 +120,6 @@ public class UserManagementService {
         User user = getUserForDB(userId);
         user.changeEmail(cmd.newEmail());
         User saved = userRepository.save(user);
-        // Zmiana maila fotografa niesie zdarzenie przenoszące folder na dysku (B.33) —
-        // BEFORE_COMMIT, więc porażka przenoszenia wycofa całą transakcję.
         publishEvents(user);
         return saved;
     }
@@ -262,15 +255,6 @@ public class UserManagementService {
         return resolveAssignedUsers(photographer.getAssignedUsers());
     }
 
-    /**
-     * Zamienia przypisane identyfikatory na użytkowników, POMIJAJĄC te, których nie ma w bazie.
-     *
-     * <p>Wcześniej każdy identyfikator szedł przez {@code getUserForDB}, czyli
-     * {@code orElseThrow} — jedna osierocona referencja (klient nieobecny w bazie) wywalała
-     * <b>całą</b> listę klientów fotografa, więc zamiast jednego brakującego wiersza fotograf
-     * nie widział ŻADNEGO ze swoich klientów (B.22). Read-path ma być odporny: brakująca
-     * referencja znika z listy i zostawia ślad w logu, zamiast psuć cały ekran.
-     */
     private List<User> resolveAssignedUsers(List<UserId> assignedUserIds) {
         List<User> users = new ArrayList<>();
         assignedUserIds.forEach(userId -> userRepository.findById(userId)

@@ -80,10 +80,6 @@ public class OriginValidationFilter extends OncePerRequestFilter {
         return allowedOrigins.contains(origin) || (allowLocalhostOrigins && isLocalDevelopmentOrigin(origin));
     }
 
-    // Furtka wyłącznie dla developmentu (front na :5173/:3000 uderza do backendu na :8080).
-    // Na produkcji ZAMKNIĘTA (`application-prod.yml`): tam „localhost" nie jest naszym frontem,
-    // tylko dowolną stroną serwowaną lokalnie u użytkownika — a taki origin przechodził
-    // przez cały filtr anty-CSRF jak zaufany (A10).
     private boolean isLocalDevelopmentOrigin(String origin) {
         try {
             URI uri = URI.create(origin);

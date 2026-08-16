@@ -43,14 +43,10 @@ public record FileName(String value) {
             "LPT8",
             "LPT9");
 
-    // Konstruktor (używany też przy odtwarzaniu z DB/FS): walidacja strukturalna + zakaz
-    // plików wykonywalnych. NIE egzekwuje białej listy formatów.
     public FileName {
         validate(value);
     }
 
-    // Utworzenie NOWEGO pliku (upload) — dodatkowo egzekwuje białą listę formatów
-    // (tylko zdjęcia jpg/jpeg/png). Odtwarzanie z magazynu jej nie przechodzi.
     public static FileName of(String value) {
         FileName fileName = new FileName(value);
         validateAllowedFormat(value);

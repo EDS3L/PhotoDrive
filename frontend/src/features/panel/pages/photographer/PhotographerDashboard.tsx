@@ -98,7 +98,6 @@ export default function PhotographerDashboard() {
 				<p className='text-sm text-muted mt-1'>Przegląd Twoich zasobów</p>
 			</div>
 
-			{/* Stats */}
 			{stats && (
 				<div className='grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8'>
 					<StatsCard
@@ -119,7 +118,6 @@ export default function PhotographerDashboard() {
 				</div>
 			)}
 
-			{/* TTD Alerts */}
 			{ttdAlerts.length > 0 && (
 				<div className='mb-8'>
 					<h3 className='font-serif text-xl mb-3 flex items-center gap-2'>
@@ -172,7 +170,6 @@ export default function PhotographerDashboard() {
 				</div>
 			)}
 
-			{/* No-TTD warning */}
 			{albumsNoTtd && albumsNoTtd.length > 0 && (
 				<div className='mb-8 p-4 bg-yellow-900/10 border border-yellow-900/30 flex items-center gap-3'>
 					<AlertTriangle className='w-5 h-5 text-yellow-400 flex-shrink-0' />
@@ -193,7 +190,6 @@ export default function PhotographerDashboard() {
 			)}
 
 			<div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
-				{/* Recent albums */}
 				<div className='bg-surface border border-border p-6'>
 					<h3 className='font-serif text-xl mb-4'>Ostatnie albumy</h3>
 					{recentAlbums.length === 0 ? (
@@ -220,7 +216,6 @@ export default function PhotographerDashboard() {
 					)}
 				</div>
 
-				{/* Quick actions */}
 				<div className='bg-surface border border-border p-6'>
 					<h3 className='font-serif text-xl mb-4'>Szybkie akcje</h3>
 					<div className='grid grid-cols-2 gap-3'>

@@ -3,7 +3,6 @@ import { Mail, Phone, MapPin, Clock, Globe, ExternalLink } from 'lucide-react';
 export function ContactDetails() {
 	return (
 		<div className='space-y-8'>
-			{/* Contact info */}
 			<div className='space-y-6'>
 				<div className='flex items-start gap-4'>
 					<Mail className='w-5 h-5 text-accent mt-0.5 shrink-0' />
@@ -53,7 +52,6 @@ export function ContactDetails() {
 				</div>
 			</div>
 
-			{/* Social */}
 			<div className='flex gap-4'>
 				<a
 					href='https://instagram.com'
@@ -75,7 +73,6 @@ export function ContactDetails() {
 				</a>
 			</div>
 
-			{/* Availability card */}
 			<div className='border border-accent/30 p-6'>
 				<p className='text-xs uppercase tracking-widest text-accent mb-2'>
 					Dostępność

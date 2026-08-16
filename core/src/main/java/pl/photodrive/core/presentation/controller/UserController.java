@@ -76,8 +76,6 @@ public class UserController {
 
     @PostMapping("/add")
     public ResponseEntity<UserDto> add(@Valid @RequestBody CreateUserRequest request) {
-        // Hasło startowe generowane serwerowo (nie wybierane przez twórcę konta);
-        // użytkownik i tak musi je zmienić przy pierwszym logowaniu.
         var created = userService.addUser(new AddUserCommand(request.name(),
                 request.email(),
                 request.role()));
@@ -101,10 +99,6 @@ public class UserController {
     public ResponseEntity<UserDto> changePassword(@Valid @RequestBody PasswordRequest request, @PathVariable UUID id) {
         User updated = userService.changePassword(new ChangePasswordCommand(id, request.currentPassword(), request.newPassword()));
 
-        // Zmiana WŁASNEGO hasła zdejmuje flagę wymuszonej zmiany, ale bieżący token wciąż ją
-        // niesie (mustChangePassword=true) → filtr blokowałby usera (B.20) aż do slidingu.
-        // Wystawiamy więc świeże, czyste cookie. Admin zmieniający CUDZE hasło re-issue nie dostaje
-        // (nie ruszamy jego sesji cudzą tożsamością).
         if (isSelf(id)) {
             Duration ttl = Duration.ofMinutes(accessTtlMinutes);
             String jwt = tokenEncoder.createAccessToken(updated.getId(), updated.getRoles(), clock.instant(), ttl, false);

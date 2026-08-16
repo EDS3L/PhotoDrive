@@ -24,8 +24,7 @@ export function AlbumCard({ album, onOpen }: AlbumCardProps) {
 
 	return (
 		<div className='border border-border overflow-hidden group'>
-			{/* Cover */}
-			<div className='relative aspect-[4/3] overflow-hidden'>
+			<div className='relative aspect-4/3 overflow-hidden'>
 				<img
 					src={coverSrc}
 					alt={album.name}
@@ -41,7 +40,6 @@ export function AlbumCard({ album, onOpen }: AlbumCardProps) {
 				)}
 			</div>
 
-			{/* Info */}
 			<div className='p-5'>
 				<h3 className='font-serif text-lg mb-1'>{album.name}</h3>
 				<p className='text-xs text-muted mb-4'>

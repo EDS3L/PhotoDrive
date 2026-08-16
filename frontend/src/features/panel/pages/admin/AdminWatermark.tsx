@@ -31,7 +31,6 @@ export default function AdminWatermark() {
 					configured ? 'Znak wodny podmieniony' : 'Znak wodny zapisany',
 				),
 		});
-		// pozwala wgrać ten sam plik ponownie
 		if (fileInputRef.current) fileInputRef.current.value = '';
 	};
 
@@ -47,7 +46,6 @@ export default function AdminWatermark() {
 				</p>
 			</div>
 
-			{/* Podgląd */}
 			<div className='bg-surface border border-border p-6 mb-6'>
 				<p className='text-[10px] uppercase tracking-widest text-muted mb-4'>
 					Aktualne logo
@@ -71,7 +69,6 @@ export default function AdminWatermark() {
 				)}
 			</div>
 
-			{/* Akcje */}
 			<div className='flex items-center gap-3'>
 				<Button
 					onClick={() => fileInputRef.current?.click()}
@@ -104,7 +101,6 @@ export default function AdminWatermark() {
 				)}
 			</div>
 
-			{/* Wskazówki */}
 			<div className='mt-8 p-4 bg-surface border border-border max-w-2xl'>
 				<p className='flex items-start gap-2 text-xs text-muted'>
 					<Info className='w-4 h-4 shrink-0 text-accent' />

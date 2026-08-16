@@ -79,9 +79,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             var authentication = tokenDecoder.parse(source.value());
 
-            // B.20: token z flagą wymuszonej zmiany hasła wpuszcza WYŁĄCZNIE odczyt własnego
-            // profilu i samą zmianę hasła. Reszta API jest zablokowana serwerowo, nie tylko
-            // bramką frontu — surowe żądanie z takim tokenem dostaje 403.
             if (authentication.mustChangePassword() && !isForcedPasswordChangeAllowed(request)) {
                 sendForbidden(response, "Musisz najpierw zmienić hasło startowe.");
                 return;
@@ -98,8 +95,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(principal);
 
-            // Sliding session: utrzymuje sesję przeglądarki dopóki użytkownik jest aktywny.
-            // Odnawiamy tylko sesje cookie (tokeny Bearer należą do integracji API).
             if (source.fromCookie()) {
                 renewIfExpiringSoon(authentication, response);
             }
@@ -113,19 +108,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    /**
-     * Wystawia świeże cookie {@code pd_at} z nowym, pełnym tokenem, gdy bieżącemu
-     * zostało mniej niż połowa życia. Efekt: każda aktywność (w tym żądanie uploadu)
-     * przesuwa sesję 1h o kolejną godzinę do przodu.
-     */
     private void renewIfExpiringSoon(AuthenticatedUser authentication, HttpServletResponse response) {
         Instant now = clock.instant();
         Duration ttl = Duration.ofMinutes(accessTtlMinutes);
         Duration remaining = Duration.between(now, authentication.expiresAt());
 
         if (remaining.compareTo(ttl.dividedBy(2)) <= 0) {
-            // Sliding zachowuje flagę wymuszonej zmiany hasła — samo przedłużenie sesji nie
-            // może jej zdjąć (zdejmuje ją dopiero zmiana hasła, która re-issue'uje czyste cookie).
             String refreshed = tokenEncoder.createAccessToken(
                     authentication.userId(), authentication.roles(), now, ttl, authentication.mustChangePassword());
             response.addHeader(HttpHeaders.SET_COOKIE,
@@ -133,9 +121,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    // Ścieżki dozwolone dla tokenu z wymuszoną zmianą hasła: odczyt własnego profilu
-    // (front renderuje z niego ekran zmiany) i sama zmiana hasła. Logout jest w SKIP_PATHS,
-    // więc filtr go nie dotyka. Wszystko inne → 403.
     private boolean isForcedPasswordChangeAllowed(HttpServletRequest request) {
         String path = request.getRequestURI();
         String method = request.getMethod();

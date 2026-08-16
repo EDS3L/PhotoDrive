@@ -45,9 +45,7 @@ type VisibilityFilter = 'ALL' | 'VISIBLE' | 'HIDDEN';
 type VoidMutation<TVars> = UseMutationResult<void, Error, TVars, unknown>;
 
 export interface AlbumDetailConfig {
-	/** Klucz cache listy albumów danej roli — inwalidowany po uploadzie. */
 	albumsQueryKey: readonly unknown[];
-	/** Dokąd wracamy po usunięciu albumu / gdy albumu nie ma. */
 	albumsListPath: string;
 	api: {
 		getPhotoUrl: (albumId: string, fileName: string, width?: number) => string;
@@ -90,27 +88,15 @@ export interface AlbumDetailConfig {
 			unknown
 		>;
 	};
-	/** Domyślnie TTD można ustawić zawsze; admin blokuje je dla albumów własnych. */
 	canSetTtd?: (album: AlbumDto) => boolean;
-	/** Dodatkowe pola karty informacyjnej (np. „Typ" i przełącznik „Publiczny" u admina). */
 	renderInfoBefore?: (album: AlbumDto) => ReactNode;
 	renderInfoAfter?: (album: AlbumDto) => ReactNode;
 }
 
-/**
- * Portfolio = album admina (`photographId === clientId`). Panel dostaje oba pola
- * (`clientView=false`), więc typ albumu rozpoznajemy bez dodatkowego pola w API.
- */
 function isPortfolioAlbum(album: AlbumDto): boolean {
 	return album.photographId !== null && album.photographId === album.clientId;
 }
 
-/**
- * Wspólny ekran szczegółów albumu dla panelu admina i fotografa.
- * Oba panele mają identyczny przepływ pracy na zdjęciach (upload, widoczność,
- * watermark, przenoszenie, zmiana nazwy, TTD, usuwanie) — różnią się tylko
- * modułem API, kluczem cache i kilkoma polami widocznymi wyłącznie dla admina.
- */
 export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const { albumId } = useParams<{ albumId: string }>();
 	const navigate = useNavigate();
@@ -134,8 +120,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const [batchMode, setBatchMode] = useState(false);
 	const [visFilter, setVisFilter] = useState<VisibilityFilter>('ALL');
 	const [dragging, setDragging] = useState(false);
-	// Upload w paczkach: pasek liczy wysyłkę bajtów + potwierdzony zapis na VPS,
-	// steruje też guardem „nie zamykaj karty". null = brak aktywnego uploadu.
 	const uploadFlow = useUploadWithCollisionCheck({
 		getFileNames: api.getAlbumFileNames,
 		upload: (files, onProgress) =>
@@ -148,7 +132,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		y: number;
 	} | null>(null);
 
-	// Modals
 	const [renameModal, setRenameModal] = useState<FileDto | null>(null);
 	const [renameValue, setRenameValue] = useState('');
 	const [swapModal, setSwapModal] = useState(false);
@@ -178,8 +161,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		});
 	}, [album, visFilter]);
 
-	// Kolejność widocznych plików napędza „zaznacz wszystkie" i zakres z Shift
-	// — zawsze względem aktualnego filtra widoczności.
 	const orderedIds = useMemo(
 		() => filteredFiles.map((f) => f.fileId),
 		[filteredFiles],
@@ -187,7 +168,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const allSelected =
 		orderedIds.length > 0 && orderedIds.every((id) => selected.has(id));
 
-	// B.19: chowamy akcje wsadowe nieadekwatne do zaznaczenia (na bazie idempotencji A4).
 	const selectedFiles =
 		album?.files.filter((f) => selected.has(f.fileId)) ?? [];
 	const canShowSelected = selectedFiles.some((f) => !f.visible);
@@ -195,9 +175,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 	const canWatermarkSelected = selectedFiles.some((f) => !f.hasWatermark);
 	const canUnwatermarkSelected = selectedFiles.some((f) => f.hasWatermark);
 
-	// A1: bez wgranego loga platformy DODAWANIE watermarku jest ukryte (backend i tak
-	// pilnuje — 400). ZDEJMOWANIE musi być dostępne zawsze — inaczej pliki z flagą
-	// nie miałyby jak jej stracić (a bez tego nie da się np. usunąć loga).
 	const { data: watermarkStatus } = useWatermarkStatus();
 	const watermarkAvailable = watermarkStatus?.configured ?? false;
 
@@ -206,9 +183,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		[albums, albumId],
 	);
 
-	// Zdjęcia wędrują wyłącznie między albumami portfolio — album klienta nie jest celem swapa
-	// (domena i tak odrzuca, 400). Admin widzi też albumy klientów, więc bez tego filtra
-	// podsuwalibyśmy mu cele, na które nie wolno przenieść.
 	const swapTargets = useMemo(() => otherAlbums.filter(isPortfolioAlbum), [otherAlbums]);
 
 	const handleUpload = useCallback(
@@ -320,10 +294,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		);
 	}
 
-	// Watermark jest wypalany po stronie serwera pod TYM SAMYM adresem zdjęcia, więc
-	// po przełączeniu flagi przeglądarka narysowałaby starą wersję z własnego cache
-	// (dane z API się odświeżają, ale `src` się nie zmienia → brak nowego żądania).
-	// Wersjonujemy URL: zmiana flagi albo podmiana loga platformy = nowy adres.
 	const photoSrc = (file: FileDto) => {
 		const url = api.getPhotoUrl(album.albumId, file.fileName, 300);
 		const version = file.hasWatermark
@@ -332,9 +302,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 		return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(version)}`;
 	};
 
-	// Portfolio jest wizytówką: znak wodny (kafelki po całości) chroni NIEDOSTARCZONE zdjęcia
-	// klienta, więc na albumie admina dodawania nie ma. ZDEJMOWANIE zostaje dostępne zawsze —
-	// inaczej flaga zastana sprzed tej reguły nie miałaby jak zniknąć i blokowałaby usunięcie loga.
 	const canAddWatermark = watermarkAvailable && !isPortfolioAlbum(album);
 	const canSwap = isPortfolioAlbum(album);
 
@@ -353,7 +320,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 			onDragLeave={() => setDragging(false)}
 			onDrop={handleDrop}
 		>
-			{/* Header */}
 			<div className='flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>{album.name}</h2>
@@ -426,17 +392,12 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 						className='hidden'
 						onChange={(e) => {
 							if (e.target.files) handleUpload(e.target.files);
-							// Czyścimy wybór, bo przeglądarka NIE odpala `change`, gdy drugi raz
-							// wskażesz ten sam plik — bez tego „Dodaj zdjęcia" milczy po anulowaniu
-							// dialogu kolizji albo przy ponownym wgraniu usuniętego zdjęcia.
-							// `handleUpload` skopiowało już `File`-e do tablicy, więc reset ich nie unieważnia.
 							e.target.value = '';
 						}}
 					/>
 				</div>
 			</div>
 
-			{/* Album info card */}
 			<div className='bg-surface border border-border p-5 mb-6'>
 				<div className='flex flex-wrap gap-8'>
 					{config.renderInfoBefore?.(album)}
@@ -472,7 +433,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			</div>
 
-			{/* Toolbar */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4'>
 				<div className='flex gap-1'>
 					{(['ALL', 'VISIBLE', 'HIDDEN'] as VisibilityFilter[]).map((f) => (
@@ -593,7 +553,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			</div>
 
-			{/* Drag overlay */}
 			{dragging && (
 				<div className='fixed inset-0 z-40 bg-black/60 flex items-center justify-center pointer-events-none'>
 					<div className='border-2 border-dashed border-accent p-16 text-center'>
@@ -604,10 +563,8 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			)}
 
-			{/* Upload progress (bajty + zapis na VPS) + ostrzeżenie „nie zamykaj karty" */}
 			<UploadProgress state={uploadFlow.state} />
 
-			{/* Photo grid */}
 			{filteredFiles.length === 0 ? (
 				<div
 					className='border-2 border-dashed border-border py-24 text-center cursor-pointer hover:border-accent/50 transition-colors'
@@ -634,7 +591,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								className='w-full h-full object-cover'
 							/>
 
-							{/* Hover overlay */}
 							<div className='absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end'>
 								<div className='w-full p-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between'>
 									<span className='text-[11px] text-white truncate max-w-[70%]'>
@@ -658,7 +614,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								</div>
 							</div>
 
-							{/* Status icons */}
 							{!file.visible && (
 								<div className='absolute top-2 left-2'>
 									<EyeOff className='w-4 h-4 text-white/80' />
@@ -670,7 +625,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 								</div>
 							)}
 
-							{/* Batch checkbox */}
 							{batchMode && (
 								<div className='absolute top-2 left-2'>
 									<div
@@ -691,7 +645,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			)}
 
-			{/* Context menu */}
 			{contextMenu && (
 				<>
 					<div
@@ -699,7 +652,7 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 						onClick={() => setContextMenu(null)}
 					/>
 					<div
-						className='fixed z-50 bg-surface border border-border py-1 min-w-[200px] shadow-lg'
+						className='fixed z-50 bg-surface border border-border py-1 min-w-50 shadow-lg'
 						style={{ left: contextMenu.x, top: contextMenu.y }}
 					>
 						<button
@@ -795,7 +748,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</>
 			)}
 
-			{/* Rename modal */}
 			<Modal
 				open={!!renameModal}
 				onClose={() => setRenameModal(null)}
@@ -820,7 +772,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			</Modal>
 
-			{/* Swap modal */}
 			<Modal
 				open={swapModal}
 				onClose={() => {
@@ -880,7 +831,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			</Modal>
 
-			{/* TTD modal */}
 			<Modal
 				open={ttdModal}
 				onClose={() => setTtdModal(false)}
@@ -915,7 +865,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</div>
 			</Modal>
 
-			{/* Delete album */}
 			<div className='mt-12 pt-8 border-t border-border'>
 				<Button
 					variant='ghost'
@@ -929,7 +878,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				</Button>
 			</div>
 
-			{/* Potwierdzenie akcji destrukcyjnych */}
 			<ConfirmDialog
 				open={!!confirm}
 				title={confirm?.title ?? ''}
@@ -942,7 +890,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				}}
 			/>
 
-			{/* Kolizja nazw przy przenoszeniu — zmiana nazw przed swapem */}
 			<SwapRenameDialog
 				open={!!swapFlow.renames}
 				renames={swapFlow.renames ?? []}
@@ -952,7 +899,6 @@ export function AlbumDetailView({ config }: { config: AlbumDetailConfig }) {
 				isPending={swapFlow.isSubmitting}
 			/>
 
-			{/* Kolizja nazw przy uploadzie — zmiana nazwy lub pominięcie pliku */}
 			<UploadCollisionDialog
 				open={!!uploadFlow.collisions}
 				collisions={uploadFlow.collisions ?? []}

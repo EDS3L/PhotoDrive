@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-//!
+
 @Repository
 @RequiredArgsConstructor
 public class AlbumRepositoryAdapter implements AlbumRepository {
@@ -94,7 +94,6 @@ public class AlbumRepositoryAdapter implements AlbumRepository {
                 .map(view -> new PublicAlbumSummary(view.getAlbumId(),
                         view.getName(),
                         view.getDisplayName(),
-                        // Wiersze sprzed kolumny display_order mają NULL — traktujemy jak 0.
                         view.getDisplayOrder() == null ? 0 : view.getDisplayOrder(),
                         view.getVisibleCount() == null ? 0 : view.getVisibleCount()))
                 .toList();

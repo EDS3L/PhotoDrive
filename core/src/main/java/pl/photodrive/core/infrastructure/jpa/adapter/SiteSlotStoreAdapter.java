@@ -30,9 +30,6 @@ public class SiteSlotStoreAdapter implements SiteSlotStorePort {
 
     @Override
     public List<SiteSlotVersion> findVersions() {
-        // Klucze przychodzą Z BAZY — wiersz z kluczem spoza enuma (przemianowana wartość,
-        // ręczna edycja) nie może wywalić CAŁEGO publicznego listingu (500 na stronie głównej).
-        // Nieznany klucz pomijamy z ostrzeżeniem zamiast rzucać.
         return jpa.findAllProjectedBy().stream()
                 .map(view -> parseSlot(view.getSlotKey())
                         .map(slot -> new SiteSlotVersion(slot, view.getUpdatedAt()))

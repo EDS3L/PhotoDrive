@@ -6,12 +6,6 @@ import pl.photodrive.core.domain.vo.FileName;
 
 import java.time.Instant;
 
-/**
- * Encja pliku w agregacie {@link Album}. Metody stanu ({@code setVisible},
- * {@code setWaterMark}, ...) celowo RZUCAJĄ na zbędną tranzycję — to strażnik
- * pojedynczej zmiany. Idempotencję operacji wsadowych (mieszane zaznaczenie)
- * zapewnia {@code Album}, pomijając pliki już w stanie docelowym.
- */
 public class File {
 
     private final FileId fileId;

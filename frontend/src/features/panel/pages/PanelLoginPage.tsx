@@ -47,7 +47,6 @@ export default function PanelLoginPage() {
 
 	return (
 		<div className='min-h-screen flex'>
-			{/* Left — photo panel */}
 			<div className='hidden lg:flex lg:w-1/2 relative items-end p-12'>
 				<img
 					src={slots?.PANEL_LOGIN ?? placeholder(960, 1080, 'Panel — studio')}
@@ -68,7 +67,6 @@ export default function PanelLoginPage() {
 				</div>
 			</div>
 
-			{/* Right — form */}
 			<div className='flex-1 flex items-center justify-center px-6 py-12 lg:px-16 bg-background'>
 				<div className='w-full max-w-md'>
 					<span className='text-[10px] uppercase tracking-[0.3em] px-2 py-1 border border-accent/40 text-accent'>

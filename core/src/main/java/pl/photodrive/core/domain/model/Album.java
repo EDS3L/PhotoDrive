@@ -25,9 +25,6 @@ public class Album {
     private final UUID clientId;
     private Map<FileId, File> photos = new LinkedHashMap<>();
     private final AlbumPath albumPath;
-    // Prezentacja portfolio (tylko albumy admina): etykieta zakładki na stronie publicznej
-    // i jej kolejność. displayName to CZYSTY tekst (pełny Unicode, np. „Śluby") — w odróżnieniu
-    // od name nie jest ścieżką ani kluczem, więc nie podlega ograniczeniu ASCII z AlbumPath.
     private String displayName;
     private int displayOrder;
 
@@ -49,16 +46,10 @@ public class Album {
         boolean isAdmin = user.getRoles().contains(Role.ADMIN);
         boolean isPhotograph = user.getRoles().contains(Role.PHOTOGRAPHER);
 
-        // Odmowa („to nie twój album") idzie PRZED regułami biznesowymi, żeby obcy fotograf
-        // dostał 403, a nie 400 z podpowiedzią o typie albumu (konwencja A10a).
         if (isPhotograph && !photographId.equals(user.getId().value())) {
             throw new DomainSecurityException("Photographer can only set TTD on own albums");
         }
 
-        // TTD odcina klientowi dostęp po terminie, a album admina (portfolio) klienta nie ma —
-        // termin jest tam bez sensu, a scheduler skasowałby wizytówkę. Pytamy o TYP albumu,
-        // nie o tożsamość zalogowanego: warunek „to MOJE portfolio" przepuszczał ustawienie
-        // TTD na portfolio DRUGIEGO admina, czyli cudzą wizytówkę do kosza (B.40).
         if (isAdminAlbum()) {
             throw new AlbumException("Cannot set TTD for admin album");
         }
@@ -189,10 +180,6 @@ public class Album {
         photos.put(file.getFileId(), file);
 
         if (isAdminAlbum()) {
-            // Album admina = portfolio (jedyny, który może stać się publiczny) — nie ma klienta,
-            // przed którym trzeba chować surowe ujęcia. Zdjęcia są więc widoczne od razu i trafiają
-            // na stronę bez ręcznego przełączania po każdym uploadzie (B.5). Album klienta zachowuje
-            // odwrotny default: fotograf najpierw kuratoruje, potem odsłania (patrz File.create).
             if (!file.isVisible()) {
                 file.setVisible();
             }
@@ -269,8 +256,6 @@ public class Album {
                 throw new AlbumException("File not found: " + fileId.value());
             }
 
-            // Idempotentnie: pomijamy pliki już w docelowym stanie (mieszane zaznaczenie
-            // nie może wywalać całej paczki) — File celowo rzuca na zbędną tranzycję.
             if (isVisible && !file.isVisible()) {
                 file.setVisible();
                 changedCount++;
@@ -286,18 +271,14 @@ public class Album {
 
     }
 
-    // Flaga hasWatermark to JEDYNA prawda o watermarku — wersje watermarkowane są
-    // komponowane w locie przy serwowaniu (cache po fileId), więc toggle nie wykonuje
-    // żadnych operacji plikowych ani nie rejestruje zdarzeń.
     public void changeWatermarkStatus(User user, boolean hasWatermark, List<FileId> fileIdList, boolean watermarkConfigured) {
         if (!canManageFiles(user)) {
             throw new DomainSecurityException("User is not allowed to change the watermark");
         }
 
-        // Znak wodny tej platformy to KAFELKI po całości — narzędzie do ochrony niedostarczonych
-        // zdjęć klienta, nie do brandowania. Portfolio (album admina) jest wizytówką i ma być
-        // czyste, więc flagi nie da się tu w ogóle podnieść. Zdejmowanie (false) zostaje dozwolone,
-        // żeby dało się wyczyścić flagę zastaną sprzed tej reguły (inaczej blokowałaby usunięcie loga).
+        // Znak wodny tej platformy to KAFELKI po całości — narzędzie ochrony
+        // niedostarczonych zdjęć klienta, nie brandowania. Portfolio ma być
+        // czyste, więc flagi nie da się tu podnieść (zdejmowanie zostaje).
         if (hasWatermark && isAdminAlbum()) {
             throw new AlbumException("Portfolio albums cannot be watermarked");
         }
@@ -365,18 +346,13 @@ public class Album {
     }
 
     public void receiveFiles(Map<FileId, File> incomingFiles, Album source) {
-        // Zdjęcia przemieszczają się WYŁĄCZNIE między albumami portfolio (admina). Materiał klienta
-        // jest prywatny: do albumu klienta wchodzi tylko uploadem, wychodzi tylko przez usunięcie.
-        // Swap był bowiem furtką, przez którą (a) prywatne zdjęcie klienta lądowało o jeden
-        // `setPublic` od publicznego internetu, (b) plik z flagą hasWatermark wchodził do portfolio
-        // OMIJAJĄC regułę z changeWatermarkStatus — bo receiveFiles przenosi obiekty File ze stanem.
-        // Jeden warunek pokrywa całą macierz: klient→admin, admin→klient i klient→klient odpadają.
+        // Zdjęcia przemieszczają się WYŁĄCZNIE między albumami portfolio —
+        // materiał klienta jest prywatny i nie wolno mu wejść do portfolio
+        // (dawna furtka: setPublic i ominięcie reguły watermarku).
         if (!isAdminAlbum() || !source.isAdminAlbum()) {
             throw new AlbumException("Photos can only be moved between portfolio albums");
         }
 
-        // Ochrona przed cichym nadpisaniem: przy kolizji nazwy z istniejącym plikiem
-        // odrzucamy swap zamiast nadpisać (ATOMIC_MOVE na Linuksie podmienia cel bez błędu).
         Set<String> existingNames = new HashSet<>();
         photos.values().forEach(f -> existingNames.add(f.getFileName().value()));
         for (File incoming : incomingFiles.values()) {
@@ -389,10 +365,6 @@ public class Album {
     }
 
 
-    /**
-     * Ustawienia prezentacji zakładki portfolio. Tylko admin i tylko album admina —
-     * albumy klientów nigdy nie są zakładkami na stronie, więc etykieta nie ma tam sensu.
-     */
     public void changeDisplaySettings(User admin, String displayName, int displayOrder) {
         if (!admin.getRoles().contains(Role.ADMIN)) {
             throw new DomainSecurityException("Only administrators can change display settings");
@@ -404,12 +376,10 @@ public class Album {
         if (trimmed != null && trimmed.length() > 100) {
             throw new AlbumException("Display name cannot be longer than 100 characters");
         }
-        // Pusta etykieta = brak etykiety (strona pokazuje wtedy techniczną nazwę albumu).
         this.displayName = (trimmed == null || trimmed.isEmpty()) ? null : trimmed;
         this.displayOrder = displayOrder;
     }
 
-    /** Rehydracja z bazy (mapper) — bez reguł, jak {@link #assignPhotosToAlbum}. */
     public void assignDisplaySettings(String displayName, int displayOrder) {
         this.displayName = displayName;
         this.displayOrder = displayOrder;

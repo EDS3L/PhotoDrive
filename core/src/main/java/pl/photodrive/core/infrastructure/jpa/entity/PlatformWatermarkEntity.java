@@ -5,7 +5,6 @@ import lombok.*;
 
 import java.time.Instant;
 
-// Singleton (zawsze id=1) — jeden globalny znak wodny platformy, wgrywany przez admina.
 @Entity
 @Table(name = "platform_watermark")
 @Getter

@@ -22,8 +22,6 @@ export default function PortfolioPage() {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [visibleCount, setVisibleCount] = useState(6);
 
-	// Zakładki = publiczne albumy Z ZAWARTOŚCIĄ (kolejność i etykiety ustawia panel).
-	// Pusty album nie dostaje zakładki — gość nie może trafić na pustą galerię.
 	const tabs = useMemo(
 		() =>
 			(albums ?? [])
@@ -36,10 +34,8 @@ export default function PortfolioPage() {
 		[albums],
 	);
 
-	// Zakładka zniknęła (album ukryty/opróżniony w panelu)? Spadamy na pierwszą.
 	const active = tabs.find((tab) => tab.albumId === activeId) ?? tabs[0];
 
-	// Kafelki: siatka pokazuje kilkanaście zdjęć naraz, więc liczy się waga, nie ostatni piksel.
 	const { data: apiPhotos } = usePublicAlbumPhotos(
 		active?.name ?? '',
 		PUBLIC_PHOTO_SIZE.tile,

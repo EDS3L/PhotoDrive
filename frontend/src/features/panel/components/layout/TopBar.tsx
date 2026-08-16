@@ -50,7 +50,6 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 						<Menu className='w-5 h-5' />
 					</button>
 
-					{/* Breadcrumbs */}
 					<nav className='flex items-center gap-1 text-sm'>
 						{breadcrumbs.map((crumb, i) => (
 							<span key={i} className='flex items-center gap-1'>

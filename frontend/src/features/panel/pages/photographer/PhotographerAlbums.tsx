@@ -71,8 +71,6 @@ export default function PhotographerAlbums() {
 			},
 			{
 				onSuccess: (album) => {
-					// TTD nie jest częścią tworzenia albumu — ustawiamy je osobno
-					// zaraz po utworzeniu, jeśli podano datę.
 					if (newTtd) {
 						ttdMutation.mutate({ albumId: album.albumId, ttd: newTtd });
 					}
@@ -89,7 +87,6 @@ export default function PhotographerAlbums() {
 
 	return (
 		<div>
-			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>Albumy</h2>
@@ -101,7 +98,6 @@ export default function PhotographerAlbums() {
 				</Button>
 			</div>
 
-			{/* Filters */}
 			<div className='flex flex-col sm:flex-row gap-4 mb-6'>
 				<SearchInput
 					value={search}
@@ -133,7 +129,6 @@ export default function PhotographerAlbums() {
 				</Select>
 			</div>
 
-			{/* Albums grid */}
 			{filtered.length === 0 ? (
 				<EmptyState
 					icon={<FolderPlus className='w-12 h-12' />}
@@ -158,7 +153,6 @@ export default function PhotographerAlbums() {
 				</div>
 			)}
 
-			{/* Create modal */}
 			<Modal
 				open={createOpen}
 				onClose={() => setCreateOpen(false)}
@@ -239,8 +233,7 @@ function AlbumCard({
 			to={`/photographer/albums/${album.albumId}`}
 			className='group bg-surface border border-border overflow-hidden hover:border-accent/30 transition-colors'
 		>
-			{/* Cover */}
-			<div className='aspect-[4/3] bg-surface-light relative overflow-hidden'>
+			<div className='aspect-4/3 bg-surface-light relative overflow-hidden'>
 				{coverFile ? (
 					<img
 						src={getPhotoUrl(album.albumId, coverFile.fileName, 400)}
@@ -260,7 +253,6 @@ function AlbumCard({
 				)}
 			</div>
 
-			{/* Info */}
 			<div className='p-4'>
 				<h4 className='font-medium text-sm truncate'>{album.name}</h4>
 				{clientName && (

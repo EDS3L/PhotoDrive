@@ -30,7 +30,6 @@ public interface AlbumJpaRepository extends JpaRepository<AlbumEntity, AlbumIdEm
 
     Optional<AlbumEntity> findByNameAndIsPublicTrue(String name);
 
-    /** Wiersz publicznego listingu — bez kolekcji plików; widoczne zdjęcia liczy baza (B.35). */
     interface PublicAlbumSummaryView {
         UUID getAlbumId();
 

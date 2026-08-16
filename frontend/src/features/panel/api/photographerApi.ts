@@ -2,7 +2,6 @@ import { apiClient } from '@/lib/apiClient';
 import type { AlbumDto } from '@/shared/types/api';
 import type { UserInfo } from '../types/panel';
 
-// Wspólne operacje na plikach albumu żyją w jednym miejscu (F.2); tu je tylko re-eksportujemy.
 export {
 	getAlbumFileNames,
 	setAlbumTtd,
@@ -26,7 +25,6 @@ export async function createClient(data: {
 	name: string;
 	email: string;
 }): Promise<UserInfo> {
-	// Hasło startowe generuje backend i wysyła mailem — nie podajemy go z formularza.
 	const response = await apiClient.post<UserInfo>('/user/add', {
 		...data,
 		role: 'CLIENT',

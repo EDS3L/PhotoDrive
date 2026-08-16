@@ -83,7 +83,6 @@ export default function AccountPage() {
 			<h2 className='font-serif text-4xl font-light mb-2'>Moje konto</h2>
 			<p className='text-sm text-muted mb-8'>Zarządzaj swoim kontem i danymi</p>
 
-			{/* Current info */}
 			<div className='bg-surface border border-border p-6 mb-8'>
 				<h3 className='font-medium mb-4'>Informacje</h3>
 				<div className='space-y-2 text-sm'>
@@ -100,7 +99,6 @@ export default function AccountPage() {
 			</div>
 
 			<div className='grid gap-8 lg:grid-cols-2'>
-				{/* Change password */}
 				<div className='bg-surface border border-border p-6'>
 					<h3 className='font-medium mb-4'>Zmień hasło</h3>
 
@@ -150,7 +148,6 @@ export default function AccountPage() {
 					</form>
 				</div>
 
-				{/* Change email */}
 				<div className='bg-surface border border-border p-6'>
 					<h3 className='font-medium mb-4'>Zmień email</h3>
 

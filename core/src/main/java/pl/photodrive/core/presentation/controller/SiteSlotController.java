@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Zarządzanie zdjęciami slotów strony wizytówki — tylko ADMIN (pilnuje {@code WebConfig}). */
 @RestController
 @RequestMapping("api/site/slots")
 @RequiredArgsConstructor
@@ -26,7 +25,6 @@ public class SiteSlotController {
 
     private final SiteSlotManagementService slotService;
 
-    /** Wszystkie sloty z enuma, także puste — panel ma pokazywać, co w ogóle da się skonfigurować. */
     @GetMapping
     public ResponseEntity<List<SiteSlotDto>> getSlots() {
         Map<SiteSlot, Instant> configured = slotService.getConfiguredSlots().stream()
@@ -55,10 +53,6 @@ public class SiteSlotController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Ręczne parsowanie zamiast {@code @PathVariable SiteSlot}: błąd konwersji enuma leci do
-     * generycznego handlera jako 500, a nieznany slot to wina żądania (400), nie serwera.
-     */
     static SiteSlot parseSlot(String raw) {
         try {
             return SiteSlot.valueOf(raw);

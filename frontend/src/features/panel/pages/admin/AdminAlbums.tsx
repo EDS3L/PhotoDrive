@@ -85,7 +85,6 @@ export default function AdminAlbums() {
 
 	return (
 		<div>
-			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
 				<div>
 					<h2 className='font-serif text-4xl font-light'>Albumy</h2>
@@ -97,7 +96,6 @@ export default function AdminAlbums() {
 				</Button>
 			</div>
 
-			{/* Filters */}
 			<div className='bg-surface border border-border p-4 mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center'>
 				<SearchInput
 					value={search}
@@ -143,7 +141,6 @@ export default function AdminAlbums() {
 				</span>
 			</div>
 
-			{/* Albums grid */}
 			{filtered.length === 0 ? (
 				<EmptyState
 					icon={<FolderOpen className='w-12 h-12' />}
@@ -158,7 +155,6 @@ export default function AdminAlbums() {
 				</div>
 			)}
 
-			{/* Create Album Modal */}
 			<Modal
 				open={createOpen}
 				onClose={() => setCreateOpen(false)}
@@ -208,8 +204,7 @@ function AlbumCard({ album }: { album: AlbumDto }) {
 			to={`/admin/albums/${album.albumId}`}
 			className='bg-surface border border-border overflow-hidden hover:border-accent/30 transition-colors block'
 		>
-			{/* Cover */}
-			<div className='aspect-[16/10] relative bg-surface-light'>
+			<div className='aspect-16/10 relative bg-surface-light'>
 				{coverFile ? (
 					<img
 						src={getPhotoUrl(album.albumId, coverFile.fileName, 400)}
@@ -241,7 +236,6 @@ function AlbumCard({ album }: { album: AlbumDto }) {
 				)}
 			</div>
 
-			{/* Info */}
 			<div className='p-5'>
 				<div className='flex items-start justify-between gap-2 mb-2'>
 					<h3 className='text-[15px] font-medium leading-tight'>

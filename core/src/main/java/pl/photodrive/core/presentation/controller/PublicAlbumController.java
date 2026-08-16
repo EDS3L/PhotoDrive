@@ -28,8 +28,6 @@ public class PublicAlbumController {
 
     @GetMapping("/all")
     public ResponseEntity<List<PublicAlbumDto>> getAllPublicAlbums() {
-        // Metryczki bez plików: widoczne zdjęcia policzyła baza (COUNT, B.35) —
-        // wcześniej listing materializował KAŻDY plik publicznych albumów tylko do zliczenia.
         List<PublicAlbumDto> albums = albumService.getPublicAlbumSummaries().stream()
                 .map(summary -> new PublicAlbumDto(
                         summary.albumId(),
@@ -68,11 +66,6 @@ public class PublicAlbumController {
                 .body(photos);
     }
 
-    /**
-     * {@code width} to życzenie klienta co do rozmiaru — serwer i tak zacina je na twardym limicie
-     * (`AlbumManagementService.PUBLIC_MAX_DIMENSION`), więc przez ten endpoint nie da się pobrać
-     * oryginału. Brak parametru = wariant o maksymalnym dozwolonym rozmiarze.
-     */
     @GetMapping("/{albumId}/photo/{fileName}")
     public ResponseEntity<Resource> getPublicPhoto(@PathVariable UUID albumId,
                                                    @PathVariable String fileName,

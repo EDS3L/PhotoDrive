@@ -18,7 +18,6 @@ interface SwapContext {
 	files: SwapFileRef[];
 }
 
-/** Proponuje nazwę wolną od kolizji: `foto.jpg` → `foto_1.jpg` (rosnąco). */
 export function suggestNonCollidingName(
 	fileName: string,
 	taken: Set<string>,
@@ -35,12 +34,6 @@ export function suggestNonCollidingName(
 	return candidate;
 }
 
-/**
- * Orchestruje przenoszenie zdjęć z obsługą kolizji nazw:
- * pobiera SAME NAZWY z albumu docelowego (lekkie query), wykrywa kolizje,
- * a przy ich braku od razu robi swap. Gdy są — udostępnia edytowalny plan
- * zmiany nazw; po zatwierdzeniu zmienia nazwy (w źródle) i dopiero przenosi.
- */
 export function useSwapWithRename(opts: {
 	getFileNames: (albumId: string) => Promise<string[]>;
 	rename: (vars: {
@@ -84,7 +77,6 @@ export function useSwapWithRename(opts: {
 				return;
 			}
 
-			// domyślne propozycje, unikające nazw w celu i między sobą
 			const reserved = new Set(targetNames);
 			const entries: RenameEntry[] = collisions.map((f) => {
 				const suggested = suggestNonCollidingName(f.fileName, reserved);
@@ -128,7 +120,7 @@ export function useSwapWithRename(opts: {
 			setCtx(null);
 			onDone();
 		} catch {
-			// błąd pokazuje globalny handler mutacji (toast); zostawiamy dialog otwarty
+			// handled by global mutation error handler
 		} finally {
 			setIsSubmitting(false);
 		}

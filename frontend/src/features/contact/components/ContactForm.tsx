@@ -34,8 +34,6 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
 	});
 
 	const onSubmit = (data: ContactFormData) => {
-		// Błąd wysyłki pokazuje globalny toast (MutationCache.onError); przy sukcesie
-		// przechodzimy do ekranu podziękowania. Formularz zostaje, gdy się nie uda.
 		mutate(buildContactPayload(data), { onSuccess });
 	};
 

@@ -5,6 +5,22 @@
 stitch/
 stitchMd/
 
+# Materiały robocze i dokumentacja poza repozytorium — w gicie zostaje wyłącznie kod
+# (README.md jest wyjątkiem: to opis repozytorium, nie materiał roboczy).
+CLAUDE.md
+Progress.md
+Frontend-Audit.md
+obsidian/
+przyklad_prezentacja/
+
+# Dokumenty (praca dyplomowa, prezentacje, materiały projektowe)
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.pdf
+*.odt
+
 # OS
 .DS_Store
 Thumbs.db

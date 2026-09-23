@@ -73,6 +73,12 @@ export function Footer() {
 
 				<div className='mt-12 pt-8 border-t border-border text-center text-xs text-muted'>
 					&copy; {new Date().getFullYear()} PhotoDrive. All rights reserved.
+					<Link
+						to='/nauka'
+						className='ml-3 text-foreground/5 hover:text-muted focus-visible:text-muted transition-colors'
+					>
+						Nauka
+					</Link>
 				</div>
 			</div>
 		</footer>

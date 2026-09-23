@@ -8,6 +8,7 @@ const PortfolioPage = lazy(() => import('@/features/portfolio/index'));
 const AboutPage = lazy(() => import('@/features/about/index'));
 const ContactPage = lazy(() => import('@/features/contact/index'));
 const ClientZonePage = lazy(() => import('@/features/client-zone/index'));
+const StudyPage = lazy(() => import('@/features/study/index'));
 
 const PanelLoginPage = lazy(
 	() => import('@/features/panel/pages/PanelLoginPage'),
@@ -64,6 +65,7 @@ export function AppRoutes() {
 				<Route path='/o-mnie' element={<AboutPage />} />
 				<Route path='/kontakt' element={<ContactPage />} />
 				<Route path='/strefa-klienta' element={<ClientZonePage />} />
+				<Route path='/nauka' element={<StudyPage />} />
 
 				<Route path='/panel-login' element={<PanelLoginPage />} />
 

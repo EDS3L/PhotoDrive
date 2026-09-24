@@ -21,4 +21,21 @@ describe('study questions data', () => {
 		// When / Then
 		expect(JSON.stringify(questions)).not.toContain('`');
 	});
+
+	it('Contains no raw Markdown heading markers in text blocks, so section titles render as headings and not as "###"', () => {
+		// When
+		const withMarkers = questions.flatMap((q) =>
+			[...q.short, ...q.long]
+				.filter(
+					(block) =>
+						block.k !== 'table' &&
+						block.k !== 'code' &&
+						block.c.some((part) => /(^|\s)#{2,}\s/.test(typeof part === 'string' ? part : part.b)),
+				)
+				.map(() => q.n),
+		);
+
+		// Then
+		expect(withMarkers).toEqual([]);
+	});
 });

@@ -79,6 +79,12 @@ export function Footer() {
 					>
 						Nauka
 					</Link>
+					<Link
+						to='/projekt'
+						className='ml-3 text-foreground/5 hover:text-muted focus-visible:text-muted transition-colors'
+					>
+						Projekt
+					</Link>
 				</div>
 			</div>
 		</footer>

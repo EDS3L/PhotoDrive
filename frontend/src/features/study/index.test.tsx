@@ -79,6 +79,29 @@ describe('StudyPage', () => {
 		expect(screen.queryByText('Konwersje')).not.toBeInTheDocument();
 	});
 
+	it('Committee order groups questions under the examiner responsible for them, and numeric order brings back the plain list', async () => {
+		// Given
+		render(<StudyPage questions={questions} />);
+		expect(screen.queryByRole('heading', { name: 'Rychlik' })).not.toBeInTheDocument();
+
+		// When
+		await userEvent.click(screen.getByRole('button', { name: 'Komisyjnie' }));
+
+		// Then
+		const section = screen.getByRole('region', { name: 'Rychlik' });
+		expect(section).toHaveTextContent('Systemy liczbowe');
+		expect(section).toHaveTextContent('Programowanie strukturalne');
+		expect(screen.queryByRole('heading', { name: 'Kasprowicz' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Komisyjnie' })).toHaveAttribute('aria-pressed', 'true');
+
+		// When
+		await userEvent.click(screen.getByRole('button', { name: 'Numerycznie' }));
+
+		// Then
+		expect(screen.queryByRole('region', { name: 'Rychlik' })).not.toBeInTheDocument();
+		expect(screen.getByText('Systemy liczbowe')).toBeInTheDocument();
+	});
+
 	it('Asks search engines not to index the page, because it is a private study aid on the public site', () => {
 		// When
 		render(<StudyPage questions={questions} />);

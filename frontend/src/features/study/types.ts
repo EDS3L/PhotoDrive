@@ -7,6 +7,7 @@ export type Block =
 export interface StudyQuestion {
 	n: number;
 	title: string;
+	hints: string[];
 	short: Block[];
 	long: Block[];
 }

@@ -5,6 +5,7 @@ import type { StudyQuestion } from '../types';
 const q = (n: number, title: string, long: string): StudyQuestion => ({
 	n,
 	title,
+	hints: [],
 	short: [{ k: 'p', c: ['krótko'] }],
 	long: [{ k: 'p', c: [long] }],
 });

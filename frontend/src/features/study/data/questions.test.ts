@@ -18,6 +18,22 @@ describe('study questions data', () => {
 		expect(incomplete).toEqual([]);
 	});
 
+	it('Every question has 3 to 5 short memory cues for learned mode, so a learned question shows prompts to recall and not the full answer again', () => {
+		// When
+		const invalid = questions
+			.filter(
+				(q) =>
+					!Array.isArray(q.hints) ||
+					q.hints.length < 3 ||
+					q.hints.length > 5 ||
+					q.hints.some((hint) => !hint.trim() || hint.length > 90),
+			)
+			.map((q) => q.n);
+
+		// Then
+		expect(invalid).toEqual([]);
+	});
+
 	it('Contains no leftover Markdown backticks, so code names render as text and not as raw markup', () => {
 		// When / Then
 		expect(JSON.stringify(questions)).not.toContain('`');

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { PageHeader } from '@/shared/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
 import { questions as allQuestions } from './data/questions';
 import { filterQuestions } from './lib/filterQuestions';
 import { groupByCommittee } from './lib/committee';
 import { AnswerBlocks } from './components/AnswerBlocks';
+import { useLearned } from './lib/useLearned';
 import type { StudyQuestion } from './types';
 
 type Order = 'numeric' | 'committee';
@@ -18,36 +19,93 @@ interface QuestionCardProps {
 	question: StudyQuestion;
 	isOpen: boolean;
 	onToggle: () => void;
+	isLearned: boolean;
+	onToggleLearned: () => void;
 	heading: 'h2' | 'h3';
 }
 
-function QuestionCard({ question: q, isOpen, onToggle, heading: Heading }: QuestionCardProps) {
+function QuestionCard({
+	question: q,
+	isOpen,
+	onToggle,
+	isLearned,
+	onToggleLearned,
+	heading: Heading,
+}: QuestionCardProps) {
 	return (
-		<li id={`pytanie-${q.n}`} className='border border-border bg-surface p-5 sm:p-7'>
-			<Heading className='font-serif text-2xl text-foreground leading-snug'>
-				<span className='text-accent mr-2'>{q.n}.</span>
-				{q.title}
-			</Heading>
+		<li
+			id={`pytanie-${q.n}`}
+			className={cn(
+				'border bg-surface p-5 sm:p-7',
+				isLearned ? 'border-accent/40' : 'border-border',
+			)}
+		>
+			<div className='flex items-start justify-between gap-4'>
+				<Heading
+					className={cn(
+						'font-serif text-2xl leading-snug',
+						isLearned ? 'text-muted' : 'text-foreground',
+					)}
+				>
+					<span className='text-accent mr-2'>{q.n}.</span>
+					{q.title}
+				</Heading>
+				<button
+					type='button'
+					onClick={onToggleLearned}
+					aria-pressed={isLearned}
+					aria-label={`Pytanie ${q.n} nauczone`}
+					className={cn(
+						'shrink-0 inline-flex items-center gap-2 border px-3 py-1.5 text-xs uppercase tracking-[0.15em] transition-colors',
+						isLearned
+							? 'border-accent bg-accent/10 text-accent'
+							: 'border-border text-muted hover:border-accent hover:text-accent',
+					)}
+				>
+					<Check className={cn('w-3.5 h-3.5', !isLearned && 'opacity-30')} />
+					{isLearned ? 'Nauczone' : 'Nienauczone'}
+				</button>
+			</div>
 
-			<p className='mt-5 mb-2 text-xs uppercase tracking-[0.2em] text-accent'>
-				Odpowiedź krótka
-			</p>
-			<AnswerBlocks blocks={q.short} />
+			{isLearned ? (
+				<>
+					<p className='mt-5 mb-2 text-xs uppercase tracking-[0.2em] text-accent'>
+						Skróty myślowe
+					</p>
+					<ul className='space-y-1.5' aria-label={`Skróty myślowe do pytania ${q.n}`}>
+						{q.hints.map((hint) => (
+							<li key={hint} className='flex gap-3 text-muted leading-relaxed'>
+								<span aria-hidden className='text-accent'>
+									·
+								</span>
+								{hint}
+							</li>
+						))}
+					</ul>
+				</>
+			) : (
+				<>
+					<p className='mt-5 mb-2 text-xs uppercase tracking-[0.2em] text-accent'>
+						Odpowiedź krótka
+					</p>
+					<AnswerBlocks blocks={q.short} />
 
-			<button
-				type='button'
-				onClick={onToggle}
-				aria-expanded={isOpen}
-				className='mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted hover:text-accent transition-colors'
-			>
-				{isOpen ? 'Zwiń odpowiedź rozszerzoną' : 'Odpowiedź rozszerzona'}
-				<ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
-			</button>
+					<button
+						type='button'
+						onClick={onToggle}
+						aria-expanded={isOpen}
+						className='mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted hover:text-accent transition-colors'
+					>
+						{isOpen ? 'Zwiń odpowiedź rozszerzoną' : 'Odpowiedź rozszerzona'}
+						<ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
+					</button>
 
-			{isOpen && (
-				<div className='mt-4 pt-4 border-t border-border'>
-					<AnswerBlocks blocks={q.long} />
-				</div>
+					{isOpen && (
+						<div className='mt-4 pt-4 border-t border-border'>
+							<AnswerBlocks blocks={q.long} />
+						</div>
+					)}
+				</>
 			)}
 		</li>
 	);
@@ -57,6 +115,7 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 	const [query, setQuery] = useState('');
 	const [order, setOrder] = useState<Order>('numeric');
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
+	const { learned, toggleLearned } = useLearned();
 
 	const visible = useMemo(() => filterQuestions(questions, query), [questions, query]);
 	const groups = useMemo(() => groupByCommittee(visible), [visible]);
@@ -75,6 +134,8 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 			question={q}
 			isOpen={expanded.has(q.n)}
 			onToggle={() => toggle(q.n)}
+			isLearned={learned.has(q.n)}
+			onToggleLearned={() => toggleLearned(q.n)}
 			heading={heading}
 		/>
 	);
@@ -115,6 +176,9 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 				/>
 				<div className='mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs uppercase tracking-widest text-muted'>
 					<span>Wyniki: {visible.length}</span>
+					<span>
+						Nauczone: {questions.filter((q) => learned.has(q.n)).length}/{questions.length}
+					</span>
 					<span className='flex items-center gap-3' role='group' aria-label='Kolejność pytań'>
 						{orderButton('numeric', 'Numerycznie')}
 						<span aria-hidden>/</span>

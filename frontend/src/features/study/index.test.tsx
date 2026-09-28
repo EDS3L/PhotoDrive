@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import StudyPage from './index';
 import { LEARNED_STORAGE_KEY } from './lib/useLearned';
+import { encodeProgress } from './lib/progressLink';
 import type { StudyQuestion } from './types';
 
 const questions: StudyQuestion[] = [
@@ -29,6 +30,76 @@ const questions: StudyQuestion[] = [
 describe('StudyPage', () => {
 	beforeEach(() => {
 		localStorage.clear();
+		window.history.replaceState(null, '', '/nauka');
+	});
+
+	it('Copies a link carrying the learned questions, so progress can be moved to another device', async () => {
+		// Given
+		const user = userEvent.setup();
+		render(<StudyPage questions={questions} />);
+		await user.click(screen.getByRole('button', { name: 'Pytanie 2 nauczone' }));
+
+		// When
+		await user.click(screen.getByRole('button', { name: 'Skopiuj link z postępem' }));
+
+		// Then
+		expect(await navigator.clipboard.readText()).toBe(
+			`${window.location.origin}/nauka#p=${encodeProgress(new Set([2]))}`,
+		);
+		expect(screen.getByRole('status')).toHaveTextContent('Skopiowano link z postępem');
+	});
+
+	it('Opening a progress link replaces this device progress with the linked one and clears the link from the address', () => {
+		// Given
+		localStorage.setItem(LEARNED_STORAGE_KEY, JSON.stringify([2]));
+		window.history.replaceState(null, '', `/nauka#p=${encodeProgress(new Set([1]))}`);
+
+		// When
+		render(<StudyPage questions={questions} />);
+
+		// Then
+		expect(screen.getByRole('button', { name: 'Pytanie 1 nauczone' })).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		);
+		expect(screen.getByRole('button', { name: 'Pytanie 2 nauczone' })).toHaveAttribute(
+			'aria-pressed',
+			'false',
+		);
+		expect(JSON.parse(localStorage.getItem(LEARNED_STORAGE_KEY)!)).toEqual([1]);
+		expect(screen.getByRole('status')).toHaveTextContent('Wczytano postęp z linku — nauczone: 1.');
+		expect(window.location.hash).toBe('');
+	});
+
+	it('A damaged progress link keeps the progress already saved on this device and says so', () => {
+		// Given
+		localStorage.setItem(LEARNED_STORAGE_KEY, JSON.stringify([2]));
+		window.history.replaceState(null, '', '/nauka#p=ab$c');
+
+		// When
+		render(<StudyPage questions={questions} />);
+
+		// Then
+		expect(screen.getByRole('button', { name: 'Pytanie 2 nauczone' })).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		);
+		expect(screen.getByRole('status')).toHaveTextContent('Link z postępem jest uszkodzony');
+	});
+
+	it('When the clipboard is unavailable the link is shown for manual copying instead of being lost', async () => {
+		// Given
+		const user = userEvent.setup();
+		render(<StudyPage questions={questions} />);
+		vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
+
+		// When
+		await user.click(screen.getByRole('button', { name: 'Skopiuj link z postępem' }));
+
+		// Then
+		expect(screen.getByRole('textbox', { name: 'Link z postępem' })).toHaveValue(
+			`${window.location.origin}/nauka#p=`,
+		);
 	});
 
 	it('Every question starts as not learned, and marking it learned swaps its answers for short memory cues', async () => {

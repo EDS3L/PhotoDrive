@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { readProgressFromHash } from './progressLink';
 
 export const LEARNED_STORAGE_KEY = 'photodrive.study.learned';
+
+export type LinkImport = { status: 'loaded'; count: number } | { status: 'invalid' } | null;
 
 function readLearned(): Set<number> {
 	try {
@@ -19,10 +22,24 @@ function writeLearned(learned: Set<number>) {
 	}
 }
 
+function initialState(): { learned: Set<number>; linkImport: LinkImport } {
+	const fromLink = readProgressFromHash(window.location.hash);
+	if (fromLink) return { learned: fromLink, linkImport: { status: 'loaded', count: fromLink.size } };
+	return { learned: readLearned(), linkImport: fromLink === null ? { status: 'invalid' } : null };
+}
+
 export function useLearned() {
-	const [learned, setLearned] = useState<Set<number>>(readLearned);
+	const [initial] = useState(initialState);
+	const [learned, setLearned] = useState<Set<number>>(initial.learned);
 
 	useEffect(() => writeLearned(learned), [learned]);
+
+	useEffect(() => {
+		if (initial.linkImport) {
+			const { pathname, search } = window.location;
+			window.history.replaceState(window.history.state, '', pathname + search);
+		}
+	}, [initial.linkImport]);
 
 	const toggleLearned = (n: number) =>
 		setLearned((prev) => {
@@ -32,5 +49,5 @@ export function useLearned() {
 			return next;
 		});
 
-	return { learned, toggleLearned };
+	return { learned, toggleLearned, linkImport: initial.linkImport };
 }

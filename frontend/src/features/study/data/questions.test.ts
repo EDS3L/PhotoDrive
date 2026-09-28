@@ -34,6 +34,22 @@ describe('study questions data', () => {
 		expect(invalid).toEqual([]);
 	});
 
+	it('The number-systems example converts correctly in every base and uses an easy-to-remember number, so it holds up when recited at the defence', () => {
+		// Given
+		const [first] = questions;
+		const short = JSON.stringify(first.short);
+
+		// When
+		const match = short.match(/(\d+)\(10\) = ([01]+)\(2\) = ([0-7]+)\(8\) = ([0-9A-F]+)\(16\)/);
+
+		// Then
+		expect(match).not.toBeNull();
+		const [, dec, bin, oct, hex] = match!;
+		expect(dec).toBe('255');
+		expect([parseInt(bin, 2), parseInt(oct, 8), parseInt(hex, 16)]).toEqual([255, 255, 255]);
+		expect(JSON.stringify(first)).not.toContain('202');
+	});
+
 	it('Contains no leftover Markdown backticks, so code names render as text and not as raw markup', () => {
 		// When / Then
 		expect(JSON.stringify(questions)).not.toContain('`');

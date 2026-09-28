@@ -50,6 +50,24 @@ describe('study questions data', () => {
 		expect(JSON.stringify(first)).not.toContain('202');
 	});
 
+	it('The stack-and-queue answer treats the dynamic LIFO stack and the dynamic FIFO queue separately and compares them, since that is what the question asks', () => {
+		// Given
+		const q9 = questions.find((q) => q.n === 9)!;
+		const headings = q9.long.flatMap((b) => (b.k === 'h3' ? [b.c.join('')] : []));
+
+		// When
+		const comparison = q9.long.find(
+			(b) =>
+				b.k === 'table' &&
+				b.rows[0].join('|') === 'Cecha|Dynamiczny stos (LIFO)|Dynamiczna kolejka (FIFO)',
+		);
+
+		// Then
+		expect(headings.some((h) => h.startsWith('Dynamiczny stos'))).toBe(true);
+		expect(headings.some((h) => h.startsWith('Dynamiczna kolejka'))).toBe(true);
+		expect(comparison).toBeDefined();
+	});
+
 	it('Contains no leftover Markdown backticks, so code names render as text and not as raw markup', () => {
 		// When / Then
 		expect(JSON.stringify(questions)).not.toContain('`');

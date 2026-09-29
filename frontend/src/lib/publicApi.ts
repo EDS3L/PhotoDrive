@@ -84,6 +84,23 @@ export function sendContactMessage(payload: ContactRequest): Promise<void> {
 	return publicClient.post('/contact', payload).then(() => undefined);
 }
 
+export interface StudyProgressDto {
+	learned: number[];
+	updatedAt: number | null;
+}
+
+export function getStudyProgress(code: string): Promise<StudyProgressDto> {
+	return publicClient
+		.get<StudyProgressDto>(`/study/progress/${encodeURIComponent(code)}`)
+		.then((res) => res.data);
+}
+
+export function saveStudyProgress(code: string, learned: number[]): Promise<StudyProgressDto> {
+	return publicClient
+		.put<StudyProgressDto>(`/study/progress/${encodeURIComponent(code)}`, { learned })
+		.then((res) => res.data);
+}
+
 export function getSiteSlotPhotoUrl(
 	slot: SiteSlotKey,
 	version: number,

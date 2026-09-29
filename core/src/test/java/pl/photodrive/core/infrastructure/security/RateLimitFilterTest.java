@@ -21,6 +21,8 @@ class RateLimitFilterTest {
     private static final int LOGIN_ATTEMPTS = 3;
     private static final int PASSWORD_RESET_ATTEMPTS = 2;
     private static final int CONTACT_ATTEMPTS = 2;
+    private static final int STUDY_SYNC_ATTEMPTS = 2;
+    private static final String STUDY_PROGRESS = "/api/public/study/progress/abcdefghijklmnopqrstuv";
     private static final int WINDOW_MINUTES = 15;
 
     private AtomicLong now;
@@ -29,7 +31,8 @@ class RateLimitFilterTest {
     @BeforeEach
     void setUp() {
         now = new AtomicLong(0);
-        filter = new RateLimitFilter(WINDOW_MINUTES, LOGIN_ATTEMPTS, PASSWORD_RESET_ATTEMPTS, CONTACT_ATTEMPTS, now::get);
+        filter = new RateLimitFilter(WINDOW_MINUTES, LOGIN_ATTEMPTS, PASSWORD_RESET_ATTEMPTS, CONTACT_ATTEMPTS,
+                STUDY_SYNC_ATTEMPTS, now::get);
     }
 
     @Test
@@ -177,6 +180,28 @@ class RateLimitFilterTest {
         // When / Then - the client is blocked, not the proxy
         assertThat(callForwarded("203.0.113.7, 172.18.0.5").getStatus()).isEqualTo(429);
         assertThat(callForwarded("203.0.113.8, 172.18.0.5").getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("Saving study progress is throttled per IP, so nobody can flood the database with rows through the public sync endpoint")
+    void shouldRejectStudyProgressSavesAfterExceedingLimit() throws Exception {
+        // Given - the study sync budget is exhausted
+        for (int i = 0; i < STUDY_SYNC_ATTEMPTS; i++) {
+            assertThat(call("PUT", STUDY_PROGRESS, "10.0.0.1").getStatus()).isEqualTo(200);
+        }
+
+        // When / Then - the next save is refused, while another IP still gets through
+        assertThat(call("PUT", STUDY_PROGRESS, "10.0.0.1").getStatus()).isEqualTo(429);
+        assertThat(call("PUT", STUDY_PROGRESS, "10.0.0.2").getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("Reading study progress is never throttled, so switching back to the tab always pulls the latest state")
+    void shouldNotThrottleStudyProgressReads() throws Exception {
+        // When / Then - reads far beyond the save budget all pass
+        for (int i = 0; i < STUDY_SYNC_ATTEMPTS * 5; i++) {
+            assertThat(call("GET", STUDY_PROGRESS, "10.0.0.1").getStatus()).isEqualTo(200);
+        }
     }
 
     private MockHttpServletResponse callForwarded(String forwardedFor) throws ServletException, IOException {

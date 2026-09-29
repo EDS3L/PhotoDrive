@@ -101,6 +101,15 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(StudyProgressException.class)
+    public ResponseEntity<ApiException> studyProgressException(StudyProgressException ex, HttpServletRequest request) {
+        ApiException error = new ApiException("STUDY_PROGRESS_EXCEPTION",
+                ex.getMessage(),
+                Instant.now(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(ExpiredTokenException.class)
     public ResponseEntity<ApiException> expiredTokenException(ExpiredTokenException ex, HttpServletRequest request) {
         ApiException error = new ApiException("EXPIRED_TOKEN_EXCEPTION",

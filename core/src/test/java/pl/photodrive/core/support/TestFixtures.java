@@ -54,6 +54,7 @@ public class TestFixtures {
         jdbcTemplate.execute("DELETE FROM passwordTokens");
         jdbcTemplate.execute("DELETE FROM users");
         jdbcTemplate.execute("DELETE FROM platform_watermark");
+        jdbcTemplate.execute("DELETE FROM study_progress");
     }
 
     public User admin(String email) {

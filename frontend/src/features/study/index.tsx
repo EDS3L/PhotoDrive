@@ -7,12 +7,10 @@ import { filterQuestions } from './lib/filterQuestions';
 import { groupByCommittee } from './lib/committee';
 import { AnswerBlocks } from './components/AnswerBlocks';
 import { useLearned } from './lib/useLearned';
-import { progressUrl } from './lib/progressLink';
+import { SyncPanel } from './components/SyncPanel';
 import type { StudyQuestion } from './types';
 
 type Order = 'numeric' | 'committee';
-
-type Share = { status: 'copied' } | { status: 'manual'; url: string } | null;
 
 interface StudyPageProps {
 	questions?: StudyQuestion[];
@@ -118,8 +116,7 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 	const [query, setQuery] = useState('');
 	const [order, setOrder] = useState<Order>('numeric');
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
-	const { learned, toggleLearned, linkImport } = useLearned();
-	const [share, setShare] = useState<Share>(null);
+	const { learned, toggleLearned, ...sync } = useLearned();
 
 	const visible = useMemo(() => filterQuestions(questions, query), [questions, query]);
 	const groups = useMemo(() => groupByCommittee(visible), [visible]);
@@ -143,26 +140,6 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 			heading={heading}
 		/>
 	);
-
-	const copyProgressLink = async () => {
-		const url = progressUrl(learned, window.location.href);
-		try {
-			await navigator.clipboard.writeText(url);
-			setShare({ status: 'copied' });
-		} catch {
-			setShare({ status: 'manual', url });
-		}
-	};
-
-	const statusMessage = share
-		? share.status === 'copied'
-			? 'Skopiowano link z postępem — otwórz go na drugim urządzeniu.'
-			: 'Nie udało się skopiować automatycznie — skopiuj link poniżej.'
-		: linkImport?.status === 'loaded'
-			? `Wczytano postęp z linku — nauczone: ${linkImport.count}.`
-			: linkImport?.status === 'invalid'
-				? 'Link z postępem jest uszkodzony — został postęp zapisany na tym urządzeniu.'
-				: null;
 
 	const orderButton = (value: Order, label: string) => (
 		<button
@@ -222,27 +199,10 @@ export default function StudyPage({ questions = allQuestions }: StudyPageProps) 
 					>
 						Zwiń wszystkie
 					</button>
-					<button
-						type='button'
-						onClick={copyProgressLink}
-						className='hover:text-accent transition-colors'
-					>
-						Skopiuj link z postępem
-					</button>
 				</div>
-				<div role='status' className='empty:hidden mt-3 text-sm text-accent'>
-					{statusMessage}
-				</div>
-				{share?.status === 'manual' && (
-					<input
-						readOnly
-						value={share.url}
-						aria-label='Link z postępem'
-						onFocus={(e) => e.target.select()}
-						className='mt-2 w-full bg-transparent border border-border px-3 py-2 text-sm text-foreground'
-					/>
-				)}
 			</div>
+
+			<SyncPanel {...sync} />
 
 			{visible.length === 0 && (
 				<p className='mt-12 text-center text-muted'>Brak pytań pasujących do wyszukiwania.</p>

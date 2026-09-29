@@ -26,6 +26,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String REMIND_PASSWORD_PATH = "/api/auth/remindPassword";
     private static final String CREATE_TOKEN_PATH = "/api/auth/create/passwordToken/**";
     private static final String CONTACT_PATH = "/api/public/contact";
+    private static final String STUDY_PROGRESS_PATH = "/api/public/study/progress/*";
 
     private static final int MAX_TRACKED_KEYS = 10_000;
 
@@ -35,20 +36,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final int loginAttempts;
     private final int passwordResetAttempts;
     private final int contactAttempts;
+    private final int studySyncAttempts;
 
     @Autowired
     public RateLimitFilter(@Value("${app.rate-limit.window-minutes:15}") int windowMinutes,
                            @Value("${app.rate-limit.login-attempts:10}") int loginAttempts,
                            @Value("${app.rate-limit.password-reset-attempts:5}") int passwordResetAttempts,
-                           @Value("${app.rate-limit.contact-attempts:5}") int contactAttempts) {
-        this(windowMinutes, loginAttempts, passwordResetAttempts, contactAttempts, System::currentTimeMillis);
+                           @Value("${app.rate-limit.contact-attempts:5}") int contactAttempts,
+                           @Value("${app.rate-limit.study-sync-attempts:120}") int studySyncAttempts) {
+        this(windowMinutes, loginAttempts, passwordResetAttempts, contactAttempts, studySyncAttempts,
+                System::currentTimeMillis);
     }
 
-    RateLimitFilter(int windowMinutes, int loginAttempts, int passwordResetAttempts, int contactAttempts, LongSupplier clock) {
+    RateLimitFilter(int windowMinutes, int loginAttempts, int passwordResetAttempts, int contactAttempts,
+                    int studySyncAttempts, LongSupplier clock) {
         this.windowMillis = Duration.ofMinutes(windowMinutes).toMillis();
         this.loginAttempts = loginAttempts;
         this.passwordResetAttempts = passwordResetAttempts;
         this.contactAttempts = contactAttempts;
+        this.studySyncAttempts = studySyncAttempts;
         this.clock = clock;
     }
 
@@ -103,11 +109,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private Optional<Limit> limitFor(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        if ("PUT".equalsIgnoreCase(request.getMethod()) && PATH_MATCHER.match(STUDY_PROGRESS_PATH, path)) {
+            return Optional.of(new Limit("study-sync", studySyncAttempts));
+        }
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return Optional.empty();
         }
 
-        String path = request.getRequestURI();
         if (LOGIN_PATH.equals(path)) {
             return Optional.of(new Limit("login", loginAttempts));
         }

@@ -4,6 +4,7 @@ const { publicClientMock } = vi.hoisted(() => ({
 	publicClientMock: {
 		get: vi.fn(),
 		post: vi.fn(),
+		put: vi.fn(),
 	},
 }));
 
@@ -20,6 +21,8 @@ import {
 	getPublicAlbums,
 	getPublicPhotosByAlbumName,
 	getPublicSiteSlots,
+	getStudyProgress,
+	saveStudyProgress,
 	PUBLIC_PHOTO_SIZE,
 } from './publicApi';
 
@@ -143,5 +146,32 @@ describe('sendContactMessage (public contact contract, 8.1)', () => {
 			sessionType: 'Fotografia ślubna',
 			message: 'Dzień dobry, pytanie o termin.',
 		});
+	});
+});
+
+describe('study progress sync contract', () => {
+	const code = 'k7Qp2xWmZ-a_9LrT0bNc4e';
+
+	beforeEach(() => {
+		publicClientMock.get.mockReset().mockResolvedValue({ data: { learned: [1], updatedAt: 5 } });
+		publicClientMock.put.mockReset().mockResolvedValue({ data: { learned: [1, 9], updatedAt: 6 } });
+	});
+
+	it('reads progress with GET /study/progress/{code} and returns the body as is', async () => {
+		// When
+		const progress = await getStudyProgress(code);
+
+		// Then
+		expect(publicClientMock.get).toHaveBeenCalledWith(`/study/progress/${code}`);
+		expect(progress).toEqual({ learned: [1], updatedAt: 5 });
+	});
+
+	it('saves progress with PUT /study/progress/{code} and the list under "learned", as the backend DTO expects', async () => {
+		// When
+		const saved = await saveStudyProgress(code, [1, 9]);
+
+		// Then
+		expect(publicClientMock.put).toHaveBeenCalledWith(`/study/progress/${code}`, { learned: [1, 9] });
+		expect(saved).toEqual({ learned: [1, 9], updatedAt: 6 });
 	});
 });

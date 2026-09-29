@@ -43,6 +43,18 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("A broken study-progress rule (bad sync code or question number) is reported as 400")
+    void shouldMapStudyProgressExceptionTo400() {
+        // When
+        var response = handler.studyProgressException(new StudyProgressException("Invalid sync code"), request);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().errorCode()).isEqualTo("STUDY_PROGRESS_EXCEPTION");
+    }
+
+    @Test
     @DisplayName("Invalid email is reported as 400")
     void shouldMapEmailExceptionTo400() {
         // When

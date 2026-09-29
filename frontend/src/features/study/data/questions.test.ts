@@ -107,4 +107,51 @@ describe('study questions data', () => {
 		// Then
 		expect(violations).toEqual([]);
 	});
+
+	it('The TCP/IP answer calls IP best effort and spells out the missing guarantees, so "unreliable" is not heard as "faulty"', () => {
+		// Given
+		const q23 = questions.find((q) => q.n === 23)!;
+
+		// When
+		const short = JSON.stringify(q23.short);
+
+		// Then
+		expect(short).toContain('best effort');
+		expect(short).toContain('bez gwarancji dostarczenia, kolejności ani braku duplikatów');
+		expect(JSON.stringify(q23)).not.toMatch(/zapewnia bezpołączeniowe, zawodne/);
+	});
+
+	it('Learned-mode cues spell concepts out in words and keep only proper names as abbreviations, since a bare acronym does not trigger recall', () => {
+		// Given
+		const properNames = new Set([
+			'.NET', 'ACM', 'AGPL', 'ANSI', 'SPARC', 'ATM', 'AVIF', 'BMP', 'DOCSIS', 'ES', 'FF', 'FTTx', 'PON',
+			'GIF', 'GPL', 'GSM', 'HTTP', 'IP', 'IS-IS', 'JPEG', 'LINQ', 'MIT', 'MPLS', 'NoSQL', 'OSPF', 'OpenGL',
+			'PNG', 'RIP', 'RODO', 'RSA', 'SD-WAN', 'SQL', 'SVG', 'TCP', 'TIFF', 'RAW', 'UDP', 'UML', 'WebGL',
+			'WebGPU', 'WebXR', 'gRPC', 'glTF', 'GLB', 'xDSL',
+		]);
+
+		// When
+		const abbreviations = questions.flatMap((q) =>
+			q.hints
+				.flatMap((hint) => hint.match(/[\w.#+-]*[A-Z]{2,}[\w.#+/-]*/g) ?? [])
+				.flatMap((token) => token.split('/'))
+				.filter((token) => /[A-Z]{2,}/.test(token) && !properNames.has(token))
+				.map((token) => `Q${q.n}: ${token}`),
+		);
+
+		// Then
+		expect(abbreviations).toEqual([]);
+	});
+
+	it('Both licensing answers treat only a publicly available container image as distribution, so they do not contradict each other', () => {
+		// Given
+		const projectNote = (n: number) => JSON.stringify(questions.find((q) => q.n === n)!.long.at(-1));
+
+		// When
+		const notes = [projectNote(59), projectNote(67)];
+
+		// Then
+		notes.forEach((note) => expect(note).toMatch(/[Pp]ublicznie dostępny obraz|publiczne udostępnienie obrazu/));
+		notes.forEach((note) => expect(note).not.toMatch(/bez dystrybucji programu nie rodzi|publikacja obrazów w rejestrze oznacza dystrybucję/));
+	});
 });

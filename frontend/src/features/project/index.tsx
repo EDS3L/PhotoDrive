@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/shared/components/layout/PageHeader';
-import { PITCH, SECTIONS, type SectionId } from './content';
+import {
+	CHALLENGES,
+	CHALLENGES_INTRO,
+	CHALLENGES_OUTRO,
+	PITCH,
+	SECTIONS,
+	SLIDES,
+	TEST_STATS,
+	wordCount,
+	type SectionId,
+} from './content';
 
 function Section({ id, title, lead, children }: { id: SectionId; title: string; lead?: string; children: ReactNode }) {
 	return (
@@ -33,18 +43,18 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const FACTS: [string, string][] = [
-	['683', 'testy backendu (JUnit 5, BDDMockito, Testcontainers)'],
-	['90,8%', 'pokrycia linii backendu — domena 94,5%'],
-	['300+', 'testów frontendu (Vitest + React Testing Library)'],
-	['~78%', 'pokrycia linii frontendu'],
-	['70%', 'próg pokrycia egzekwowany w CI w obu częściach'],
-	['63', 'przypadki w macierzy autoryzacji (endpoint × rola)'],
-	['~50', 'endpointów REST w 8 kontrolerach'],
+	[`${TEST_STATS.total}`, `testów w obu stackach — ${TEST_STATS.backend} backend · ${TEST_STATS.frontend} frontend`],
+	['90,8%', 'pokrycia linii backendu (JaCoCo) — domena 94,5%'],
+	['77,9%', 'pokrycia linii frontendu (Vitest + Testing Library)'],
+	['70%', 'próg egzekwowany w CI — spadek poniżej blokuje deploy'],
+	[`${TEST_STATS.pyramid.domain}`, 'testów domeny — reguły agregatów, bez Springa'],
+	[`${TEST_STATS.pyramid.unit}`, 'testów jednostkowych — serwisy, adaptery, filtry, kontrolery'],
+	[`${TEST_STATS.pyramid.integration}`, 'testów integracyjnych — prawdziwy MySQL i dysk (Testcontainers)'],
+	[`${TEST_STATS.authorizationMatrix}`, 'przypadki efektywnej macierzy autoryzacji (endpoint × rola + anonim)'],
 	['3', 'role: administrator, fotograf, klient'],
-	['25', 'udokumentowanych decyzji projektowych (ADR)'],
 	['2560 px', 'maksymalny rozmiar zdjęcia dla gościa'],
 	['60 min', 'sesja JWT z automatycznym przedłużaniem'],
-	['10 / 15 min', 'limit prób logowania na adres IP'],
+	['10 / 15 min', 'limit prób logowania na adres IP (reset: 5 / 15 min)'],
 ];
 
 const DECISIONS: { title: string; what: string; why: string; cost: string }[] = [
@@ -161,35 +171,48 @@ const PROBLEMS: { title: string; problem: string; fix: string; lesson: string }[
 	},
 ];
 
-const LIMITS: { title: string; say: string }[] = [
+const LIMITS: { title: string; say: string; onSlide: boolean }[] = [
+	{
+		title: 'Brak unieważniania JWT',
+		onSlide: true,
+		say: 'Wylogowanie kasuje ciasteczko, ale token jest ważny do wygaśnięcia, a dezaktywacja konta nie przerywa aktywnej sesji. Sensowny fix to lista unieważnień lub sprawdzanie aktywności przy każdym żądaniu — zmiana mechanizmu sesji, nie łatka.',
+	},
+	{
+		title: 'Przetwarzanie obrazów i ZIP synchroniczne, w pamięci procesu',
+		onSlide: true,
+		say: 'Skalowanie, znak wodny i ZIP liczą się w wątku żądania przy limicie 768 MB. Łagodzą to upload w paczkach, semafor i cache wariantów.',
+	},
+	{
+		title: 'Aplikacja stanowa — pliki na dysku jednej instancji',
+		onSlide: true,
+		say: 'Kopia zapasowa musi objąć dysk i bazę, a skalowanie poziome wymaga wspólnego wolumenu albo magazynu obiektowego (S3 / MinIO).',
+	},
 	{
 		title: 'Brak narzędzia migracji schematu (Flyway / Liquibase)',
+		onSlide: false,
 		say: 'Świadoma decyzja: przy jednej instancji i jednym autorze koszt przewyższał korzyść. Schemat odtwarzam z encji, skryptu V1 i idempotentnych łatek. Pierwsza rzecz do dodania przy zespole lub drugim środowisku.',
 	},
 	{
-		title: 'Brak unieważniania tokenów',
-		say: 'Wylogowanie kasuje ciasteczko, ale token jest ważny do wygaśnięcia, a dezaktywacja konta nie kończy trwającej sesji. Sensowny fix to lista unieważnień lub sprawdzanie aktywności przy każdym żądaniu — zmiana mechanizmu sesji, nie łatka.',
-	},
-	{
-		title: 'Synchroniczne przetwarzanie obrazów i ZIP',
-		say: 'Skalowanie, znak wodny i ZIP liczą się w wątku żądania przy limicie 768 MB. Łagodzą to upload w paczkach, semafor i cache wariantów; docelowo kolejka i przetwarzanie asynchroniczne.',
-	},
-	{
-		title: 'Pliki na lokalnym dysku',
-		say: 'Aplikacja jest stanowa — kopia zapasowa musi objąć dysk i bazę, a skalowanie poziome wymaga magazynu obiektowego (S3 / MinIO).',
-	},
-	{
 		title: 'Ręcznie utrzymywany kontrakt API',
+		onSlide: false,
 		say: 'Typy frontu i DTO backendu żyją osobno; kształt żądań przypinają testy. Docelowo generowanie klienta z OpenAPI (springdoc już jest w projekcie).',
 	},
 	{
 		title: 'Nazwa albumu tylko ASCII',
-		say: 'Z nazwy wywodzi się ścieżka na dysku, więc walidacja chroni przed path traversal. Polska nazwa zakładki żyje w osobnym polu displayName. Docelowo ścieżki po identyfikatorach.',
+		onSlide: false,
+		say: 'Z nazwy wywodzi się ścieżka na dysku, więc walidacja chroni przed path traversal. Polska nazwa zakładki żyje w osobnym polu displayName. Naprawia to pierwszy kierunek rozwoju — ścieżki po identyfikatorach.',
 	},
 	{
 		title: 'Formaty tylko JPG i PNG',
+		onSlide: false,
 		say: 'Standardowe ImageIO nie czyta WebP ani HEIC — zamiast udawać wsparcie, takie pliki są odrzucane przy uploadzie z czytelnym komunikatem.',
 	},
+];
+
+const DIRECTIONS: [string, string][] = [
+	['Ścieżki plików po identyfikatorach', 'Unicode w nazwach albumów u źródła — nazwa przestaje być ścieżką na dysku.'],
+	['Kolejka asynchroniczna dla obrazów i ZIP', 'Przetwarzanie poza wątkiem żądania, bez ryzyka wysycenia pamięci przy dużej sesji.'],
+	['Testy E2E (Playwright)', 'Domknięcie piramidy testów od strony przeglądarki.'],
 ];
 
 const QUESTIONS: [string, string][] = [
@@ -202,7 +225,7 @@ const QUESTIONS: [string, string][] = [
 	['Czy testy coś realnie złapały?', 'Tak: wyciek deskryptora przy skalowaniu zdjęć i wywrócenie listy klientów przez jeden osierocony rekord — oba przy pisaniu testów.'],
 	['Co z wydajnością przy dużych sesjach?', 'Przetwarzanie jest synchroniczne w 768 MB pamięci; łagodzą to paczki uploadu, semafor i cache. Kierunek to kolejka i przetwarzanie asynchroniczne.'],
 	['Jak to jest wdrażane?', 'Push na main → GitHub Actions: testy obu części, obrazy do Docker Hub, deploy SSH na VPS za Traefikiem z TLS. Czerwony test blokuje wdrożenie.'],
-	['Co byś zrobił inaczej?', 'Generowałbym klienta TypeScript z OpenAPI i od początku projektował ścieżki plików po identyfikatorach, a nie po nazwach.'],
+	['Co byś zrobił inaczej?', 'Od początku projektowałbym ścieżki plików po identyfikatorach, a nie po nazwach, i generował klienta TypeScript z OpenAPI zamiast utrzymywać kontrakt ręcznie.'],
 ];
 
 const DEMO: [string, string][] = [
@@ -220,7 +243,7 @@ export default function ProjectPage() {
 			<PageHeader
 				eyebrow='Obrona pracy inżynierskiej'
 				title='PhotoDrive'
-				subtitle='Co musisz wiedzieć o projekcie — gotowa wypowiedź na 5 minut, liczby, decyzje, problemy i ograniczenia.'
+				subtitle='Co musisz wiedzieć o projekcie — wypowiedź na 5 minut slajd po slajdzie, odpowiedź o wyzwaniach, liczby, decyzje, problemy i ograniczenia.'
 			/>
 
 			<nav aria-label='Spis sekcji' className='sticky top-20 z-10 bg-background/95 backdrop-blur py-4 border-b border-border'>
@@ -235,12 +258,12 @@ export default function ProjectPage() {
 				</ul>
 			</nav>
 
-			<Section id='pitch' title='Pitch na 5 minut' lead='Gotowa wypowiedź — czytaj na głos z zegarkiem. Nie ucz się na pamięć, ucz się kolejności i zdań-kluczy.'>
+			<Section id='pitch' title='Pitch na 5 minut' lead='Gotowa wypowiedź do prezentacji, slajd po slajdzie — czytaj na głos z zegarkiem. Nie ucz się na pamięć, ucz się kolejności i zdań-kluczy.'>
 				<ol className='space-y-4'>
 					{PITCH.map((seg) => (
-						<li key={seg.from} className='border-l-2 border-accent/60 bg-surface p-5 sm:p-6'>
+						<li key={seg.slide} className='border-l-2 border-accent/60 bg-surface p-5 sm:p-6'>
 							<p className='text-xs uppercase tracking-[0.2em] text-accent'>
-								{seg.from}–{seg.to} · {seg.title}
+								Slajd {seg.slide} · {seg.from}–{seg.to} · {SLIDES[seg.slide - 1]}
 							</p>
 							<div className='mt-3 space-y-3 text-[15px] leading-relaxed text-foreground/85'>
 								{seg.text.map((t) => (
@@ -250,6 +273,29 @@ export default function ProjectPage() {
 						</li>
 					))}
 				</ol>
+			</Section>
+
+			<Section
+				id='wyzwania'
+				title='Największe wyzwania i problemy'
+				lead={`Gotowa odpowiedź na najczęstsze pytanie — ok. ${Math.round(
+					wordCount([CHALLENGES_INTRO, ...CHALLENGES.map((c) => c.text), CHALLENGES_OUTRO]) / 130,
+				)} min spokojnym tempem. Każdą historię opowiadaj: problem → przyczyna → rozwiązanie → wniosek.`}
+			>
+				<div className='space-y-4 text-[15px] leading-relaxed text-foreground/85'>
+					<p>{CHALLENGES_INTRO}</p>
+					<ol className='space-y-4'>
+						{CHALLENGES.map((c, i) => (
+							<li key={c.title} className='border-l-2 border-accent/60 bg-surface p-5 sm:p-6'>
+								<p className='text-xs uppercase tracking-[0.2em] text-accent'>
+									{i + 1}. {c.title}
+								</p>
+								<p className='mt-3'>{c.text}</p>
+							</li>
+						))}
+					</ol>
+					<p>{CHALLENGES_OUTRO}</p>
+				</div>
 			</Section>
 
 			<Section id='liczby' title='Liczby do zapamiętania'>
@@ -315,9 +361,26 @@ export default function ProjectPage() {
 				</div>
 			</Section>
 
-			<Section id='ograniczenia' title='Ograniczenia — powiedz o nich sam' lead='Nazwane ograniczenie z uzasadnieniem to dowód świadomości. Ukryte, znalezione przez komisję — to minus.'>
-				<div className='space-y-3'>
-					{LIMITS.map((l) => (
+			<Section id='ograniczenia' title='Ograniczenia i kierunki rozwoju' lead='Nazwane ograniczenie z uzasadnieniem to dowód świadomości. Ukryte, znalezione przez komisję — to minus.'>
+				<h3 className='text-xs uppercase tracking-[0.2em] text-muted'>Na slajdzie 8 — powiedz o nich sam</h3>
+				<div className='mt-3 space-y-3'>
+					{LIMITS.filter((l) => l.onSlide).map((l) => (
+						<Card key={l.title} title={l.title}>
+							<p>{l.say}</p>
+						</Card>
+					))}
+				</div>
+				<h3 className='mt-8 text-xs uppercase tracking-[0.2em] text-muted'>Kierunki rozwoju — slajd 8</h3>
+				<div className='mt-3 grid gap-3 md:grid-cols-3'>
+					{DIRECTIONS.map(([title, text]) => (
+						<Card key={title} title={title}>
+							<p>{text}</p>
+						</Card>
+					))}
+				</div>
+				<h3 className='mt-8 text-xs uppercase tracking-[0.2em] text-muted'>W odwodzie — gdy komisja dopyta</h3>
+				<div className='mt-3 space-y-3'>
+					{LIMITS.filter((l) => !l.onSlide).map((l) => (
 						<Card key={l.title} title={l.title}>
 							<p>{l.say}</p>
 						</Card>

@@ -121,6 +121,26 @@ describe('study questions data', () => {
 		expect(JSON.stringify(q23)).not.toMatch(/zapewnia bezpołączeniowe, zawodne/);
 	});
 
+	it('The virtual-memory answer walks through a numeric translation that adds up, so the page-to-frame mapping can be recited with concrete numbers', () => {
+		// Given
+		const long = JSON.stringify(questions.find((q) => q.n === 12)!.long);
+
+		// When
+		const virtual = long.match(/adres wirtualny (\d+) = (\d+) · (\d+) \+ (\d+)/);
+		const physical = long.match(/adres fizyczny = (\d+) · (\d+) \+ (\d+) = (\d+)/);
+
+		// Then
+		expect(virtual).not.toBeNull();
+		expect(physical).not.toBeNull();
+		const [address, page, pageSize, offset] = virtual!.slice(1).map(Number);
+		const [frame, frameSize, frameOffset, result] = physical!.slice(1).map(Number);
+		expect(page * pageSize + offset).toBe(address);
+		expect(frame * frameSize + frameOffset).toBe(result);
+		expect([frameSize, frameOffset]).toEqual([pageSize, offset]);
+		expect(offset).toBeLessThan(pageSize);
+		expect(frame).not.toBe(page);
+	});
+
 	it('Learned-mode cues spell concepts out in words and keep only proper names as abbreviations, since a bare acronym does not trigger recall', () => {
 		// Given
 		const properNames = new Set([
